@@ -3,6 +3,23 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": [],
+  "files": [],
+  "references": [
+    { "path": "./apps/harness/tsconfig.build.json" },
+    { "path": "./packages/api/tsconfig.build.json" },
+    { "path": "./packages/contracts/tsconfig.build.json" },
+    { "path": "./packages/delivery/tsconfig.build.json" },
+    { "path": "./packages/observability/tsconfig.build.json" },
+    { "path": "./packages/pack-sdk/tsconfig.build.json" },
+    { "path": "./packages/ports/tsconfig.build.json" },
+    { "path": "./packages/runtime/tsconfig.build.json" },
+    { "path": "./packages/adapters/lease-memory/tsconfig.build.json" },
+    { "path": "./packages/adapters/model-stub/tsconfig.build.json" },
+    { "path": "./packages/adapters/persistence-memory/tsconfig.build.json" },
+    { "path": "./packages/adapters/persistence-postgres/tsconfig.build.json" },
+    { "path": "./packages/adapters/queue-memory/tsconfig.build.json" },
+    { "path": "./packages/adapters/synthetic-sink/tsconfig.build.json" },
+    { "path": "./packages/adapters/workspace-memory/tsconfig.build.json" }
+  ],
   "exclude": ["node_modules", "dist", ".turbo"]
 }

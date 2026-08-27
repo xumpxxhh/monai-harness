@@ -24,7 +24,6 @@
     "@monai/runtime": "workspace:*"
   },
   "devDependencies": {
-    "@monai/api": "workspace:*",
     "@monai/lease-memory": "workspace:*",
     "@monai/model-stub": "workspace:*",
     "@monai/persistence-memory": "workspace:*",

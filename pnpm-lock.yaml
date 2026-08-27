@@ -270,9 +270,6 @@ importers:
         specifier: workspace:*
         version: link:../runtime
     devDependencies:
-      '@monai/api':
-        specifier: workspace:*
-        version: link:../api
       '@monai/lease-memory':
         specifier: workspace:*
         version: link:../adapters/lease-memory

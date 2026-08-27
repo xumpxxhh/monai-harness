@@ -53,13 +53,14 @@
 
 ## 5. 缺口与风险
 
-- api↔delivery 测试期 workspace 环依赖告警（devDependency）；可后移集成测到 harness
 - 鉴权仅为头透传（`X-Tenant-Id` / `X-Principal-Id`），无真实 AuthN
+- HTTP 集成测依赖 delivery（单向；delivery 不得再依赖 api，以免 turbo 环）
 
 ## 6. 最近变更
 
 | 日期 | 说明 |
 | --- | --- |
+| 2026-08-27 | 拆除 delivery→api 依赖，消除 turbo `@monai/api`↔`@monai/delivery` 环 |
 | 2026-08-27 | P8d：标记 api P8 范围 `done` |
 | 2026-08-27 | P8c：Hono REST/SSE、`http-error-map`、pause/resume/cancel 命令接线 |
 | 2026-08-27 | P8c：HTTP/SSE 计划写入本页（自 P8-HTTP-PG 归并） |

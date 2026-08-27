@@ -1,4 +1,5 @@
-import { buildCreateRunCommand } from "@monai/api";
+import { CONTRACTS_SCHEMA_VERSION } from "@monai/contracts";
+import type { HarnessCommand } from "@monai/ports";
 import { InMemoryLease } from "@monai/lease-memory";
 import { InMemoryPersistence } from "@monai/persistence-memory";
 import { InMemoryQueue } from "@monai/queue-memory";
@@ -24,20 +25,28 @@ function buildHarness() {
   return { persistence, lease, queue, engine, dispatcher, scheduler, compensation };
 }
 
-function createCmd(runId: string, commandId: string) {
-  return buildCreateRunCommand({
-    tenantId: "tenant-1",
+/** Local test helper — avoid depending on @monai/api (breaks turbo cycle with api→delivery). */
+function createCmd(runId: string, commandId: string): HarnessCommand {
+  return {
+    schemaVersion: CONTRACTS_SCHEMA_VERSION,
     commandId,
+    commandType: "create_run",
+    tenantId: "tenant-1",
     runId,
-    sessionId: "session-1",
-    agentDefinitionId: "agent",
-    agentVersion: "1",
-    executionManifestRef: "manifest-1",
-    packVersions: [],
-    goal: "goal",
-    strategy: { type: "light", version: "1" },
-    budgets: {},
-  });
+    payload: {
+      runId,
+      sessionId: "session-1",
+      agentDefinitionId: "agent",
+      agentVersion: "1",
+      executionManifestRef: "manifest-1",
+      packVersions: [],
+      goal: "goal",
+      strategy: { type: "light", version: "1" },
+      budgets: {},
+    },
+    issuedAt: new Date().toISOString(),
+    correlationId: commandId,
+  };
 }
 
 describe("P2 CreateRun → running loop", () => {
