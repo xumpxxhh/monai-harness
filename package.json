@@ -1,0 +1,28 @@
+{
+  "name": "monai-harness",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "check-types": "turbo run check-types",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose stop postgres",
+    "db:logs": "docker compose logs -f postgres"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.4",
+    "typescript": "catalog:"
+  },
+  "packageManager": "pnpm@10.18.2",
+  "engines": {
+    "node": ">=20"
+  },
+  "pnpm": {
+    "overrides": {
+      "typescript": "$typescript"
+    }
+  }
+}

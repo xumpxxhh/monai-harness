@@ -1,0 +1,11 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  - "packages/adapters/*"
+  - "tooling/*"
+
+catalog:
+  typescript: "~5.9.3"
+  "@types/node": "^22.15.30"
+  zod: "^3.25.67"
+  vitest: "^3.2.4"

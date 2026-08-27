@@ -1,0 +1,24 @@
+# Fixed local Postgres for L2 / harness (do not use disposable docker run in tests).
+# Start once: docker compose up -d postgres
+# Stop:       docker compose stop postgres
+services:
+  postgres:
+    image: postgres:16
+    container_name: monai-harness-postgres
+    restart: unless-stopped
+    ports:
+      - "54329:5432"
+    environment:
+      POSTGRES_USER: monai
+      POSTGRES_PASSWORD: monai
+      POSTGRES_DB: monai_harness
+    volumes:
+      - monai_harness_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U monai -d monai_harness"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  monai_harness_pgdata:

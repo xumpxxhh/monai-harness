@@ -1,0 +1,42 @@
+{
+  "$schema": "https://turborepo.dev/schema.json",
+  "ui": "tui",
+  "globalPassThroughEnv": [
+    "DATABASE_URL",
+    "PERSISTENCE_DRIVER",
+    "PORT",
+    "HARNESS_MODE",
+    "HARNESS_RUN_EVAL",
+    "HARNESS_LOOP_INTERVAL_MS",
+    "FEATURE_ENABLE_DAG",
+    "FEATURE_ENABLE_SPAWN_CHILD",
+    "FEATURE_ENABLE_MEMORY",
+    "FEATURE_ENABLE_SANDBOX_EXEC",
+    "FEATURE_ENABLE_REAL_WRITE_HIGH"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
+    "lint": {
+      "dependsOn": ["^lint"]
+    },
+    "check-types": {
+      "dependsOn": ["^check-types"]
+    },
+    "test": {
+      "dependsOn": ["^build"]
+    },
+    "dev": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    },
+    "start": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

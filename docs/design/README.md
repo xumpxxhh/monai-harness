@@ -2,6 +2,8 @@
 
 本目录是**架构评审用设计文档集**，定义通用服务端 Agent Harness 的对象、控制流、扩展、安全、数据、观测、评测与演进契约。文档不包含代码、工程骨架、SDK 实现或基础设施产品选型。
 
+实现映射（TypeScript 模块化单体、事务、端口与测试分层）见下游档案：[docs/engineering/README.md](../engineering/README.md)。工程档案不得改写本目录的领域语义；冲突时以本目录为准。
+
 ## 文档导航
 
 | 序号 | 文档 | 摘要 |
@@ -82,6 +84,10 @@
 4. 05 → 06 → 07：理解数据、安全、观测与评测横切契约
 5. 08：确认 MVP 边界、验收门禁与演进条件
 6. 回到本 README 核对跨文档稳定约束和架构评审条件
+7. （实现阶段）阅读下游 [docs/engineering/](../engineering/README.md)，将契约映射为仓库、事务与测试边界
+8. （编码接力）阅读 [docs/implementation/HANDOFF.md](../implementation/HANDOFF.md) 与 [STATUS.md](../implementation/STATUS.md)
+
+说明：本目录第 11 条评审条件仍成立——设计全集保持技术中立；具体语言、存储与部署选型仅出现在 engineering 档案的 EDR 中；进度与交接在 implementation 目录。
 
 ---
 
