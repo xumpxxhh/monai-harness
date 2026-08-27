@@ -10,7 +10,7 @@ export type BuildCreateRunCommandInput = CreateRunPayload & {
 };
 
 /**
- * Build a create_run HarnessCommand (no HTTP — EDR-007 Deferred).
+ * Build a create_run HarnessCommand (HTTP maps Idempotency-Key → commandId).
  */
 export function buildCreateRunCommand(input: BuildCreateRunCommandInput): HarnessCommand {
   const {

@@ -19,6 +19,11 @@ import { applyCommit } from "../commit/apply-commit.js";
 import { HookRunner } from "../hooks/hook-runner.js";
 import { RecoveryService } from "../recovery/recovery-service.js";
 import { handleApprovalDecision } from "./approval-commands.js";
+import {
+  handleCancelRun,
+  handlePauseRun,
+  handleResumeRun,
+} from "./control-commands.js";
 import { handleExecuteTurn } from "./execute-turn.js";
 import { handleSubmitInput } from "./input-commands.js";
 import {
@@ -127,6 +132,12 @@ export class Engine {
         return handleApprovalDecision(this.persistence, command);
       case "submit_input":
         return handleSubmitInput(this.persistence, command);
+      case "pause_run":
+        return handlePauseRun(this.persistence, this.lease, command);
+      case "resume_run":
+        return handleResumeRun(this.persistence, command);
+      case "cancel_run":
+        return handleCancelRun(this.persistence, this.lease, command);
       default:
         return {
           ok: false,

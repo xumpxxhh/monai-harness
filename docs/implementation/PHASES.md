@@ -14,7 +14,7 @@
 | P5 | Approval + ask_user + Checkpoint/Continuation | `done` | runtime、api、governance(最小) |
 | P6 | Recovery + L1/L2 故障注入 | `done` | runtime、persistence、test fixtures |
 | P7 | EventStream + 指标 + Golden/Eval 接线 | `done` | api、observability、apps/harness、eval fixtures |
-| P8 | HTTP API + PostgreSQL Persistence | `in_progress` | persistence-postgres、api(http/sse)、apps/harness(bootstrap) |
+| P8 | HTTP API + PostgreSQL Persistence | `done` | persistence-postgres、api(http/sse)、apps/harness(bootstrap) |
 
 阶段依赖：严格 `P0 → P1 → … → P7 → P8` 主链；P8 与 Eval 完整矩阵并列可选。治理/观测不得提前获得 Run 写权。
 
@@ -132,14 +132,16 @@ P8d  文档 / STATUS 同步；可选 PG 上 Golden 6×5 回归
 - [x] `@monai/persistence-postgres` 实现 Persistence/Outbox/Idempotency，行为等价 memory（L2 主路径子集）
 - [x] L2：[engineering/05 §2.3](../engineering/05-testing-and-evolution.md#23-l2-真实单库集成) 场景全绿（含 recovery / prepared-before-dispatch）
 - [x] harness：PG 上 CreateRun → running → `execute_turn` 端到端
-- [ ] HTTP：REST 写经 `Engine.handle`；读经 PersistencePort 只读
-- [ ] SSE：`/v1/runs/:runId/events/stream` 推送已 commit Event
-- [ ] EDR-007 Accepted；category → HTTP 映射表落地
+- [x] HTTP：REST 写经 `Engine.handle`；读经 PersistencePort 只读
+- [x] SSE：`/v1/runs/:runId/events/stream` 推送已 commit Event
+- [x] EDR-007 Accepted；category → HTTP 映射表落地
 - [x] `.env.example` 含 `DATABASE_URL`、`PERSISTENCE_DRIVER`、`PORT`
 
 **非目标**：Eval 完整矩阵、ConfirmationGrant、拆多进程、真实 ObjectStore。
 
-**与 Eval 矩阵**：P8 与「安全 8×1 / 恢复 8×5 / 审批·幂等完整矩阵」并列可选；Eval 完整矩阵可延后至 P8d 之后在 PG 上重跑 Golden 6×5。
+**与 Eval 矩阵**：P8 与「安全 8×1 / 恢复 8×5 / 审批·幂等完整矩阵」并列可选；Eval 完整矩阵与 **PG 上 Golden 6×5** 延后为 P8 之后可选工作（P8d 未强制）。
+
+**P8d（2026-08-27）**：文档/STATUS 同步完成；回归：postgres L2 12/12、api HTTP/SSE 2/2、delivery 10/10、harness memory（含 Golden 30/30）+ postgres demo。
 
 ## 阶段与测试层映射
 

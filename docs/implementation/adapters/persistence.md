@@ -6,10 +6,10 @@
 | --- | --- |
 | 计划路径 | `packages/adapters/persistence-*/` |
 | 实现端口 | PersistencePort、OutboxPort（同 UoW）、Idempotency（可并入） |
-| 状态 | `in_progress`（memory 完成；**postgres L2 §2.3 场景全绿**；L1 全套 PG 重跑仍可选） |
+| 状态 | `done`（P8a：memory + postgres L2 §2.3；L1-on-PG 仍可选） |
 | 首触阶段 | P1；**P8a** persistence-postgres |
 | 上游 | [engineering/03](../../engineering/03-persistence-and-transactions.md)、EDR-003/005/006/009 |
-| 最后更新 | 2026-08-27（P8a 收尾：L2 recovery + prepared） |
+| 最后更新 | 2026-08-27（P8d：P8 收尾） |
 
 ## 1. 范围
 
@@ -69,6 +69,7 @@ contracts/ports；`@monai/persistence-memory`（参考）；`@monai/persistence-
 
 | 日期 | 说明 |
 | --- | --- |
+| 2026-08-27 | P8d：标记 persistence P8 范围 `done`（L1-on-PG 仍可选） |
 | 2026-08-27 | P8a 收尾：L2 recovery State hash + prepared-before-dispatch（12/12） |
 | 2026-08-27 | P8a：`persistence-postgres` + Docker L2（8 测绿）；去掉 embedded-postgres |
 | 2026-08-27 | P8a：postgres 计划写入本页（自 P8-HTTP-PG 归并） |

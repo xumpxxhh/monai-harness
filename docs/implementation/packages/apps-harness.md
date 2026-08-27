@@ -5,10 +5,10 @@
 | 项 | 值 |
 | --- | --- |
 | 计划路径 | `apps/harness/` |
-| 状态 | `in_progress`（**P8b bootstrap 完成**；P8c：HTTP） |
+| 状态 | `done`（P8b bootstrap + P8c HTTP；角色开关仍可选） |
 | 首触阶段 | P0（空壳）起贯穿 |
 | 上游 | [engineering/00 §4](../../engineering/00-implementation-baseline.md)、[engineering/02](../../engineering/02-runtime-composition.md)、EDR-002/014 |
-| 最后更新 | 2026-08-27（P8b：DI + delivery + PG demo） |
+| 最后更新 | 2026-08-27（P8d：P8 收尾） |
 
 ## 1. 范围
 
@@ -45,7 +45,7 @@ load config (.env)
 - [x] `PERSISTENCE_DRIVER=postgres|memory` — P8b
 - [x] delivery 循环（Outbox → queue → execute_turn）— P8b（`DeliveryLoops`；demo 内 tick；`HARNESS_MODE=serve` 常驻）
 - [x] `.env.example`（`DATABASE_URL`、`PORT`、flags）— P8b
-- [ ] HTTP server 启动 — P8c（路由见 [api.md](./api.md)）
+- [x] HTTP server 启动 — P8c（`http-server.ts` + `createHttpApp`；`HARNESS_MODE=serve`）
 - [ ] 角色可独立开关（便于测试）
 - [x] 仅通过构造注入 ports，runtime 无 infra import
 - [x] EDR-014 禁用项在装配层可验证（启动日志 + 非默认 warn）
@@ -59,14 +59,15 @@ load config (.env)
 
 ## 5. 缺口与风险
 
-- HTTP/SSE 仍 Deferred（EDR-007）— P8c
-- 角色独立开关未做；serve 模式尚无 HTTP
+- 角色独立开关未做
 - 共享 Compose PG 上 compensation 可能扫到历史 pending outbox（dedupe 安全）
 
 ## 6. 最近变更
 
 | 日期 | 说明 |
 | --- | --- |
+| 2026-08-27 | P8d：标记 harness P8 范围 `done` |
+| 2026-08-27 | P8c：serve 模式挂载 Hono HTTP/SSE |
 | 2026-08-27 | P8b：bootstrap DI、`PERSISTENCE_DRIVER`、delivery loops、PG CreateRun→execute_turn |
 | 2026-08-27 | P8b：bootstrap 计划写入本页（自 P8-HTTP-PG 归并） |
 | 2026-08-27 | Golden 6×5：启动 eval 打印 30/30 |

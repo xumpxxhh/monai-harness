@@ -32,6 +32,9 @@ importers:
 
   apps/harness:
     dependencies:
+      '@hono/node-server':
+        specifier: ^1.19.0
+        version: 1.19.17(hono@4.13.5)
       '@monai/api':
         specifier: workspace:*
         version: link:../../packages/api
@@ -216,10 +219,34 @@ importers:
       '@monai/runtime':
         specifier: workspace:*
         version: link:../runtime
+      hono:
+        specifier: ^4.9.7
+        version: 4.13.5
     devDependencies:
+      '@monai/delivery':
+        specifier: workspace:*
+        version: link:../delivery
+      '@monai/lease-memory':
+        specifier: workspace:*
+        version: link:../adapters/lease-memory
+      '@monai/model-stub':
+        specifier: workspace:*
+        version: link:../adapters/model-stub
+      '@monai/persistence-memory':
+        specifier: workspace:*
+        version: link:../adapters/persistence-memory
+      '@monai/queue-memory':
+        specifier: workspace:*
+        version: link:../adapters/queue-memory
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.20.1
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 3.2.7(@types/node@22.20.1)
 
   packages/contracts:
     dependencies:
@@ -527,6 +554,12 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@hono/node-server@1.19.17':
+    resolution: {integrity: sha512-dSneS5qhiauZWGDCeK4o695Xd9nUNjviSZCMQrj10eetr8Uln1ucn6bbphOM6UynAMMtNIzZNSpL9vnASJwrPQ==}
+    engines: {node: '>=18.14.1'}
+    peerDependencies:
+      hono: ^4
 
   '@jridgewell/sourcemap-codec@1.5.5':
     resolution: {integrity: sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og==}
@@ -886,6 +919,10 @@ packages:
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
 
+  hono@4.13.5:
+    resolution: {integrity: sha512-O6+/eCYRkzzzy0rPWwKLiGBR1nFuUPZynnwjxN1MBA62NNqbT0wQEzQyK2gSO5yDIDB336sXQleAhOHrzlYyKw==}
+    engines: {node: '>=16.9.0'}
+
   js-tokens@9.0.1:
     resolution: {integrity: sha512-mxa9E9ITFOt0ban3j6L5MpjwegGz6lBQmM1IJkWeBZGcMxto50+eWdjC/52xDbS2vy0k7vIMK0Fe2wfL9OQSpQ==}
 
@@ -1195,6 +1232,10 @@ snapshots:
   '@esbuild/win32-x64@0.28.2':
     optional: true
 
+  '@hono/node-server@1.19.17(hono@4.13.5)':
+    dependencies:
+      hono: 4.13.5
+
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
@@ -1422,6 +1463,8 @@ snapshots:
 
   fsevents@2.3.3:
     optional: true
+
+  hono@4.13.5: {}
 
   js-tokens@9.0.1: {}
 

@@ -26,3 +26,5 @@
 | 0011 | [0011-p8a-persistence-postgres.md](./0011-p8a-persistence-postgres.md) | 2026-08-27 | P8a：persistence-postgres + Docker L2 |
 | 0012 | [0012-p8a-l2-recovery-prepared.md](./0012-p8a-l2-recovery-prepared.md) | 2026-08-27 | P8a 收尾：L2 recovery + prepared |
 | 0013 | [0013-p8b-harness-bootstrap.md](./0013-p8b-harness-bootstrap.md) | 2026-08-27 | P8b：harness bootstrap + PG demo |
+| 0014 | [0014-p8c-http-sse.md](./0014-p8c-http-sse.md) | 2026-08-27 | P8c：Hono REST/SSE + EDR-007 |
+| 0015 | [0015-p8d-wrapup.md](./0015-p8d-wrapup.md) | 2026-08-27 | P8d：收尾回归；P8 done |

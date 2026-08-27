@@ -3,12 +3,13 @@ import { EvalHarness, MVP_EVAL_SUITES } from "@monai/observability";
 import { bootstrap } from "./bootstrap.js";
 import { loadConfig } from "./config.js";
 import { runCreateRunToExecuteTurnDemo } from "./demo.js";
+import { startHttpServer } from "./http-server.js";
 import { DeliveryLoops } from "./loops.js";
 
 /**
  * MVP deployable harness.
- * P8b: bootstrap DI + PERSISTENCE_DRIVER + delivery loops + CreateRun→execute_turn.
- * P8c: HTTP/SSE (EDR-007 still Deferred).
+ * P8b: bootstrap DI + PERSISTENCE_DRIVER + delivery loops.
+ * P8c: HTTP/SSE via Hono (EDR-007 Accepted).
  */
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -38,19 +39,21 @@ async function main(): Promise<void> {
 
   const runtime = await bootstrap(config);
   const loops = new DeliveryLoops(runtime, config.loopIntervalMs);
+  let http: { close: () => Promise<void> } | undefined;
 
   try {
-    await runCreateRunToExecuteTurnDemo(runtime, loops);
-
     if (config.mode === "serve") {
       loops.start();
+      http = startHttpServer(runtime, config.port);
       console.log(
-        `[harness] serve mode: delivery loops every ${config.loopIntervalMs}ms (HTTP deferred to P8c)`,
+        `[harness] serve: HTTP :${config.port} + delivery loops every ${config.loopIntervalMs}ms`,
       );
       await waitForSignal();
       console.log("[harness] shutting down…");
       loops.stop();
+      await http.close();
     } else {
+      await runCreateRunToExecuteTurnDemo(runtime, loops);
       console.log("[harness] demo complete");
     }
   } finally {

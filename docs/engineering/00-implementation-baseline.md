@@ -33,7 +33,7 @@
 | 任务编排 | Turborepo 2.x | 按包依赖拓扑 build / test / lint |
 | 模块系统 | ESM（`"type": "module"`） | 库先 build 出 `dist` 再被引用 |
 
-上述内容由 **EDR-001** 锁定。HTTP 框架（EDR-007）仍 Deferred；Schema（Zod）与 SQL 层（drizzle）分别见 EDR-008 / EDR-009。
+上述内容由 **EDR-001** 锁定。HTTP 框架（EDR-007）已 Accepted（Hono）；Schema（Zod）与 SQL 层（drizzle）分别见 EDR-008 / EDR-009。
 
 ## 4. 部署基线（Accepted）
 
@@ -123,7 +123,7 @@ flowchart TB
 | EDR-004 | 首版 Queue/Dispatcher/Scheduler 可内联，但必须实现至少一次、去重与补偿扫描 | Accepted | [02](./02-runtime-composition.md)；[03](./03-persistence-and-transactions.md) |
 | EDR-005 | 首版权威存储采用 PostgreSQL 单库（领域 + outbox + lease + 投影） | Accepted | [03](./03-persistence-and-transactions.md) |
 | EDR-006 | 单 Run 提交互斥采用 `runs` 行 `FOR UPDATE`，保证串行 commit；MVP 不叠加 advisory lock | Accepted | [03](./03-persistence-and-transactions.md) |
-| EDR-007 | HTTP 与 Event 订阅框架（REST/SSE 等）选型 | Deferred | [02](./02-runtime-composition.md)；[04](./04-ports-extensions-and-security.md) |
+| EDR-007 | HTTP 与 Event 订阅框架采用 **Hono**（REST + SSE；WS/轮询后置） | Accepted | [02](./02-runtime-composition.md)；[04](./04-ports-extensions-and-security.md)；`packages/api` |
 | EDR-008 | Schema 校验采用 Zod（strict / 未知字段拒绝）；Pack Manifest 等可后续导出 JSON Schema | Accepted | [04](./04-ports-extensions-and-security.md) |
 | EDR-009 | SQL 访问层采用 drizzle-orm；事务边界不得泄漏给 Engine | Accepted | [03](./03-persistence-and-transactions.md) |
 | EDR-010 | `isolated_extension` 载体（worker_threads / 子进程 / WASM 等） | Deferred | [04](./04-ports-extensions-and-security.md) |
@@ -143,6 +143,7 @@ flowchart TB
 | 权威库 | PostgreSQL 单库 | 其他具备 CAS/事务的库 | EDR-005 |
 | Run 互斥 | `FOR UPDATE` 行锁 | advisory lock / 组合 | EDR-006；与 revision 同路径读取 |
 | Schema | Zod | 纯 JSON Schema / 代码生成 | EDR-008；可导出 JSON Schema |
+| HTTP/SSE | Hono | Express / Fastify / 原生 http | EDR-007；轻量、Web 标准、SSE 友好 |
 | SQL 层 | drizzle-orm | kysely / 手写 SQL | EDR-009；事务仅在 adapter |
 | 决策编号 | EDR 与 ADR 分离 | 混入 design ADR | 避免污染设计层技术中立 |
 
@@ -157,7 +158,7 @@ flowchart TB
 下列项由 `docs/implementation` + 代码树兑现，不在本工程档案内「假装已实现」：
 
 - CI 流水线、远程 turbo cache
-- HTTP 框架（EDR-007 Deferred）
+- HTTP 框架（EDR-007 Accepted：Hono）的路由实现细节
 - 完整 Capability Pack / 全部 Adapter 实现
 - 修改 `docs/design` 契约正文（导航互链除外）
 

@@ -50,7 +50,7 @@ async function buildPersistence(config: HarnessConfig): Promise<PersistenceBundl
 
 /**
  * Bootstrap DI: config → adapters → Engine → delivery (EDR-002/014).
- * No HTTP yet (P8c / EDR-007).
+ * HTTP is started by apps/harness via createHttpApp (EDR-007 Hono).
  */
 export async function bootstrap(config: HarnessConfig): Promise<HarnessRuntime> {
   const ownerId = "harness-worker";

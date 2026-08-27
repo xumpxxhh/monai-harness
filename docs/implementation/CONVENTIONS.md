@@ -57,4 +57,4 @@
 2. 关闭后更新 `docs/engineering/00-implementation-baseline.md` 的 EDR 状态
 3. 在 STATUS「决策关闭」表记一笔
 
-已关闭：EDR-005/006/008/009。仍 Deferred：EDR-007（HTTP/SSE）、EDR-010（isolated_extension）。
+已关闭：EDR-005/006/007/008/009。仍 Deferred：EDR-010（isolated_extension）。
