@@ -19,6 +19,7 @@ export type {
   QueueMessage,
   QueuePort,
   SandboxPort,
+  SecretLease,
   SecretPort,
   ToolCallPort,
   WorkspacePort,

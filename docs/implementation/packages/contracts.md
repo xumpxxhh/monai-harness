@@ -5,10 +5,10 @@
 | 项 | 值 |
 | --- | --- |
 | 计划路径 | `packages/contracts/` |
-| 状态 | `in_progress`（P5：Approval / Checkpoint / Continuation） |
-| 首触阶段 | P0–P1 |
-| 上游 | [design/01](../../design/01-domain-model.md)、[engineering/01](../../engineering/01-repository-and-modules.md) |
-| 最后更新 | 2026-08-27 |
+| 状态 | `in_progress`（P5；**M1a ContextBuildRecord / usage**） |
+| 首触阶段 | P0–P1；M1a 模型 Event 载荷 |
+| 上游 | [design/01](../../design/01-domain-model.md)、[design/05 §4.2 ContextBuildRecord](../../design/05-context-and-data.md#42-contextbuildrecord)、[engineering/01](../../engineering/01-repository-and-modules.md) |
+| 最后更新 | 2026-08-28 |
 
 ## 1. 范围
 
@@ -36,6 +36,13 @@
 - [ ] Action digest 向量测试可挂此包或 runtime（runtime 已有 MVP digest）
 - [ ] ConfirmationGrant 类型（后置）
 
+### M1（完成 — [0018](../sessions/0018-real-model-cluster-plan.md)）
+
+- [x] `ContextBuildRecord` 类型（modelPolicy digest、contextHash、truncations）
+- [x] 冻结 Manifest：`modelPolicy { version, resolvedTarget, fallbackTarget }` / `contextBuilder` digest
+- [x] `model.called` / `model.responded` 载荷：`modelCallId`、usage、priceTableVersion
+- [x] 价表版本引用（`STATIC_PRICE_TABLE` 冻结；费用 unknown 可单列）
+
 ## 4. 依赖
 
 | 依赖 | 说明 |
@@ -52,6 +59,8 @@
 
 | 日期 | 说明 |
 | --- | --- |
+| 2026-08-28 | M1a 实装完成：ContextBuildRecord、Manifest modelPolicy、Event usage / priceTable |
+| 2026-08-28 | M1a 计划：ContextBuildRecord、Manifest modelPolicy、Event usage；见 0018 |
 | 2026-08-27 | `AcceptanceCheck` / selector 类型 |
 | 2026-08-27 | P5：ApprovalRecord / Checkpoint / Continuation + approval.* events |
 | 2026-08-27 | P4：ToolCallRecord / effect contract；tool.* events |

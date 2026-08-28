@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 import { buildCreateRunCommand } from "@monai/api";
 import { CONTRACTS_SCHEMA_VERSION, type Action } from "@monai/contracts";
 import { StubModelPort } from "@monai/model-stub";
@@ -161,7 +162,7 @@ const RECOVERY_CASES: EvalCaseDefinition[] = [
     run: async (ctx, { repetition }) => {
       const runId = `eval-rec-yield-${repetition}`;
       await bootstrapRunning(ctx, runId, "hello");
-      await new Promise((r) => setTimeout(r, 15));
+      await sleep(15);
 
       const recovery = new RecoveryService({
         persistence: ctx.persistence,

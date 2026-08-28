@@ -50,6 +50,9 @@ importers:
       '@monai/lease-memory':
         specifier: workspace:*
         version: link:../../packages/adapters/lease-memory
+      '@monai/model-openai':
+        specifier: workspace:*
+        version: link:../../packages/adapters/model-openai
       '@monai/model-stub':
         specifier: workspace:*
         version: link:../../packages/adapters/model-stub
@@ -77,6 +80,9 @@ importers:
       '@monai/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
+      '@monai/secret-env':
+        specifier: workspace:*
+        version: link:../../packages/adapters/secret-env
       '@monai/synthetic-sink':
         specifier: workspace:*
         version: link:../../packages/adapters/synthetic-sink
@@ -143,6 +149,28 @@ importers:
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
+
+  packages/adapters/model-openai:
+    dependencies:
+      '@monai/contracts':
+        specifier: workspace:*
+        version: link:../../contracts
+      '@monai/ports':
+        specifier: workspace:*
+        version: link:../../ports
+    devDependencies:
+      '@monai/secret-env':
+        specifier: workspace:*
+        version: link:../secret-env
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.20.1
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 3.2.7(@types/node@22.20.1)
 
   packages/adapters/model-stub:
     dependencies:
@@ -240,6 +268,25 @@ importers:
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
+
+  packages/adapters/secret-env:
+    dependencies:
+      '@monai/contracts':
+        specifier: workspace:*
+        version: link:../../contracts
+      '@monai/ports':
+        specifier: workspace:*
+        version: link:../../ports
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.20.1
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 3.2.7(@types/node@22.20.1)
 
   packages/adapters/synthetic-sink:
     devDependencies:
@@ -420,6 +467,9 @@ importers:
         specifier: workspace:*
         version: link:../adapters/workspace-memory
     devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.20.1
       typescript:
         specifier: ~5.9.3
         version: 5.9.3

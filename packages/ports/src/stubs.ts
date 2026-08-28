@@ -88,8 +88,15 @@ export type SandboxPort = {
   exec(_request: unknown): Promise<never>;
 };
 
+export type SecretLease = {
+  secretRef: string;
+  value: string;
+  expiresAt: string;
+};
+
 export type SecretPort = {
   resolve(secretRef: string): Promise<string>;
+  lease(secretRef: string, ttlMs?: number): Promise<SecretLease>;
 };
 
 import type { EventEnvelope } from "@monai/contracts";

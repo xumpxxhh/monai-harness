@@ -6,16 +6,16 @@
 | --- | --- |
 | 计划路径 | `packages/adapters/model-*/` |
 | 实现端口 | ModelPort |
-| 状态 | `in_progress`（`model-stub`） |
-| 首触阶段 | P3（先 stub） |
-| 上游 | [engineering/04](../../engineering/04-ports-extensions-and-security.md)、设计 02 ModelPort |
-| 最后更新 | 2026-08-27 |
+| 状态 | `in_progress`（`model-stub`；M1f 真实 adapter 计划） |
+| 首触阶段 | P3（先 stub）；M1f 真实供应商 |
+| 上游 | [engineering/04](../../engineering/04-ports-extensions-and-security.md)、[design/02 §7 ModelPort](../../design/02-core-architecture.md#7-端口清单) |
+| 最后更新 | 2026-08-28 |
 
 ## 1. 范围
 
-- `completeStructured(context, schema, modelPolicy)`
-- MVP：确定性 stub / 固定夹具；后再接真实供应商
-- 不执行副作用、不写 State、密钥不进 Context
+- `completeStructured(context, schema, modelPolicy)` — **modelPolicy 必传**（M1d）
+- MVP：确定性 stub / 固定夹具；M1f 接真实供应商
+- 不执行副作用、不写 State、密钥不进 Context（只经 SecretPort lease）
 
 ## 2. 非目标
 
@@ -25,21 +25,29 @@
 ## 3. 验收清单
 
 - [x] stub 可驱动主路径（echo / deny-me / approve-me / finish / noop / workspace-read / workspace-search / artifact / acceptance→finish）
-- [ ] 失败/超时映射为结构化错误供 Engine 计量 attempt
-- [ ] 真实供应商适配可选、可切换
+- [x] 失败/超时映射为结构化错误供 Engine 计量 attempt（M1d）
+- [x] 真实供应商适配：`@monai/model-openai` 按 `resolvedTarget` 调 API；返回结构化候选（M1f）
+- [x] 调用边界经 SecretPort 取凭证；usage 回传供 Event（M1f）
+
+## M1 退出条件
+
+见 [sessions/0018](../sessions/0018-real-model-cluster-plan.md) M1f；[PHASES §M1](../PHASES.md#m1--真实模型簇可选)。已全部达成。
 
 ## 4. 依赖
 
-ports、contracts；Secret/配置注入（真实供应商阶段）。
+ports、contracts、secret-env；Secret/配置注入。
 
 ## 5. 缺口与风险
 
 - 供应商锁定不在本阶段强制
+- Eval / Golden 114 必须继续 stub（07 门禁）
 
 ## 6. 最近变更
 
 | 日期 | 说明 |
 | --- | --- |
+| 2026-08-28 | M1f 实装完成：`@monai/model-openai` 支持 OpenAI 兼容端点 + usage 提取 + SecretPort 租约 |
+| 2026-08-28 | M1 计划归档：真实 adapter + SecretPort + usage；见 0018 |
 | 2026-08-27 | Golden：`workspace-search`；`acceptance` + lastFactId → finish |
 | 2026-08-27 | P3：`@monai/model-stub` StubModelPort |
 | 2026-08-27 | 创建进展页 |

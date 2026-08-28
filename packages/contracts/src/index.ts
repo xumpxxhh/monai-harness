@@ -158,5 +158,36 @@ export {
   type GovernanceEventType,
 } from "./governance-event.js";
 
+export {
+  CONTEXT_SECTION_KINDS,
+  contextBudgetSchema,
+  contextBuildRecordSchema,
+  contextBuildTruncationSchema,
+  contextSectionKindSchema,
+  contextSectionSchema,
+  type ContextBudget,
+  type ContextBuildRecord,
+  type ContextBuildTruncation,
+  type ContextSection,
+  type ContextSectionKind,
+} from "./context.js";
+
+export {
+  PRICE_TABLE_STATIC_VERSION,
+  STATIC_PRICE_TABLE,
+  modelCalledPayloadSchema,
+  modelCostSchema,
+  modelPolicySchema,
+  modelRespondedPayloadSchema,
+  modelUsageSchema,
+  type ModelCalledPayload,
+  type ModelCost,
+  type ModelPolicy,
+  type ModelRespondedPayload,
+  type ModelUsage,
+  type PriceTableEntry,
+} from "./model.js";
+
+
 /** Package identity (kept for P0 smoke imports). */
 export const PACKAGE_NAME = "@monai/contracts" as const;

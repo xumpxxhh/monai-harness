@@ -7,6 +7,7 @@ import {
 } from "@monai/delivery";
 import { InMemoryGovernanceEventStore } from "@monai/governance";
 import { InMemoryLease } from "@monai/lease-memory";
+import { OpenAiModelPort } from "@monai/model-openai";
 import { StubModelPort } from "@monai/model-stub";
 import { InMemoryPersistence } from "@monai/persistence-memory";
 import {
@@ -14,9 +15,18 @@ import {
   type PostgresPersistence,
 } from "@monai/persistence-postgres";
 import { wireWorkspaceGenericPack } from "@monai/delivery";
-import type { IdempotencyPort, LeasePort, OutboxPort, PersistencePort, QueuePort } from "@monai/ports";
+import type {
+  IdempotencyPort,
+  LeasePort,
+  ModelPort,
+  OutboxPort,
+  PersistencePort,
+  QueuePort,
+  SecretPort,
+} from "@monai/ports";
 import { InMemoryQueue } from "@monai/queue-memory";
 import { Engine, InMemoryManifestStore } from "@monai/runtime";
+import { EnvSecretPort } from "@monai/secret-env";
 import { InMemoryWorkspace } from "@monai/workspace-memory";
 
 import type { HarnessConfig } from "./config.js";
@@ -69,10 +79,19 @@ export async function bootstrap(config: HarnessConfig): Promise<HarnessRuntime> 
   const pack = wireWorkspaceGenericPack({ workspace, tenantId: "t1", governanceStore });
   const manifestStore = new InMemoryManifestStore();
 
+  const secretPort: SecretPort = new EnvSecretPort();
+  const model: ModelPort =
+    config.modelDriver === "openai"
+      ? new OpenAiModelPort({
+          secretPort,
+          baseUrl: config.openaiBaseUrl,
+        })
+      : new StubModelPort();
+
   const engine = new Engine({
     persistence,
     lease,
-    model: new StubModelPort(),
+    model,
     hooks: pack.hookRunner,
     registry: pack.registry,
     manifestStore,

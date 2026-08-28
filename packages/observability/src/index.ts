@@ -12,7 +12,18 @@ export {
   timingEvent,
   type RunTimingMetrics,
 } from "./metrics/compute-run-timing.js";
-export { MVP_METRIC_GAPS, MVP_TIMING_METRICS_IMPLEMENTED, type MvpMetricGap } from "./metrics/mvp-gaps.js";
+export {
+  computeModelAndContextMetrics,
+  type ContextMetricsSnapshot,
+  type ModelCallMetricsSnapshot,
+  type RunModelAndContextMetrics,
+} from "./metrics/compute-model-metrics.js";
+export {
+  MVP_METRIC_GAPS,
+  MVP_MODEL_METRICS_IMPLEMENTED,
+  MVP_TIMING_METRICS_IMPLEMENTED,
+  type MvpMetricGap,
+} from "./metrics/mvp-gaps.js";
 export {
   EvalHarness,
   GOLDEN_EVAL_SUITE,

@@ -1,5 +1,5 @@
 {
-  "extends": "../../tooling/tsconfig/library.json",
+  "extends": "../../../tooling/tsconfig/library.json",
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src",

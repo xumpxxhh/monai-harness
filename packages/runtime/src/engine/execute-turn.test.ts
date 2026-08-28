@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 
 import { Engine } from "./engine.js";
 import { HookRunner } from "../hooks/hook-runner.js";
+import { applyCommit } from "../commit/apply-commit.js";
 
 function cmd(
   partial: Partial<HarnessCommand> & Pick<HarnessCommand, "commandType" | "commandId">,
@@ -213,5 +214,154 @@ describe("execute_turn light loop", () => {
     expect(rejected?.payload).toMatchObject({
       reason: "required acceptanceChecks did not pass",
     });
+  });
+
+  it("fails step when maxSteps budget is exceeded without calling model", async () => {
+    const persistence = new InMemoryPersistence();
+    const lease = new InMemoryLease();
+    const ownerId = "worker-1";
+    let modelCalled = false;
+    const model = {
+      async completeStructured() {
+        modelCalled = true;
+        return { type: "noop", noopId: "n-1" };
+      },
+    };
+
+    const engine = new Engine({
+      persistence,
+      lease,
+      model,
+      hooks: new HookRunner(),
+    });
+
+    const created = await engine.handle(
+      cmd({
+        commandType: "create_run",
+        commandId: "create-budget-test",
+        payload: {
+          runId: "r-budget",
+          sessionId: "s1",
+          agentDefinitionId: "agent",
+          agentVersion: "1",
+          executionManifestRef: "manifest://m1",
+          packVersions: [{ packId: "core", version: "0.1.0" }],
+          goal: "budget test",
+          strategy: { type: "light", version: "1" },
+          budgets: { maxSteps: 1 },
+        },
+      }),
+    );
+    expect(created.ok).toBe(true);
+
+    const queued = await engine.handle(
+      cmd({
+        commandType: "queue_run",
+        commandId: "queue-budget-test",
+        runId: "r-budget",
+        expectedRevision: created.revision,
+      }),
+    );
+    expect(queued.ok).toBe(true);
+
+    const running = await engine.handle(
+      cmd({
+        commandType: "acquire_lease",
+        commandId: "lease-budget-test",
+        runId: "r-budget",
+        expectedRevision: queued.revision,
+        actor: { principalId: ownerId },
+      }),
+    );
+    expect(running.ok).toBe(true);
+
+    // Pre-populate state with 1 step taken
+    const uow = await persistence.beginUnitOfWork("r-budget");
+    const commitRes = await applyCommit(uow, {
+      expectedRevision: running.revision,
+      expectedLeaseEpoch: running.leaseEpoch,
+      runPatch: {},
+      events: [],
+      state: {
+        schemaVersion: "1.0.0",
+        facts: [],
+        cursor: { stepCount: 1 },
+      },
+    });
+    expect(commitRes.ok).toBe(true);
+    const updatedRevision = (commitRes as { revision: number }).revision;
+
+    const turn = await engine.handle(
+      cmd({
+        commandType: "execute_turn",
+        commandId: "turn-budget",
+        runId: "r-budget",
+        expectedRevision: updatedRevision,
+        leaseEpoch: running.leaseEpoch,
+        actor: { principalId: ownerId },
+      }),
+    );
+    expect(turn.ok).toBe(true);
+    expect(modelCalled).toBe(false);
+
+    const events = await persistence.listEvents("r-budget");
+    const failEvt = events.find((e) => e.eventType === "step.failed");
+    expect(failEvt).toBeDefined();
+    expect((failEvt?.payload as { reason?: string })?.reason).toContain("budget exceeded");
+  });
+
+  it("retries fallback target when primary model target fails", async () => {
+    const persistence = new InMemoryPersistence();
+    const lease = new InMemoryLease();
+    const ownerId = "worker-1";
+    const calls: string[] = [];
+
+    const model = {
+      async completeStructured(input: { modelPolicy?: { resolvedTarget?: string } }) {
+        const target = input.modelPolicy?.resolvedTarget ?? "unknown";
+        calls.push(target);
+        if (target === "primary-err") {
+          throw new Error("Primary target timeout");
+        }
+        return {
+          rawAction: { type: "noop", noopId: "n-fallback" },
+          usage: { inputTokens: 100, outputTokens: 20, totalTokens: 120 },
+        };
+      },
+    };
+
+    const engine = new Engine({
+      persistence,
+      lease,
+      model,
+      hooks: new HookRunner(),
+      modelPolicy: {
+        version: "1.0.0",
+        resolvedTarget: "primary-err",
+        fallbackTarget: "backup-model",
+      },
+    });
+
+    const running = await toRunning(engine, "r-fallback", "test fallback", ownerId);
+    expect(running.ok).toBe(true);
+
+    const turn = await engine.handle(
+      cmd({
+        commandType: "execute_turn",
+        commandId: "turn-fallback",
+        runId: "r-fallback",
+        expectedRevision: running.revision,
+        leaseEpoch: running.leaseEpoch,
+        actor: { principalId: ownerId },
+      }),
+    );
+    expect(turn.ok).toBe(true);
+    expect(calls).toEqual(["primary-err", "backup-model"]);
+
+    const events = await persistence.listEvents("r-fallback");
+    const calledEvts = events.filter((e) => e.eventType === "model.called");
+    expect(calledEvts.length).toBe(2);
+    expect((calledEvts[0].payload as { target?: string }).target).toBe("primary-err");
+    expect((calledEvts[1].payload as { target?: string }).target).toBe("backup-model");
   });
 });

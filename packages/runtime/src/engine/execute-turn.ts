@@ -1,5 +1,6 @@
 import {
   CONTRACTS_SCHEMA_VERSION,
+  PRICE_TABLE_STATIC_VERSION,
   actionSchema,
   createEmptyRunState,
   type AcceptanceCheck,
@@ -9,6 +10,8 @@ import {
   type Continuation,
   type EventCandidate,
   type IdempotencyRecord,
+  type ModelPolicy,
+  type ModelUsage,
   type OutboxRecord,
   type Run,
   type RunState,
@@ -17,6 +20,7 @@ import {
 import type { IdempotencyPort, ModelPort, PersistencePort, LeasePort, HarnessCommand } from "@monai/ports";
 
 import { buildContext } from "../context/build-context.js";
+import { checkRunBudget } from "../control/budget-guard.js";
 import type { HookRunner } from "../hooks/hook-runner.js";
 import {
   DEFAULT_REQUIRE_APPROVAL_TOOLS,
@@ -89,6 +93,7 @@ export type ExecuteTurnDeps = {
   requireApprovalTools?: readonly string[];
   acceptanceChecks?: readonly AcceptanceCheck[];
   registry?: ExtensionRegistry;
+  modelPolicy?: ModelPolicy;
 };
 
 /**
@@ -168,6 +173,19 @@ export async function handleExecuteTurn(
   const requireApprovalTools = deps.requireApprovalTools ?? DEFAULT_REQUIRE_APPROVAL_TOOLS;
   const rev = run.revision;
 
+  // 1. Budget check before calling model (design 03 §4.3 / §5.1)
+  const budgetCheck = checkRunBudget(run, state);
+  if (budgetCheck.exceeded) {
+    return commitStepFailed(deps, run, {
+      stepId,
+      correlationId,
+      expectedRevision: rev,
+      expectedLeaseEpoch: run.leaseEpoch,
+      reason: budgetCheck.reason,
+      prefixEvents: [],
+    });
+  }
+
   const pre = await deps.hooks.invoke("PreReasoning", {
     tenantId: run.tenantId,
     sessionId: run.sessionId,
@@ -187,84 +205,173 @@ export async function handleExecuteTurn(
     });
   }
 
-  const context = buildContext({
+  // 2. Context Builder with priority & budget (design 05 §3)
+  const resolvedModelPolicy: ModelPolicy = deps.modelPolicy ?? {
+    version: "1.0.0",
+    resolvedTarget: "stub",
+    digest: "digest:model-policy:default",
+  };
+
+  const buildResult = buildContext({
     run,
     stepId,
     state,
     toolAllowlist,
     hookContributions: pre.merged.contextContributions,
+    modelPolicy: resolvedModelPolicy,
   });
 
-  let rawAction: unknown;
-  try {
-    rawAction = await deps.model.completeStructured({
-      context,
-      schema: { type: "Action" },
-    });
-  } catch (err) {
+  if (buildResult.overflow) {
     return commitStepFailed(deps, run, {
       stepId,
       correlationId,
       expectedRevision: rev,
       expectedLeaseEpoch: run.leaseEpoch,
-      reason: err instanceof Error ? err.message : "model failed",
-      prefixEvents: [
-        ...hookEvents(run, stepId, rev, correlationId, "PreReasoning", pre),
-        eventBase(run, {
-          eventId: `evt-ctx-${stepId}`,
-          eventType: "context.built",
-          expectedRevision: rev,
-          correlationId,
-          stepId,
-        }),
-        eventBase(run, {
-          eventId: `evt-model-call-${stepId}`,
-          eventType: "model.called",
-          expectedRevision: rev,
-          correlationId,
-          stepId,
-        }),
-      ],
+      reason: buildResult.overflowReason ?? "Context budget hardMaxTokens overflow",
+      prefixEvents: [...hookEvents(run, stepId, rev, correlationId, "PreReasoning", pre)],
     });
   }
 
-  const parsed = actionSchema.safeParse(rawAction);
-  if (!parsed.success) {
+  const context = buildResult.context;
+  const contextEvent = eventBase(run, {
+    eventId: `evt-ctx-${stepId}`,
+    eventType: "context.built",
+    expectedRevision: rev,
+    correlationId,
+    stepId,
+    payload: {
+      record: buildResult.record,
+      contextHash: buildResult.contextHash,
+      totalTokens: buildResult.totalTokens,
+      truncations: buildResult.truncations,
+    },
+  });
+
+  // 3. Model Policy targets loop (support fallback and attempts)
+  const targetsToTry: string[] = [resolvedModelPolicy.resolvedTarget];
+  if (
+    resolvedModelPolicy.fallbackTarget &&
+    resolvedModelPolicy.fallbackTarget !== resolvedModelPolicy.resolvedTarget
+  ) {
+    targetsToTry.push(resolvedModelPolicy.fallbackTarget);
+  }
+
+  let attempt = 0;
+  let parsedAction: Action | undefined;
+  let lastModelError: string | undefined;
+  const modelEvents: EventCandidate[] = [];
+
+  for (const target of targetsToTry) {
+    attempt++;
+    const modelCallId = `mc-${stepId}-${attempt}`;
+    const startCallTime = Date.now();
+
+    modelEvents.push(
+      eventBase(run, {
+        eventId: `evt-model-call-${stepId}-${attempt}`,
+        eventType: "model.called",
+        expectedRevision: rev,
+        correlationId,
+        stepId,
+        payload: {
+          modelCallId,
+          stepId,
+          attempt,
+          target,
+          modelPolicyVersion: resolvedModelPolicy.version,
+          priceTableVersion: PRICE_TABLE_STATIC_VERSION,
+          contextHash: buildResult.contextHash,
+        },
+      }),
+    );
+
+    let modelResult: unknown;
+    let callFailed = false;
+    try {
+      modelResult = await deps.model.completeStructured({
+        context,
+        schema: { type: "Action" },
+        modelPolicy: {
+          ...resolvedModelPolicy,
+          resolvedTarget: target,
+        },
+      });
+    } catch (err) {
+      callFailed = true;
+      lastModelError = err instanceof Error ? err.message : "model call failed";
+    }
+
+    const latencyMs = Date.now() - startCallTime;
+
+    let candidateAction: unknown = modelResult;
+    let usage: ModelUsage = {
+      inputTokens: buildResult.totalTokens,
+      outputTokens: 30,
+      totalTokens: buildResult.totalTokens + 30,
+    };
+
+    if (
+      modelResult &&
+      typeof modelResult === "object" &&
+      "rawAction" in (modelResult as Record<string, unknown>)
+    ) {
+      const wrapped = modelResult as { rawAction: unknown; usage?: ModelUsage };
+      candidateAction = wrapped.rawAction;
+      if (wrapped.usage) {
+        usage = wrapped.usage;
+      }
+    }
+
+    modelEvents.push(
+      eventBase(run, {
+        eventId: `evt-model-resp-${stepId}-${attempt}`,
+        eventType: "model.responded",
+        expectedRevision: rev,
+        correlationId,
+        stepId,
+        payload: {
+          modelCallId,
+          stepId,
+          attempt,
+          target,
+          usage,
+          priceTableVersion: PRICE_TABLE_STATIC_VERSION,
+          latencyMs,
+          failed: callFailed,
+        },
+      }),
+    );
+
+    if (callFailed) {
+      continue;
+    }
+
+    const parsed = actionSchema.safeParse(candidateAction);
+    if (!parsed.success) {
+      lastModelError = `invalid Action: ${parsed.error.message}`;
+      continue;
+    }
+
+    parsedAction = parsed.data;
+    break;
+  }
+
+  if (!parsedAction) {
     return commitStepFailed(deps, run, {
       stepId,
       correlationId,
       expectedRevision: rev,
       expectedLeaseEpoch: run.leaseEpoch,
-      reason: `invalid Action: ${parsed.error.message}`,
+      reason: lastModelError ?? "all model targets failed",
       prefixEvents: [
         ...hookEvents(run, stepId, rev, correlationId, "PreReasoning", pre),
-        eventBase(run, {
-          eventId: `evt-ctx-${stepId}`,
-          eventType: "context.built",
-          expectedRevision: rev,
-          correlationId,
-          stepId,
-        }),
-        eventBase(run, {
-          eventId: `evt-model-call-${stepId}`,
-          eventType: "model.called",
-          expectedRevision: rev,
-          correlationId,
-          stepId,
-        }),
-        eventBase(run, {
-          eventId: `evt-model-resp-${stepId}`,
-          eventType: "model.responded",
-          expectedRevision: rev,
-          correlationId,
-          stepId,
-          payload: { invalid: true },
-        }),
+        contextEvent,
+        ...modelEvents,
       ],
     });
   }
 
-  const action: Action = parsed.data;
+  const action: Action = parsedAction;
 
   const post = await deps.hooks.invoke("PostReasoning", {
     tenantId: run.tenantId,
@@ -284,27 +391,8 @@ export async function handleExecuteTurn(
       reason: post.failureReason ?? post.vetoReason ?? "PostReasoning failed",
       prefixEvents: [
         ...hookEvents(run, stepId, rev, correlationId, "PreReasoning", pre),
-        eventBase(run, {
-          eventId: `evt-ctx-${stepId}`,
-          eventType: "context.built",
-          expectedRevision: rev,
-          correlationId,
-          stepId,
-        }),
-        eventBase(run, {
-          eventId: `evt-model-call-${stepId}`,
-          eventType: "model.called",
-          expectedRevision: rev,
-          correlationId,
-          stepId,
-        }),
-        eventBase(run, {
-          eventId: `evt-model-resp-${stepId}`,
-          eventType: "model.responded",
-          expectedRevision: rev,
-          correlationId,
-          stepId,
-        }),
+        contextEvent,
+        ...modelEvents,
         eventBase(run, {
           eventId: `evt-action-prop-${stepId}`,
           eventType: "action.proposed",
@@ -344,27 +432,8 @@ export async function handleExecuteTurn(
         reason: preTool.failureReason ?? preTool.vetoReason ?? "PreToolCall veto",
         prefixEvents: [
           ...hookEvents(run, stepId, rev, correlationId, "PreReasoning", pre),
-          eventBase(run, {
-            eventId: `evt-ctx-${stepId}`,
-            eventType: "context.built",
-            expectedRevision: rev,
-            correlationId,
-            stepId,
-          }),
-          eventBase(run, {
-            eventId: `evt-model-call-${stepId}`,
-            eventType: "model.called",
-            expectedRevision: rev,
-            correlationId,
-            stepId,
-          }),
-          eventBase(run, {
-            eventId: `evt-model-resp-${stepId}`,
-            eventType: "model.responded",
-            expectedRevision: rev,
-            correlationId,
-            stepId,
-          }),
+          contextEvent,
+          ...modelEvents,
           eventBase(run, {
             eventId: `evt-action-prop-${stepId}`,
             eventType: "action.proposed",
@@ -413,6 +482,8 @@ export async function handleExecuteTurn(
     preEvents: hookEvents(run, stepId, rev, correlationId, "PreReasoning", pre),
     postEvents: hookEvents(run, stepId, rev, correlationId, "PostReasoning", post),
     preToolEvents,
+    contextEvent,
+    modelEvents,
   });
 }
 
@@ -545,10 +616,43 @@ async function commitTurn(
     preEvents: EventCandidate[];
     postEvents: EventCandidate[];
     preToolEvents: EventCandidate[];
+    contextEvent?: EventCandidate;
+    modelEvents?: EventCandidate[];
   },
 ): Promise<HandleResult> {
   const { stepId, correlationId, action, policy } = args;
   const rev = args.expectedRevision;
+
+  const contextEvt =
+    args.contextEvent ??
+    eventBase(run, {
+      eventId: `evt-ctx-${stepId}`,
+      eventType: "context.built",
+      expectedRevision: rev,
+      correlationId,
+      stepId,
+    });
+
+  const modelEvts =
+    args.modelEvents && args.modelEvents.length > 0
+      ? args.modelEvents
+      : [
+          eventBase(run, {
+            eventId: `evt-model-call-${stepId}`,
+            eventType: "model.called",
+            expectedRevision: rev,
+            correlationId,
+            stepId,
+          }),
+          eventBase(run, {
+            eventId: `evt-model-resp-${stepId}`,
+            eventType: "model.responded",
+            expectedRevision: rev,
+            correlationId,
+            stepId,
+            payload: { actionId: action.actionId },
+          }),
+        ];
 
   const events: EventCandidate[] = [
     eventBase(run, {
@@ -559,28 +663,8 @@ async function commitTurn(
       stepId,
     }),
     ...args.preEvents,
-    eventBase(run, {
-      eventId: `evt-ctx-${stepId}`,
-      eventType: "context.built",
-      expectedRevision: rev,
-      correlationId,
-      stepId,
-    }),
-    eventBase(run, {
-      eventId: `evt-model-call-${stepId}`,
-      eventType: "model.called",
-      expectedRevision: rev,
-      correlationId,
-      stepId,
-    }),
-    eventBase(run, {
-      eventId: `evt-model-resp-${stepId}`,
-      eventType: "model.responded",
-      expectedRevision: rev,
-      correlationId,
-      stepId,
-      payload: { actionId: action.actionId },
-    }),
+    contextEvt,
+    ...modelEvts,
     eventBase(run, {
       eventId: `evt-action-prop-${stepId}`,
       eventType: "action.proposed",

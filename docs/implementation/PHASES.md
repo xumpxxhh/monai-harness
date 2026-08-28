@@ -1,6 +1,6 @@
-# 实现阶段路线（P0–P9）
+# 实现阶段路线（P0–P9 + 可选 M1）
 
-对齐 [engineering/05 §6](../engineering/05-testing-and-evolution.md#6-建议实现顺序仅规划)，并增加 **P0 建仓**。每阶段退出必须带上对应测试层，禁止「假闭环」。
+对齐 [engineering/05 §6](../engineering/05-testing-and-evolution.md#6-建议实现顺序仅规划)，并增加 **P0 建仓**。每阶段退出必须带上对应测试层，禁止「假闭环」。P9 主链完成后，**M1** 为可选切片（不新开 P10）。
 
 ## 总览
 
@@ -16,8 +16,9 @@
 | P7 | EventStream + 指标 + Golden/Eval 接线 | `done` | api、observability、apps/harness、eval fixtures |
 | P8 | HTTP API + PostgreSQL Persistence | `done` | persistence-postgres、api(http/sse)、apps/harness(bootstrap) |
 | P9 | 阶段 A 收口（Pack / Eval / 治理·指标） | `done` | packs/workspace-generic、runtime/extension、observability/eval、governance |
+| M1 | 真实模型簇（可选） | `done` | contracts、runtime、model/secret adapters、observability、harness |
 
-阶段依赖：`P0 → … → P9` 主链已完成。P9 收口 [design/08 阶段 A](../design/08-mvp-and-evolution.md#阶段-a--mvp-契约闭环) 的 Pack/Eval/治理面，**不**自动关闭阶段 A（Token/cost 基线可能仍缺）。治理/观测不得提前获得 Run 写权。
+阶段依赖：`P0 → … → P9` 主链已完成。P9 收口 [design/08 阶段 A](../design/08-mvp-and-evolution.md#阶段-a--mvp-契约闭环) 的 Pack/Eval/治理面，**不**自动关闭阶段 A（Token/cost 基线可能仍缺）。治理/观测不得提前获得 Run 写权。**M1** 计划见 [sessions/0018](sessions/0018-real-model-cluster-plan.md)；Knowledge 检索后置。
 
 ## P0 — Monorepo 骨架
 
@@ -223,6 +224,41 @@ P9d   运维（可选）     →  角色开关、L1-on-PG、engineering README E
 
 **阶段 A 退出说明**：即使 P9 完成，Token/cost 20% 回归带仍可能缺 usage + 价表（`MVP_METRIC_GAPS`）；不自动宣称 design 08 阶段 A 已关闭。
 
+## M1 — 真实模型簇（可选）
+
+**目标**：对齐 design 02/03/05/06/07/08，接通真实 ModelPort 相邻完整簇；**非**「换 Stub + env Key」最小接入。
+
+**计划**：[sessions/0018-real-model-cluster-plan.md](sessions/0018-real-model-cluster-plan.md)
+
+**实现顺序**（M1a–M1h）：
+
+```text
+M1a  contracts：ContextBuildRecord；Manifest.modelPolicy / contextBuilder；
+     model.called|responded 载荷（modelCallId、usage、priceTableVersion）
+M1b  runtime：BudgetGuard（maxSteps / maxTokens / maxCost / maxWallTime）
+M1c  runtime：Context Builder（05 优先级 + ContextBudget；Knowledge 空）
+M1d  Engine：Model Policy + 同 Step 重试/fallback（新 modelCallId）
+M1e  SecretPort 最小实现（模型凭证 lease）
+M1f  ModelPort 真实 adapter
+M1g  observability：Token/cost + Context overflow 指标
+M1h  harness 装配；Eval / Golden 仍 StubModelPort
+```
+
+**第一刀**：M1a contracts 类型 + M1b BudgetGuard 接入 `execute_turn` 循环头部。
+
+**退出条件**：
+
+- [x] BudgetGuard 在调用模型前检查 step/token/cost/wall；不足则 Step 失败、不调模型
+- [x] Context Builder 按 05 装配/裁剪；每次 `context.built` 持久 `ContextBuildRecord`
+- [x] 冻结 Manifest 含 `modelPolicy { version, resolvedTargets[] }` / `contextBuilder` digest
+- [x] `model.called` / `model.responded` 含 usage + 价表版本；失败调用也计入
+- [x] SecretPort lease 注入 adapter；密钥不进 Context / Event 明文
+- [x] 真实 ModelPort 可按 resolvedTarget 调供应商并返回结构化候选
+- [x] Token/cost 可从 Event+usage+价表重算；Context overflow 可统计
+- [x] harness 可切换真实 ModelPort + SecretPort；Eval 114 仍 stub 绿
+
+**非目标**：KnowledgePort 实装；Memory 进 Context；用真实模型跑 Eval；ConfirmationGrant；DAG/spawn_child/sandbox.exec；宣称阶段 A 仅因接供应商而关闭。
+
 ## 阶段与测试层映射
 
 | 阶段 | 最低测试层 |
@@ -238,5 +274,6 @@ P9d   运维（可选）     →  角色开关、L1-on-PG、engineering README E
 | P9b | L3 Eval 完整控制面矩阵 |
 | P9b-sec | L3 安全 8×1 零容忍 |
 | P9d | L0 角色解析 + L1-on-PG CreateRun 循环 |
+| M1 | L0 BudgetGuard/Builder + L1 真实模型端到端（Eval 仍 stub） |
 
 详见 [engineering/05](../engineering/05-testing-and-evolution.md)。

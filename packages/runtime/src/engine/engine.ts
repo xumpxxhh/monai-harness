@@ -4,6 +4,7 @@ import {
   type AcceptanceCheck,
   type EventCandidate,
   type IdempotencyRecord,
+  type ModelPolicy,
   type OutboxRecord,
   type Run,
 } from "@monai/contracts";
@@ -62,6 +63,8 @@ export type EngineDeps = {
   requireApprovalTools?: readonly string[];
   /** Agent Definition required acceptanceChecks; empty means finish is ungated. */
   acceptanceChecks?: readonly AcceptanceCheck[];
+  /** Model policy specification (target, fallback, maxRetries). */
+  modelPolicy?: ModelPolicy;
   /** Default lease TTL when acquire_lease succeeds. */
   leaseTtlMs?: number;
   /** Registered Pack contracts (P9a); falls back to TOOL_CATALOG when unset. */
@@ -121,6 +124,7 @@ export class Engine {
   private readonly leaseTtlMs: number;
   private readonly registry: ExtensionRegistry | undefined;
   private readonly manifestStore: ExecutionManifestStorePort | undefined;
+  private readonly modelPolicy: ModelPolicy | undefined;
 
   constructor(deps: EngineDeps) {
     this.persistence = deps.persistence;
@@ -133,6 +137,7 @@ export class Engine {
     this.leaseTtlMs = deps.leaseTtlMs ?? 30_000;
     this.registry = deps.registry;
     this.manifestStore = deps.manifestStore;
+    this.modelPolicy = deps.modelPolicy;
   }
 
   async handle(command: HarnessCommand): Promise<HandleResult> {
@@ -206,6 +211,7 @@ export class Engine {
         requireApprovalTools: resolved.requireApprovalTools,
         acceptanceChecks: resolved.acceptanceChecks,
         registry: this.registry,
+        modelPolicy: resolved.modelPolicy ?? this.modelPolicy,
       },
       command,
     );

@@ -1,5 +1,5 @@
 {
-  "name": "@monai/observability",
+  "name": "@monai/secret-env",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -19,17 +19,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@monai/api": "workspace:*",
     "@monai/contracts": "workspace:*",
-    "@monai/delivery": "workspace:*",
-    "@monai/lease-memory": "workspace:*",
-    "@monai/model-stub": "workspace:*",
-    "@monai/persistence-memory": "workspace:*",
-    "@monai/ports": "workspace:*",
-    "@monai/queue-memory": "workspace:*",
-    "@monai/runtime": "workspace:*",
-    "@monai/synthetic-sink": "workspace:*",
-    "@monai/workspace-memory": "workspace:*"
+    "@monai/ports": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

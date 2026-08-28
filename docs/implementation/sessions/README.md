@@ -30,3 +30,4 @@
 | 0015 | [0015-p8d-wrapup.md](./0015-p8d-wrapup.md) | 2026-08-27 | P8d：收尾回归；P8 done |
 | 0016 | [0016-p9-stage-a-plan.md](./0016-p9-stage-a-plan.md) | 2026-08-28 | P9 阶段 A 收口计划归档（修订版） |
 | 0017 | [0017-p9d-ops.md](./0017-p9d-ops.md) | 2026-08-28 | P9d：角色开关、L1-on-PG、EDR-007 文档 |
+| 0018 | [0018-real-model-cluster-plan.md](./0018-real-model-cluster-plan.md) | 2026-08-28 | M1：真实模型簇计划（对齐 design；Knowledge 后置） |

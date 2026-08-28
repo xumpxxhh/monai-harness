@@ -2,6 +2,7 @@ import {
   executionManifestSchema,
   type AcceptanceCheck,
   type ExecutionManifest,
+  type ModelPolicy,
   type Run,
 } from "@monai/contracts";
 import type { ExecutionManifestStorePort } from "@monai/ports";
@@ -15,6 +16,7 @@ export type ResolvedExecutionPolicy = {
   toolAllowlist: readonly string[];
   requireApprovalTools: readonly string[];
   acceptanceChecks: readonly AcceptanceCheck[];
+  modelPolicy?: ModelPolicy;
   manifest?: ExecutionManifest;
 };
 
@@ -22,6 +24,7 @@ export type ExecutionPolicyFallback = {
   toolAllowlist?: readonly string[];
   requireApprovalTools?: readonly string[];
   acceptanceChecks?: readonly AcceptanceCheck[];
+  modelPolicy?: ModelPolicy;
 };
 
 export async function resolveRunExecutionPolicy(
@@ -79,6 +82,7 @@ export async function resolveRunExecutionPolicy(
     toolAllowlist: parsed.data.toolAllowlist,
     requireApprovalTools: parsed.data.requireApprovalTools,
     acceptanceChecks: parsed.data.acceptanceChecks,
+    modelPolicy: parsed.data.modelPolicy ?? fallback.modelPolicy,
     manifest: parsed.data,
   };
 }

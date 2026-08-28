@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { acceptanceCheckSchema } from "./acceptance.js";
+import { modelPolicySchema } from "./model.js";
 import { schemaVersionSchema, strictObject } from "./schema.js";
 import { toolEffectContractSchema } from "./tool-call.js";
 
@@ -150,6 +151,15 @@ export const executionManifestSchema = strictObject({
   requireApprovalTools: z.array(z.string().min(1)),
   acceptanceChecks: z.array(acceptanceCheckSchema),
   budgets: z.record(z.unknown()).optional(),
+  modelPolicy: modelPolicySchema.optional(),
+  contextBuilder: strictObject({
+    version: z.string().min(1),
+    digest: z.string().optional(),
+  }).optional(),
+  reducer: strictObject({
+    version: z.string().min(1),
+    digest: z.string().optional(),
+  }).optional(),
   coreContractVersion: z.string().min(1),
   hash: z.string().min(1),
 });

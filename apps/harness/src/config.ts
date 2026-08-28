@@ -27,6 +27,9 @@ export type FeatureFlags = {
 
 export type HarnessConfig = {
   persistenceDriver: PersistenceDriver;
+  modelDriver: "stub" | "openai";
+  openaiApiKey?: string;
+  openaiBaseUrl?: string;
   databaseUrl: string;
   port: number;
   /** demo = CreateRun→execute_turn then exit; serve = keep delivery loops */
@@ -124,6 +127,9 @@ export function loadConfig(): HarnessConfig {
   const persistenceDriver: PersistenceDriver =
     driverRaw === "postgres" ? "postgres" : "memory";
 
+  const modelDriverRaw = (process.env.MODEL_DRIVER ?? "stub").trim().toLowerCase();
+  const modelDriver: "stub" | "openai" = modelDriverRaw === "openai" ? "openai" : "stub";
+
   const modeRaw = (process.env.HARNESS_MODE ?? "demo").trim().toLowerCase();
   const mode: "demo" | "serve" = modeRaw === "serve" ? "serve" : "demo";
 
@@ -145,6 +151,9 @@ export function loadConfig(): HarnessConfig {
 
   return {
     persistenceDriver,
+    modelDriver,
+    openaiApiKey: process.env.OPENAI_API_KEY,
+    openaiBaseUrl: process.env.OPENAI_BASE_URL,
     databaseUrl:
       process.env.DATABASE_URL?.trim() ||
       "postgres://monai:monai@127.0.0.1:54329/monai_harness",
