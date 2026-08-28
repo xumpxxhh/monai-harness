@@ -44,6 +44,9 @@ importers:
       '@monai/delivery':
         specifier: workspace:*
         version: link:../../packages/delivery
+      '@monai/governance':
+        specifier: workspace:*
+        version: link:../../packages/governance
       '@monai/lease-memory':
         specifier: workspace:*
         version: link:../../packages/adapters/lease-memory
@@ -56,6 +59,9 @@ importers:
       '@monai/pack-sdk':
         specifier: workspace:*
         version: link:../../packages/pack-sdk
+      '@monai/pack-workspace-generic':
+        specifier: workspace:*
+        version: link:../../packages/packs/workspace-generic
       '@monai/persistence-memory':
         specifier: workspace:*
         version: link:../../packages/adapters/persistence-memory
@@ -74,6 +80,9 @@ importers:
       '@monai/synthetic-sink':
         specifier: workspace:*
         version: link:../../packages/adapters/synthetic-sink
+      '@monai/workspace-memory':
+        specifier: workspace:*
+        version: link:../../packages/adapters/workspace-memory
       dotenv:
         specifier: ^16.6.1
         version: 16.6.1
@@ -87,6 +96,9 @@ importers:
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 3.2.7(@types/node@22.20.1)
 
   apps/web:
     dependencies:
@@ -182,12 +194,21 @@ importers:
         specifier: ^8.16.3
         version: 8.23.0
     devDependencies:
+      '@monai/delivery':
+        specifier: workspace:*
+        version: link:../../delivery
       '@monai/lease-memory':
         specifier: workspace:*
         version: link:../lease-memory
       '@monai/model-stub':
         specifier: workspace:*
         version: link:../model-stub
+      '@monai/pack-workspace-generic':
+        specifier: workspace:*
+        version: link:../../packs/workspace-generic
+      '@monai/queue-memory':
+        specifier: workspace:*
+        version: link:../queue-memory
       '@monai/runtime':
         specifier: workspace:*
         version: link:../../runtime
@@ -300,12 +321,24 @@ importers:
       '@monai/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@monai/governance':
+        specifier: workspace:*
+        version: link:../governance
+      '@monai/pack-sdk':
+        specifier: workspace:*
+        version: link:../pack-sdk
+      '@monai/pack-workspace-generic':
+        specifier: workspace:*
+        version: link:../packs/workspace-generic
       '@monai/ports':
         specifier: workspace:*
         version: link:../ports
       '@monai/runtime':
         specifier: workspace:*
         version: link:../runtime
+      '@monai/synthetic-sink':
+        specifier: workspace:*
+        version: link:../adapters/synthetic-sink
     devDependencies:
       '@monai/lease-memory':
         specifier: workspace:*
@@ -319,12 +352,31 @@ importers:
       '@monai/queue-memory':
         specifier: workspace:*
         version: link:../adapters/queue-memory
-      '@monai/synthetic-sink':
-        specifier: workspace:*
-        version: link:../adapters/synthetic-sink
       '@monai/workspace-memory':
         specifier: workspace:*
         version: link:../adapters/workspace-memory
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 3.2.7(@types/node@22.20.1)
+
+  packages/governance:
+    dependencies:
+      '@monai/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@monai/ports':
+        specifier: workspace:*
+        version: link:../ports
+      '@monai/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+    devDependencies:
+      '@monai/pack-sdk':
+        specifier: workspace:*
+        version: link:../pack-sdk
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
@@ -385,6 +437,25 @@ importers:
         specifier: ~5.9.3
         version: 5.9.3
 
+  packages/packs/workspace-generic:
+    dependencies:
+      '@monai/contracts':
+        specifier: workspace:*
+        version: link:../../contracts
+      '@monai/pack-sdk':
+        specifier: workspace:*
+        version: link:../../pack-sdk
+      '@monai/ports':
+        specifier: workspace:*
+        version: link:../../ports
+      '@monai/synthetic-sink':
+        specifier: workspace:*
+        version: link:../../adapters/synthetic-sink
+    devDependencies:
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+
   packages/ports:
     dependencies:
       '@monai/contracts':
@@ -406,9 +477,6 @@ importers:
       '@monai/ports':
         specifier: workspace:*
         version: link:../ports
-      '@monai/synthetic-sink':
-        specifier: workspace:*
-        version: link:../adapters/synthetic-sink
     devDependencies:
       '@monai/lease-memory':
         specifier: workspace:*
@@ -416,12 +484,21 @@ importers:
       '@monai/model-stub':
         specifier: workspace:*
         version: link:../adapters/model-stub
+      '@monai/pack-workspace-generic':
+        specifier: workspace:*
+        version: link:../packs/workspace-generic
       '@monai/persistence-memory':
         specifier: workspace:*
         version: link:../adapters/persistence-memory
+      '@monai/synthetic-sink':
+        specifier: workspace:*
+        version: link:../adapters/synthetic-sink
       '@monai/workspace-memory':
         specifier: workspace:*
         version: link:../adapters/workspace-memory
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.20.1
       typescript:
         specifier: ~5.9.3
         version: 5.9.3

@@ -21,15 +21,17 @@
   "dependencies": {
     "@monai/contracts": "workspace:*",
     "@monai/pack-sdk": "workspace:*",
-    "@monai/ports": "workspace:*",
-    "@monai/synthetic-sink": "workspace:*"
+    "@monai/ports": "workspace:*"
   },
   "devDependencies": {
     "@monai/lease-memory": "workspace:*",
     "@monai/model-stub": "workspace:*",
+    "@monai/pack-workspace-generic": "workspace:*",
     "@monai/persistence-memory": "workspace:*",
+    "@monai/synthetic-sink": "workspace:*",
     "@monai/workspace-memory": "workspace:*",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "@types/node": "catalog:"
   }
 }

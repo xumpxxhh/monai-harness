@@ -25,8 +25,11 @@
     "pg": "^8.16.3"
   },
   "devDependencies": {
+    "@monai/delivery": "workspace:*",
     "@monai/lease-memory": "workspace:*",
     "@monai/model-stub": "workspace:*",
+    "@monai/pack-workspace-generic": "workspace:*",
+    "@monai/queue-memory": "workspace:*",
     "@monai/runtime": "workspace:*",
     "@monai/synthetic-sink": "workspace:*",
     "@types/node": "catalog:",

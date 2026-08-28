@@ -1,0 +1,30 @@
+{
+  "name": "@monai/pack-workspace-generic",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check-types": "tsc --noEmit -p tsconfig.build.json",
+    "lint": "echo \"lint: deferred\"",
+    "test": "echo \"no tests yet\""
+  },
+  "dependencies": {
+    "@monai/contracts": "workspace:*",
+    "@monai/pack-sdk": "workspace:*",
+    "@monai/ports": "workspace:*",
+    "@monai/synthetic-sink": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  }
+}

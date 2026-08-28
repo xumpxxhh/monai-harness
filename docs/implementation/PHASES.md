@@ -1,4 +1,4 @@
-# 实现阶段路线（P0–P8）
+# 实现阶段路线（P0–P9）
 
 对齐 [engineering/05 §6](../engineering/05-testing-and-evolution.md#6-建议实现顺序仅规划)，并增加 **P0 建仓**。每阶段退出必须带上对应测试层，禁止「假闭环」。
 
@@ -15,8 +15,9 @@
 | P6 | Recovery + L1/L2 故障注入 | `done` | runtime、persistence、test fixtures |
 | P7 | EventStream + 指标 + Golden/Eval 接线 | `done` | api、observability、apps/harness、eval fixtures |
 | P8 | HTTP API + PostgreSQL Persistence | `done` | persistence-postgres、api(http/sse)、apps/harness(bootstrap) |
+| P9 | 阶段 A 收口（Pack / Eval / 治理·指标） | `done` | packs/workspace-generic、runtime/extension、observability/eval、governance |
 
-阶段依赖：严格 `P0 → P1 → … → P7 → P8` 主链；P8 与 Eval 完整矩阵并列可选。治理/观测不得提前获得 Run 写权。
+阶段依赖：`P0 → … → P9` 主链已完成。P9 收口 [design/08 阶段 A](../design/08-mvp-and-evolution.md#阶段-a--mvp-契约闭环) 的 Pack/Eval/治理面，**不**自动关闭阶段 A（Token/cost 基线可能仍缺）。治理/观测不得提前获得 Run 写权。
 
 ## P0 — Monorepo 骨架
 
@@ -143,6 +144,85 @@ P8d  文档 / STATUS 同步；可选 PG 上 Golden 6×5 回归
 
 **P8d（2026-08-27）**：文档/STATUS 同步完成；回归：postgres L2 12/12、api HTTP/SSE 2/2、delivery 10/10、harness memory（含 Golden 30/30）+ postgres demo。
 
+## P9 — 阶段 A 收口
+
+**目标**：补齐 design 08 阶段 A 仍缺的 Pack/Registry、Eval 完整矩阵、governance 最小面；**不**开阶段 B / 拆多进程。
+
+**上游**：[engineering/04 §9](../engineering/04-ports-extensions-and-security.md)、[design/08 §5](../design/08-mvp-and-evolution.md#5-可执行-mvp-验收矩阵)。
+
+**修订原则**（2026-08-28）：P9a 只做薄 Pack；Manifest 冻结单独 P9a2；控制面 Eval 可与 Pack 并行；安全 8 后置。详见 [sessions/0016-p9-stage-a-plan.md](./sessions/0016-p9-stage-a-plan.md)。
+
+**建议顺序**：
+
+```text
+P9a   薄 Pack 装配     →  workspace-generic + ExtensionRegistry + ToolInvoker 注入
+P9a2  Manifest 冻结   →  CreateRun hash；Engine 读 Manifest（替换 EngineDeps allowlist）
+P9b   控制面 Eval      →  恢复 8×5、审批 6×1、幂等 6×5（可与 P9a 并行）
+P9b-sec  安全 Eval     →  越权 8×1（依赖 Pack / 路径规范化）
+P9c   治理 + 指标      →  governance 最小；Event 可重算时间指标
+P9d   运维（可选）     →  角色开关、L1-on-PG、engineering README EDR-007 一致
+```
+
+**子阶段**：
+
+| 子阶段 | 焦点 | 进展页 |
+| --- | --- | --- |
+| P9a | contracts 类型、pack-sdk Tool、内存 Registry、`@monai/pack-workspace-generic`、路径防逃逸 | [workspace-generic.md](./packages/workspace-generic.md)、[pack-sdk.md](./packages/pack-sdk.md)、[runtime.md](./packages/runtime.md) |
+| P9a2 | ExecutionManifest 冻结；Recovery hash 校验 | [runtime.md](./packages/runtime.md)、[contracts.md](./packages/contracts.md) |
+| P9b | EvalHarness 完整控制面矩阵 | [observability.md](./packages/observability.md) |
+| P9b-sec | 安全 8×1 Eval | [observability.md](./packages/observability.md) |
+| P9c | governance 包 + 指标缺口收口 | [governance.md](./packages/governance.md)、[observability.md](./packages/observability.md) |
+| P9d | harness 角色开关、L1-on-PG、文档 | [apps-harness.md](./packages/apps-harness.md) |
+
+**P9a 第一刀**：`contracts` Manifest 类型 → `pack-sdk` Tool handler → `runtime/extension` Registry → `packs/workspace-generic` → harness/Eval 注册。
+
+**P9a 退出条件**：
+
+- [x] ExtensionRegistry：权限超限 / 缺 ToolEffectContract / EDR-014 能力 → 拒绝
+- [x] `@monai/pack-workspace-generic`：MVP Tool 集 + 5 Hook 可注册；`artifact.validate` 可 dispatch
+- [x] workspace-memory 路径防逃逸（`.` / `..` / 越权根）
+- [x] ToolInvoker handlers 注入；runtime 不再编译依赖 `synthetic-sink`
+- [x] Golden 6×5 仍 ≥90%（30/30）
+- [x] CreateRun 冻结 `executionManifestHash`（P9a2；ref 仍为字符串 `executionManifestRef`）
+
+**P9b 退出条件**：
+
+- [x] EvalHarness：恢复 8×5=40 @ ≥95%
+- [x] EvalHarness：审批 6×1=6 @ 100%
+- [x] EvalHarness：幂等 6×5=30 @ 100%
+- [x] Golden 6×5 仍绿（与 P9a 回归一并跑）
+
+**P9a2 退出条件**：
+
+- [x] CreateRun 冻结 ExecutionManifest（`executionManifestHash` + 不可变 store）
+- [x] Engine `execute_turn` 从 Manifest 读 allowlist / requireApproval / acceptanceChecks
+- [x] Recovery 校验 manifest ref + hash
+- [x] 同 ref 异 hash → `conflict`；冻结后 widening EngineDeps 不生效
+- [x] L0/L1：`manifest-freeze.test.ts`；Eval 106 用例仍绿
+
+**P9b-sec 退出条件**：
+
+- [x] EvalHarness：越权与安全 8×1=8 @ 100%（零容忍）
+- [x] 跨租户命令拒绝；路径逃逸；Manifest 冻结 allowlist；Secret/外发 sink 拒绝
+- [x] Golden 6×5 与控制面矩阵仍绿
+
+**P9c 退出条件**：
+
+- [x] `@monai/governance`：GovernanceEvent store + PackRegistrationService（无 Run 写权）
+- [x] `computeRunTiming`：queue / active / awaiting / total wall time 从 Event 重算
+- [x] `MVP_METRIC_GAPS` 移除 4 项时间指标；Token/cost 仍列缺口
+- [x] harness Pack 装配接 `governanceStore` 审计
+
+**P9d 退出条件**：
+
+- [x] harness 角色可独立开关（`HARNESS_ROLES` allowlist / `HARNESS_ROLE_*`）
+- [x] L1 CreateRun→running（含双投递、补偿）在 PG 上全绿
+- [x] engineering README / 02 / 04 与 EDR-007 Accepted 一致
+
+**P9 非目标（整阶段）**：拆 API+Worker；真实 Queue/AuthN；ConfirmationGrant；阶段 B–G；用 Eval 重跑洗绿安全用例。
+
+**阶段 A 退出说明**：即使 P9 完成，Token/cost 20% 回归带仍可能缺 usage + 价表（`MVP_METRIC_GAPS`）；不自动宣称 design 08 阶段 A 已关闭。
+
 ## 阶段与测试层映射
 
 | 阶段 | 最低测试层 |
@@ -154,5 +234,9 @@ P8d  文档 / STATUS 同步；可选 PG 上 Golden 6×5 回归
 | P6 | L1 + L2 故障注入 |
 | P7 | L3 Eval 接线 |
 | P8 | L2 真实单库 + HTTP 集成 |
+| P9a | L0 Registry + L1 路径防逃逸 + Golden 6×5 |
+| P9b | L3 Eval 完整控制面矩阵 |
+| P9b-sec | L3 安全 8×1 零容忍 |
+| P9d | L0 角色解析 + L1-on-PG CreateRun 循环 |
 
 详见 [engineering/05](../engineering/05-testing-and-evolution.md)。

@@ -249,7 +249,7 @@ Worker 取得新租约后：
 - [ ] 无 Policy→Tool→Reducer 直连写库路径
 - [ ] CreateRun / Tool / Approval 流与设计 02/03 一致
 - [ ] 拆分接缝不依赖第二套状态机
-- [ ] HTTP 框架未在本文 Accepted（属 EDR-007 Deferred）
+- [x] HTTP 框架 Accepted：Hono（EDR-007）；api 无 Persistence 写权
 
 ---
 

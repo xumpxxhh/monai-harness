@@ -6,10 +6,10 @@
 | --- | --- |
 | 计划路径 | `packages/adapters/persistence-*/` |
 | 实现端口 | PersistencePort、OutboxPort（同 UoW）、Idempotency（可并入） |
-| 状态 | `done`（P8a：memory + postgres L2 §2.3；L1-on-PG 仍可选） |
+| 状态 | `done`（P8a：memory + postgres L2 §2.3；P9d L1-on-PG） |
 | 首触阶段 | P1；**P8a** persistence-postgres |
 | 上游 | [engineering/03](../../engineering/03-persistence-and-transactions.md)、EDR-003/005/006/009 |
-| 最后更新 | 2026-08-27（P8d：P8 收尾） |
+| 最后更新 | 2026-08-28（P9d：L1-on-PG） |
 
 ## 1. 范围
 
@@ -52,7 +52,7 @@
   - [x] Idempotency 同键异摘要 → `conflict`
   - [x] 恢复：无/有 Checkpoint replay 后 State hash 一致
   - [x] prepared-before-dispatch
-- [ ] 现有 L1 用例在 PG 上全绿（可选；不挡 P8b）
+- [x] 现有 L1 用例在 PG 上全绿（可选；不挡 P8b）
 
 **P8a**：schema → UoW → L2 §2.3 全场景 — **已完成**（12 测）。
 
@@ -62,13 +62,13 @@ contracts/ports；`@monai/persistence-memory`（参考）；`@monai/persistence-
 
 ## 5. 缺口与风险
 
-- L1 全套尚未在 PG 上重跑（可选）
 - L2 依赖本机固定 Compose PG：`pnpm db:up`（`docker-compose.yml` → `monai-harness-postgres`）
 
 ## 6. 最近变更
 
 | 日期 | 说明 |
 | --- | --- |
+| 2026-08-28 | P9d：L1 CreateRun→running 循环在 PG 上全绿（双投递 + 补偿）；L2 recovery 补传 `manifestStore` |
 | 2026-08-27 | P8d：标记 persistence P8 范围 `done`（L1-on-PG 仍可选） |
 | 2026-08-27 | P8a 收尾：L2 recovery State hash + prepared-before-dispatch（12/12） |
 | 2026-08-27 | P8a：`persistence-postgres` + Docker L2（8 测绿）；去掉 embedded-postgres |

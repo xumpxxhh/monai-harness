@@ -7,6 +7,7 @@ import {
 import type { HarnessCommand, PersistencePort } from "@monai/ports";
 
 import { applyCommit } from "../commit/apply-commit.js";
+import { assertCommandTenant } from "./tenant-guard.js";
 import type { HandleResult } from "./types.js";
 
 export type ApprovalDecisionPayload = {
@@ -78,6 +79,8 @@ export async function handleApprovalDecision(
   if (!run) {
     return { ok: false, code: "fatal", message: "run not found" };
   }
+  const tenantFailure = assertCommandTenant(run, command);
+  if (tenantFailure) return tenantFailure;
   if (run.status !== "awaiting_approval") {
     return {
       ok: false,

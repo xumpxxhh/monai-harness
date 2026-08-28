@@ -8,11 +8,12 @@ import {
   type RunState,
   type ToolCallRecord,
 } from "@monai/contracts";
-import type { LeasePort, PersistencePort } from "@monai/ports";
+import type { ExecutionManifestStorePort, LeasePort, PersistencePort } from "@monai/ports";
 
 import { applyCommit } from "../commit/apply-commit.js";
 import { computeStateHash } from "./state-hash.js";
 import { replayEvents } from "./replay-events.js";
+import { resolveRunExecutionPolicy } from "../manifest/resolve-manifest.js";
 
 export type ToolInventory = {
   prepared: ToolCallRecord[];
@@ -46,6 +47,7 @@ export type StateSnapshotPort = {
 export type RecoveryServiceDeps = {
   persistence: PersistencePort & Partial<StateSnapshotPort>;
   lease?: LeasePort;
+  manifestStore?: ExecutionManifestStorePort;
 };
 
 function eventTailSequence(events: EventEnvelope[]): number {
@@ -77,9 +79,18 @@ function buildToolInventory(toolCalls: ToolCallRecord[]): ToolInventory {
   };
 }
 
-function verifyManifest(run: Run): RecoveryFailure | undefined {
+async function verifyManifest(
+  run: Run,
+  manifestStore?: ExecutionManifestStorePort,
+): Promise<RecoveryFailure | undefined> {
   if (!run.executionManifestRef || run.executionManifestRef.length === 0) {
     return { ok: false, code: "fatal", message: "execution manifest ref missing" };
+  }
+  if (run.executionManifestHash) {
+    const policy = await resolveRunExecutionPolicy(manifestStore, run, {});
+    if ("ok" in policy && policy.ok === false) {
+      return policy;
+    }
   }
   return undefined;
 }
@@ -90,10 +101,12 @@ function verifyManifest(run: Run): RecoveryFailure | undefined {
 export class RecoveryService {
   private readonly persistence: PersistencePort & Partial<StateSnapshotPort>;
   private readonly lease: LeasePort | undefined;
+  private readonly manifestStore: ExecutionManifestStorePort | undefined;
 
   constructor(deps: RecoveryServiceDeps) {
     this.persistence = deps.persistence;
     this.lease = deps.lease;
+    this.manifestStore = deps.manifestStore;
   }
 
   async recover(runId: string): Promise<RecoveryResult> {
@@ -102,7 +115,7 @@ export class RecoveryService {
       return { ok: false, code: "fatal", message: "run not found" };
     }
 
-    const manifestErr = verifyManifest(run);
+    const manifestErr = await verifyManifest(run, this.manifestStore);
     if (manifestErr) return manifestErr;
 
     const events = await this.persistence.listEvents(runId);

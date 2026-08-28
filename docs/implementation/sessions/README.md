@@ -28,3 +28,5 @@
 | 0013 | [0013-p8b-harness-bootstrap.md](./0013-p8b-harness-bootstrap.md) | 2026-08-27 | P8b：harness bootstrap + PG demo |
 | 0014 | [0014-p8c-http-sse.md](./0014-p8c-http-sse.md) | 2026-08-27 | P8c：Hono REST/SSE + EDR-007 |
 | 0015 | [0015-p8d-wrapup.md](./0015-p8d-wrapup.md) | 2026-08-27 | P8d：收尾回归；P8 done |
+| 0016 | [0016-p9-stage-a-plan.md](./0016-p9-stage-a-plan.md) | 2026-08-28 | P9 阶段 A 收口计划归档（修订版） |
+| 0017 | [0017-p9d-ops.md](./0017-p9d-ops.md) | 2026-08-28 | P9d：角色开关、L1-on-PG、EDR-007 文档 |

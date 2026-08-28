@@ -37,6 +37,8 @@ export const runSchema = strictObject({
   agentDefinitionId: z.string().min(1),
   agentVersion: z.string().min(1),
   executionManifestRef: z.string().min(1),
+  /** Content hash of frozen Execution Manifest at CreateRun (P9a2). */
+  executionManifestHash: z.string().min(1).optional(),
   packVersions: z.array(packVersionRefSchema),
   goal: z.string(),
   inputRef: z.string().optional(),

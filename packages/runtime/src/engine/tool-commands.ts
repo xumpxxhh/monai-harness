@@ -11,6 +11,7 @@ import type { HarnessCommand, PersistencePort } from "@monai/ports";
 
 import { applyCommit } from "../commit/apply-commit.js";
 import { reduce, validateObservationToFact } from "../state/reducer.js";
+import { assertCommandTenant } from "./tenant-guard.js";
 import type { HandleResult } from "./types.js";
 
 function eventBase(
@@ -83,6 +84,8 @@ export async function handleToolDispatchAccepted(
   if (!run || !toolCall) {
     return { ok: false, code: "fatal", message: "run or toolCall not found" };
   }
+  const tenantFailure = assertCommandTenant(run, command);
+  if (tenantFailure) return tenantFailure;
   if (toolCall.status === "dispatched" || toolCall.status === "succeeded" || toolCall.status === "failed") {
     return {
       ok: true,
@@ -170,6 +173,8 @@ export async function handleToolDispatchTerminal(
   if (!run || !toolCall) {
     return { ok: false, code: "fatal", message: "run or toolCall not found" };
   }
+  const tenantFailure = assertCommandTenant(run, command);
+  if (tenantFailure) return tenantFailure;
 
   if (
     toolCall.status === "succeeded" ||
@@ -414,6 +419,8 @@ export async function handleReconcileTool(
   if (!run || !toolCall) {
     return { ok: false, code: "fatal", message: "run or toolCall not found" };
   }
+  const tenantFailure = assertCommandTenant(run, command);
+  if (tenantFailure) return tenantFailure;
   if (toolCall.status !== "outcome_unknown") {
     if (toolCall.status === "succeeded" || toolCall.status === "failed") {
       return {

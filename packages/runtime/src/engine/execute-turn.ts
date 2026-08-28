@@ -29,13 +29,15 @@ import {
   evaluateAcceptanceChecks,
   requiredAcceptanceChecksPassed,
 } from "../control/acceptance-checks.js";
-import { lookupToolContract, requiresIdempotencyKey } from "../execution/tool-catalog.js";
+import { lookupToolContract, requiresIdempotencyKey } from "../execution/lookup-tool-contract.js";
+import type { ExtensionRegistry } from "../extension/extension-registry.js";
 import {
   buildApprovalWaitArtifacts,
   buildInputWaitArtifacts,
   resumeAfterInput,
   resumeApprovedToolCall,
 } from "./wait-and-resume.js";
+import { assertCommandTenant } from "./tenant-guard.js";
 import type { HandleResult } from "./types.js";
 
 function eventBase(
@@ -86,6 +88,7 @@ export type ExecuteTurnDeps = {
   toolAllowlist?: readonly string[];
   requireApprovalTools?: readonly string[];
   acceptanceChecks?: readonly AcceptanceCheck[];
+  registry?: ExtensionRegistry;
 };
 
 /**
@@ -113,6 +116,8 @@ export async function handleExecuteTurn(
   if (!run) {
     return { ok: false, code: "fatal", message: "run not found" };
   }
+  const tenantFailure = assertCommandTenant(run, command);
+  if (tenantFailure) return tenantFailure;
 
   if (run.status !== "running") {
     return {
@@ -867,7 +872,7 @@ async function commitTurn(
           }),
         );
       } else {
-        const contract = lookupToolContract(toolId);
+        const contract = lookupToolContract(toolId, deps.registry);
         if (!contract) {
           events.push(
             eventBase(run, {

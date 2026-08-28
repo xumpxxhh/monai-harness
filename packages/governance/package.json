@@ -1,0 +1,31 @@
+{
+  "name": "@monai/governance",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check-types": "tsc --noEmit -p tsconfig.build.json",
+    "lint": "echo \"lint: deferred\"",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@monai/contracts": "workspace:*",
+    "@monai/ports": "workspace:*",
+    "@monai/runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "@monai/pack-sdk": "workspace:*",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

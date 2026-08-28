@@ -5,10 +5,10 @@
 | 项 | 值 |
 | --- | --- |
 | 计划路径 | `packages/observability/` |
-| 状态 | `in_progress`（P7：EventStream + MVP 指标 + Golden 6×5） |
+| 状态 | `done`（P7–P9c） |
 | 首触阶段 | P7 |
 | 上游 | [design/07](../../design/07-observability-and-evaluation.md)、[engineering/05](../../engineering/05-testing-and-evolution.md)、EDR-013/015 |
-| 最后更新 | 2026-08-27 |
+| 最后更新 | 2026-08-28 |
 
 ## 1. 范围
 
@@ -30,7 +30,9 @@
 - [x] 只读 Event / 领域投影
 - [x] 投影失败可重试且不影响生产提交（纯函数 / 独立进程）
 - [x] MVP 核心指标可重算；缺口见 `MVP_METRIC_GAPS`
-- [x] Golden/审批/幂等 Eval 接线（Golden 6×5=30 @ 90%；审批/幂等仍为子集）
+- [x] Golden/审批/幂等/恢复 Eval 接线
+- [x] 安全 8×1 Eval（P9b-sec）
+- [x] Event 可重算时间指标（P9c：`computeRunTiming`）
 - [x] 无 runtime commit 依赖
 
 ## 4. 依赖
@@ -41,14 +43,15 @@
 
 ## 5. 缺口与风险
 
-- design 07 全量指标（queue/active/awaiting/total 时间、Token/cost 等）未实现
-- 安全 8 / 恢复 8×5 / 审批 6 / 幂等 6×5 未接线
-- HTTP/SSE EventStream（EDR-007 Deferred）
+- Token/cost、Context overflow 等仍见 `MVP_METRIC_GAPS`（P9c 已收口 4 项时间指标）
+- 无独立 observability 消费循环（SSE 在 api；Eval 在 harness 启动）
 
 ## 6. 最近变更
 
 | 日期 | 说明 |
 | --- | --- |
+| 2026-08-28 | P9c：`computeRunTiming`；`MVP_METRIC_GAPS` 收口时间指标 |
+| 2026-08-28 | P9b-sec：安全 8×1 Eval；`FULL_MVP_EVAL_SUITES` 114 用例 |
 | 2026-08-27 | Golden 6×5 主路径；EvalContext 接入 workspace；finish 跑 required checks |
 | 2026-08-27 | P7：observability 包、PersistenceEventStream、computeRunMetrics、EvalHarness |
 | 2026-08-27 | 创建进展页 |

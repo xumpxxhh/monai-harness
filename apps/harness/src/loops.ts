@@ -17,7 +17,7 @@ export class DeliveryLoops {
     this.turnDriver = turnDriver;
   }
 
-  /** One full tick of all delivery roles (usable in demo without keep-alive). */
+  /** One full tick of enabled delivery roles (usable in demo without keep-alive). */
   async tickOnce(): Promise<{
     compensation: number;
     outbox: number;
@@ -25,11 +25,12 @@ export class DeliveryLoops {
     tools: number;
     turns: number;
   }> {
-    const compensation = await this.runtime.compensation.tick();
-    const outbox = await this.runtime.dispatcher.tick();
-    const scheduler = await this.runtime.scheduler.tick();
-    const turns = this.turnDriver ? await this.turnDriver.tickAuto() : 0;
-    const tools = await this.runtime.toolDispatcher.tick();
+    const roles = this.runtime.config.roles;
+    const compensation = roles.scheduler ? await this.runtime.compensation.tick() : 0;
+    const outbox = roles.dispatcher ? await this.runtime.dispatcher.tick() : 0;
+    const scheduler = roles.scheduler ? await this.runtime.scheduler.tick() : 0;
+    const turns = roles.worker && this.turnDriver ? await this.turnDriver.tickAuto() : 0;
+    const tools = roles.dispatcher ? await this.runtime.toolDispatcher.tick() : 0;
     return { compensation, outbox, scheduler, tools, turns };
   }
 

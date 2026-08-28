@@ -4,6 +4,19 @@ import { fileURLToPath } from "node:url";
 
 export type PersistenceDriver = "memory" | "postgres";
 
+export const HARNESS_ROLE_IDS = [
+  "api",
+  "dispatcher",
+  "scheduler",
+  "worker",
+  "observability",
+  "governance",
+] as const;
+
+export type HarnessRole = (typeof HARNESS_ROLE_IDS)[number];
+
+export type HarnessRoles = Record<HarnessRole, boolean>;
+
 export type FeatureFlags = {
   enableDag: boolean;
   enableSpawnChild: boolean;
@@ -24,6 +37,8 @@ export type HarnessConfig = {
   corsOrigins: string[];
   /** serve: auto execute_turn after lease (app TurnDriver). */
   autoExecuteTurn: boolean;
+  /** In-process role switches (P9d). Default: all on. */
+  roles: HarnessRoles;
 };
 
 /** `apps/harness` package root (works from `src/` and compiled `dist/`). */
@@ -37,6 +52,63 @@ function parseBool(raw: string | undefined, fallback: boolean): boolean {
   if (["1", "true", "yes", "on"].includes(v)) return true;
   if (["0", "false", "no", "off"].includes(v)) return false;
   return fallback;
+}
+
+export function allHarnessRolesEnabled(): HarnessRoles {
+  return {
+    api: true,
+    dispatcher: true,
+    scheduler: true,
+    worker: true,
+    observability: true,
+    governance: true,
+  };
+}
+
+/**
+ * Parse in-process role switches.
+ * `HARNESS_ROLES=api,worker` is an allowlist; otherwise `HARNESS_ROLE_*` (default true).
+ */
+export function parseHarnessRoles(env: NodeJS.Dict<string>): HarnessRoles {
+  const listRaw = env.HARNESS_ROLES?.trim();
+  if (listRaw) {
+    const wanted = new Set(
+      listRaw
+        .split(",")
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean),
+    );
+    const known = new Set<string>(HARNESS_ROLE_IDS);
+    const unknown = [...wanted].filter((role) => !known.has(role));
+    if (unknown.length > 0) {
+      console.warn(`[harness] unknown roles in HARNESS_ROLES: ${unknown.join(", ")}`);
+    }
+    return {
+      api: wanted.has("api"),
+      dispatcher: wanted.has("dispatcher"),
+      scheduler: wanted.has("scheduler"),
+      worker: wanted.has("worker"),
+      observability: wanted.has("observability"),
+      governance: wanted.has("governance"),
+    };
+  }
+
+  return {
+    api: parseBool(env.HARNESS_ROLE_API, true),
+    dispatcher: parseBool(env.HARNESS_ROLE_DISPATCHER, true),
+    scheduler: parseBool(env.HARNESS_ROLE_SCHEDULER, true),
+    worker: parseBool(env.HARNESS_ROLE_WORKER, true),
+    observability: parseBool(env.HARNESS_ROLE_OBSERVABILITY, true),
+    governance: parseBool(env.HARNESS_ROLE_GOVERNANCE, true),
+  };
+}
+
+export function formatHarnessRoles(roles: HarnessRoles): string {
+  return HARNESS_ROLE_IDS.map((id) => `${id}=${roles[id]}`).join(" ");
+}
+
+export function hasDeliveryRole(roles: HarnessRoles): boolean {
+  return roles.dispatcher || roles.scheduler || roles.worker;
 }
 
 /** Load `apps/harness/.env` via dotenv; does not override existing process.env. */
@@ -69,6 +141,7 @@ export function loadConfig(): HarnessConfig {
   const corsOrigins = parseCorsOrigins(process.env.CORS_ORIGIN);
   const autoExecuteTurn =
     mode === "serve" && parseBool(process.env.HARNESS_AUTO_EXECUTE_TURN, true);
+  const roles = parseHarnessRoles(process.env);
 
   return {
     persistenceDriver,
@@ -82,6 +155,7 @@ export function loadConfig(): HarnessConfig {
     featureFlags,
     corsOrigins,
     autoExecuteTurn,
+    roles,
   };
 }
 

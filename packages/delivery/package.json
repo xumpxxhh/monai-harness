@@ -20,8 +20,12 @@
   },
   "dependencies": {
     "@monai/contracts": "workspace:*",
+    "@monai/governance": "workspace:*",
+    "@monai/pack-sdk": "workspace:*",
+    "@monai/pack-workspace-generic": "workspace:*",
     "@monai/ports": "workspace:*",
-    "@monai/runtime": "workspace:*"
+    "@monai/runtime": "workspace:*",
+    "@monai/synthetic-sink": "workspace:*"
   },
   "devDependencies": {
     "@monai/lease-memory": "workspace:*",

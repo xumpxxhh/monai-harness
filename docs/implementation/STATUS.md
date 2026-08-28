@@ -1,7 +1,7 @@
 # 实现状态看板
 
 > 与各 [packages/](./packages/) / [adapters/](./adapters/) 进展页同步。不一致时以包页为准。  
-> 最后同步：2026-08-27（**P8 done**；P8d 收尾回归）
+> 最后同步：2026-08-28（**P9 done**；阶段 A 仍受 Token/cost 约束）
 
 ## 1. 阶段
 
@@ -16,6 +16,7 @@
 | [P6](./PHASES.md#p6--恢复) | `done` | RecoveryService + L1 replay/lease |
 | [P7](./PHASES.md#p7--观测与评测门禁) | `done` | EventStream + MVP 指标 + Eval 子集 |
 | [P8](./PHASES.md#p8--http--postgresql) | `done` | PG L2 + harness bootstrap + Hono HTTP/SSE |
+| [P9](./PHASES.md#p9--阶段-a-收口) | `done` | P9a–P9d 完成；阶段 A 不因 Token/cost 缺口自动关闭 |
 
 ## 2. 包状态
 
@@ -28,20 +29,20 @@
 | delivery | `in_progress` | [delivery.md](./packages/delivery.md) |
 | api | `done`（P8c） | [api.md](./packages/api.md) |
 | pack-sdk | `in_progress` | [pack-sdk.md](./packages/pack-sdk.md) |
-| packs/workspace-generic | `not_started` | [workspace-generic.md](./packages/workspace-generic.md) |
-| governance | `not_started` | [governance.md](./packages/governance.md) |
+| packs/workspace-generic | `done`（P9a） | [workspace-generic.md](./packages/workspace-generic.md) |
+| governance | `done`（P9c） | [governance.md](./packages/governance.md) |
 | observability | `in_progress` | [observability.md](./packages/observability.md) |
-| apps/harness | `done`（P8b/P8c） | [apps-harness.md](./packages/apps-harness.md) |
+| apps/harness | `done`（P8b/P8c；P9a Pack；P9d 角色开关） | [apps-harness.md](./packages/apps-harness.md) |
 
 ## 3. Adapter 状态
 
 | 单元 | 状态 | 进展页 |
 | --- | --- | --- |
-| persistence | `done`（P8a；L1-on-PG 可选） | [persistence.md](./adapters/persistence.md) |
+| persistence | `done`（P8a L2 + P9d L1-on-PG） | [persistence.md](./adapters/persistence.md) |
 | queue | `in_progress`（memory） | [queue.md](./adapters/queue.md) |
 | lease | `in_progress`（memory） | [lease.md](./adapters/lease.md) |
 | model | `in_progress`（stub） | [model.md](./adapters/model.md) |
-| workspace | `in_progress`（memory） | [workspace.md](./adapters/workspace.md) |
+| workspace | `done`（memory；P9a 路径防逃逸） | [workspace.md](./adapters/workspace.md) |
 | objectstore | `not_started` | [objectstore.md](./adapters/objectstore.md) |
 | knowledge | `not_started` | [knowledge.md](./adapters/knowledge.md) |
 | secret | `not_started` | [secret.md](./adapters/secret.md) |
@@ -52,9 +53,11 @@
 
 | 项 | 级别 | 说明 |
 | --- | --- | --- |
-| Eval 完整矩阵 | 信息 | 安全/恢复/审批·幂等完整套件仍可选扩展 |
-| ConfirmationGrant | 信息 | P5 未做 confirm_once；Policy require_approval 主路径已通 |
-| EDR-010 | 低 | Deferred；后 MVP |
+| P9 切片 | 信息 | P9 代码收口完成；Token/cost 基线仍可能缺 |
+| Eval 完整矩阵 | 信息 | 114/114 绿（106 控制面 + 8 安全） |
+| 阶段 A 成本门禁 | 信息 | Token/cost 基线可能仍缺；见 `MVP_METRIC_GAPS` |
+| ConfirmationGrant | 信息 | P5 未做 confirm_once |
+| EDR-010 | 低 | Deferred |
 
 ## 5. 决策关闭记录
 
@@ -72,13 +75,16 @@
 
 | 层 | 状态 | 备注 |
 | --- | --- | --- |
-| L0 纯函数 | `in_progress` | Event 排序；Policy；Reducer |
-| L1 InMemory | `in_progress` | CreateRun→running；execute_turn；tool chain；approval；recovery replay |
+| L0 纯函数 | `done`（P9a） | ExtensionRegistry 校验 3/3 |
+| L1 InMemory | `done`（P9a） | workspace 路径防逃逸 3/3 |
+| L1-on-PG | `done`（P9d） | CreateRun→running 循环 3/3（双投递 + 补偿） |
 | L2 真实单库 | `done`（P8a） | Docker `postgres:16`；§2.3 全场景 12/12 |
-| L3 Eval / Golden | `in_progress` | Golden 6×5=30（memory）；完整矩阵 / PG Golden 可选 |
+| L3 Eval / Golden | `done`（P9b-sec） | Golden 30 + 控制面 76 + 安全 8 = 114 绿 |
+| L0 governance | `done`（P9c） | GovernanceEvent store + Pack 注册 3/3 |
 
 ## 7. 快捷链接
 
 - 交接：[HANDOFF.md](./HANDOFF.md)
-- 阶段：[PHASES.md](./PHASES.md)（P0–P8 均 `done`）
+- 阶段：[PHASES.md](./PHASES.md)（P9 done）
+- P9 计划：[sessions/0016-p9-stage-a-plan.md](./sessions/0016-p9-stage-a-plan.md)
 - 工程 EDR：[../engineering/00-implementation-baseline.md](../engineering/00-implementation-baseline.md)

@@ -5,6 +5,7 @@ import {
   ToolDispatcher,
   type CompensationStore,
 } from "@monai/delivery";
+import { InMemoryGovernanceEventStore } from "@monai/governance";
 import { InMemoryLease } from "@monai/lease-memory";
 import { StubModelPort } from "@monai/model-stub";
 import { InMemoryPersistence } from "@monai/persistence-memory";
@@ -12,10 +13,11 @@ import {
   createPostgresPersistence,
   type PostgresPersistence,
 } from "@monai/persistence-postgres";
+import { wireWorkspaceGenericPack } from "@monai/delivery";
 import type { IdempotencyPort, LeasePort, OutboxPort, PersistencePort, QueuePort } from "@monai/ports";
 import { InMemoryQueue } from "@monai/queue-memory";
-import { Engine, HookRunner, ToolInvoker } from "@monai/runtime";
-import { IsolatedSyntheticSink } from "@monai/synthetic-sink";
+import { Engine, InMemoryManifestStore } from "@monai/runtime";
+import { InMemoryWorkspace } from "@monai/workspace-memory";
 
 import type { HarnessConfig } from "./config.js";
 
@@ -49,22 +51,33 @@ async function buildPersistence(config: HarnessConfig): Promise<PersistenceBundl
 }
 
 /**
- * Bootstrap DI: config → adapters → Engine → delivery (EDR-002/014).
- * HTTP is started by apps/harness via createHttpApp (EDR-007 Hono).
+ * Bootstrap DI: config → adapters → Pack → Engine → delivery (EDR-002/014).
  */
 export async function bootstrap(config: HarnessConfig): Promise<HarnessRuntime> {
   const ownerId = "harness-worker";
   const persistence = await buildPersistence(config);
   const lease: LeasePort = new InMemoryLease();
   const queue: QueuePort = new InMemoryQueue();
-  const sink = new IsolatedSyntheticSink();
-  const invoker = new ToolInvoker({ synthetic: sink });
+  const workspace = new InMemoryWorkspace({
+    "/readme.md": "hello workspace",
+    "/notes/search-me.md": "retrievable workspace notes",
+  });
+
+  const governanceStore = config.roles.governance
+    ? new InMemoryGovernanceEventStore()
+    : undefined;
+  const pack = wireWorkspaceGenericPack({ workspace, tenantId: "t1", governanceStore });
+  const manifestStore = new InMemoryManifestStore();
 
   const engine = new Engine({
     persistence,
     lease,
     model: new StubModelPort(),
-    hooks: new HookRunner(),
+    hooks: pack.hookRunner,
+    registry: pack.registry,
+    manifestStore,
+    toolAllowlist: pack.toolAllowlist,
+    requireApprovalTools: pack.requireApprovalTools,
   });
 
   const dispatcher = new OutboxDispatcher({ outbox: persistence, queue });
@@ -78,7 +91,7 @@ export async function bootstrap(config: HarnessConfig): Promise<HarnessRuntime> 
     outbox: persistence,
     persistence,
     engine,
-    invoker,
+    invoker: pack.invoker,
     ownerId: `${ownerId}-tools`,
   });
 

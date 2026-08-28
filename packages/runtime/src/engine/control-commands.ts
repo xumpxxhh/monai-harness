@@ -8,6 +8,7 @@ import {
 import type { HarnessCommand, LeasePort, PersistencePort } from "@monai/ports";
 
 import { applyCommit } from "../commit/apply-commit.js";
+import { assertCommandTenant } from "./tenant-guard.js";
 import type { HandleResult } from "./types.js";
 
 function queueDedupeKey(runId: string, postCreateRevision: number): string {
@@ -93,6 +94,8 @@ export async function handlePauseRun(
 
   const run = await persistence.getRun(req.runId);
   if (!run) return { ok: false, code: "fatal", message: "run not found" };
+  const tenantFailure = assertCommandTenant(run, command);
+  if (tenantFailure) return tenantFailure;
   if (run.status === "paused") {
     return { ok: true, run, revision: run.revision, leaseEpoch: run.leaseEpoch, idempotent: true };
   }
@@ -141,6 +144,8 @@ export async function handleResumeRun(
 
   const run = await persistence.getRun(req.runId);
   if (!run) return { ok: false, code: "fatal", message: "run not found" };
+  const tenantFailure = assertCommandTenant(run, command);
+  if (tenantFailure) return tenantFailure;
   if (run.status === "queued" || run.status === "running") {
     return { ok: true, run, revision: run.revision, leaseEpoch: run.leaseEpoch, idempotent: true };
   }
@@ -218,6 +223,8 @@ export async function handleCancelRun(
 
   const run = await persistence.getRun(req.runId);
   if (!run) return { ok: false, code: "fatal", message: "run not found" };
+  const tenantFailure = assertCommandTenant(run, command);
+  if (tenantFailure) return tenantFailure;
   if (run.status === "cancelled") {
     return { ok: true, run, revision: run.revision, leaseEpoch: run.leaseEpoch, idempotent: true };
   }

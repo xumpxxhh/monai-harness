@@ -5,9 +5,11 @@ import { InMemoryLease } from "@monai/lease-memory";
 import { StubModelPort } from "@monai/model-stub";
 import { InMemoryPersistence } from "@monai/persistence-memory";
 import { InMemoryQueue } from "@monai/queue-memory";
-import { IsolatedSyntheticSink } from "@monai/synthetic-sink";
+import { wireWorkspaceGenericPack, type WireWorkspaceGenericResult } from "@monai/delivery";
 import { InMemoryWorkspace } from "@monai/workspace-memory";
-import { Engine, HookRunner, ToolInvoker } from "@monai/runtime";
+import { Engine, InMemoryManifestStore } from "@monai/runtime";
+import type { ApprovalRecord, Continuation } from "@monai/contracts";
+import type { ModelPort } from "@monai/ports";
 import { CompensationScanner, OutboxDispatcher, Scheduler, ToolDispatcher } from "@monai/delivery";
 import { computeRunMetrics } from "../metrics/compute-metrics.js";
 
@@ -22,6 +24,8 @@ export type CreateEvalContextOptions = {
   requireApprovalTools?: readonly string[];
   acceptanceChecks?: readonly AcceptanceCheck[];
   workspaceFiles?: Record<string, string>;
+  leaseTtlMs?: number;
+  model?: ModelPort;
 };
 
 export type EvalCaseDefinition = {
@@ -51,6 +55,8 @@ export type EvalContext = {
   compensation: CompensationScanner;
   tools: ToolDispatcher;
   workspace: InMemoryWorkspace;
+  pack: WireWorkspaceGenericResult;
+  manifestStore: InMemoryManifestStore;
   /** Lease owner used by Scheduler.acquire_lease (default scheduler). */
   leaseOwnerId: string;
 };
@@ -66,7 +72,7 @@ export type EvalSuiteResult = {
   cases: EvalCaseResult[];
 };
 
-function cmd(
+export function cmd(
   partial: Partial<HarnessCommand> & Pick<HarnessCommand, "commandType" | "commandId">,
 ): HarnessCommand {
   return {
@@ -118,13 +124,19 @@ export function createEvalContext(options?: CreateEvalContextOptions): EvalConte
   const lease = new InMemoryLease();
   const queue = new InMemoryQueue();
   const workspace = new InMemoryWorkspace(options?.workspaceFiles ?? DEFAULT_WORKSPACE_FILES);
+  const pack = wireWorkspaceGenericPack({ workspace, tenantId: "t1" });
+  const manifestStore = new InMemoryManifestStore();
   const engine = new Engine({
     persistence,
     lease,
-    model: new StubModelPort(),
-    hooks: new HookRunner(),
-    requireApprovalTools: options?.requireApprovalTools,
+    model: options?.model ?? new StubModelPort(),
+    hooks: pack.hookRunner,
+    registry: pack.registry,
+    manifestStore,
+    toolAllowlist: pack.toolAllowlist,
+    requireApprovalTools: options?.requireApprovalTools ?? pack.requireApprovalTools,
     acceptanceChecks: options?.acceptanceChecks,
+    leaseTtlMs: options?.leaseTtlMs,
   });
   const dispatcher = new OutboxDispatcher({ outbox: persistence, queue });
   const scheduler = new Scheduler({ queue, engine });
@@ -137,7 +149,7 @@ export function createEvalContext(options?: CreateEvalContextOptions): EvalConte
     outbox: persistence,
     persistence,
     engine,
-    invoker: new ToolInvoker({ workspace, synthetic: new IsolatedSyntheticSink() }),
+    invoker: pack.invoker,
   });
   return {
     persistence,
@@ -149,8 +161,64 @@ export function createEvalContext(options?: CreateEvalContextOptions): EvalConte
     compensation,
     tools,
     workspace,
+    pack,
+    manifestStore,
     leaseOwnerId: "scheduler",
   };
+}
+
+export async function acquireLease(ctx: EvalContext, runId: string, ownerId = ctx.leaseOwnerId) {
+  const run = await ctx.persistence.getRun(runId);
+  if (!run) throw new Error("run missing");
+  const result = await ctx.engine.handle(
+    cmd({
+      commandType: "acquire_lease",
+      commandId: `lease-${runId}-${run.revision}`,
+      runId,
+      expectedRevision: run.revision,
+      actor: { principalId: ownerId },
+    }),
+  );
+  if (!result.ok) throw new Error(result.message ?? "acquire_lease failed");
+  return result;
+}
+
+export async function patchApprovalForEval(
+  ctx: EvalContext,
+  approvalId: string,
+  patch: Partial<Pick<ApprovalRecord, "expiresAt" | "status">>,
+) {
+  const approval = await ctx.persistence.getApproval(approvalId);
+  if (!approval) throw new Error("approval missing");
+  const run = await ctx.persistence.getRun(approval.runId);
+  if (!run) throw new Error("run missing");
+  const uow = await ctx.persistence.beginUnitOfWork(approval.runId);
+  const result = await uow.commit({
+    expectedRevision: run.revision,
+    expectedLeaseEpoch: run.leaseEpoch,
+    approvals: [{ ...approval, ...patch, revision: approval.revision + 1 }],
+    events: [],
+  });
+  if (!result.ok) throw new Error(result.message ?? "patch approval failed");
+}
+
+export async function patchContinuationForEval(
+  ctx: EvalContext,
+  runId: string,
+  patch: Partial<Continuation>,
+) {
+  const continuation = await ctx.persistence.getContinuation(runId);
+  if (!continuation) throw new Error("continuation missing");
+  const run = await ctx.persistence.getRun(runId);
+  if (!run) throw new Error("run missing");
+  const uow = await ctx.persistence.beginUnitOfWork(runId);
+  const result = await uow.commit({
+    expectedRevision: run.revision,
+    expectedLeaseEpoch: run.leaseEpoch,
+    continuation: { ...continuation, ...patch },
+    events: [],
+  });
+  if (!result.ok) throw new Error(result.message ?? "patch continuation failed");
 }
 
 export async function bootstrapRunning(
@@ -332,75 +400,6 @@ export const GOLDEN_EVAL_SUITE: EvalSuiteDefinition = {
   ],
 };
 
-export const MVP_EVAL_SUITES: EvalSuiteDefinition[] = [
-  GOLDEN_EVAL_SUITE,
-  {
-    suiteId: "approval-lifecycle-subset",
-    threshold: "design 08 approval: 100% deterministic (subset)",
-    minPassRate: 1,
-    cases: [
-      {
-        caseId: "approval-synthetic-high",
-        run: async (ctx) => {
-          const runId = "eval-approval";
-          await bootstrapRunning(ctx, runId, "synthetic high");
-          await executeTurn(ctx, runId);
-          const run = await ctx.persistence.getRun(runId);
-          if (run?.status !== "awaiting_approval") {
-            throw new Error(`expected awaiting_approval, got ${run?.status}`);
-          }
-          const approval = (await ctx.persistence.listApprovals(runId))[0];
-          if (!approval) throw new Error("approval missing");
-          const decide = await ctx.engine.handle(
-            cmd({
-              commandType: "approval_decision",
-              commandId: "approve-eval",
-              runId,
-              expectedRevision: run.revision,
-              payload: { approvalId: approval.approvalId, decision: "approved" },
-            }),
-          );
-          if (!decide.ok) throw new Error(decide.message ?? "approve failed");
-          if (decide.run.status !== "queued") {
-            throw new Error("approve must wake to queued only");
-          }
-        },
-      },
-    ],
-  },
-  {
-    suiteId: "idempotency-subset",
-    threshold: "design 08 idempotency: CreateRun dedupe 100% (subset)",
-    minPassRate: 1,
-    cases: [
-      {
-        caseId: "create-run-idempotent",
-        run: async (ctx) => {
-          const command = buildCreateRunCommand({
-            tenantId: "t1",
-            commandId: "idem-cmd-1",
-            runId: "eval-idem",
-            sessionId: "s1",
-            agentDefinitionId: "agent",
-            agentVersion: "1",
-            executionManifestRef: "manifest://m1",
-            packVersions: [],
-            goal: "goal",
-            strategy: { type: "light", version: "1" },
-          });
-          const first = await ctx.engine.handle(command);
-          const second = await ctx.engine.handle(command);
-          if (!first.ok || !second.ok) throw new Error("create_run failed");
-          if (!second.idempotent) throw new Error("expected idempotent second create");
-          if (first.run.runId !== second.run.runId) {
-            throw new Error("idempotent create must return same runId");
-          }
-        },
-      },
-    ],
-  },
-];
-
 export class EvalHarness {
   async runSuite(suite: EvalSuiteDefinition): Promise<EvalSuiteResult> {
     const cases: EvalCaseResult[] = [];
@@ -436,7 +435,7 @@ export class EvalHarness {
     };
   }
 
-  async runAll(suites: EvalSuiteDefinition[] = MVP_EVAL_SUITES): Promise<EvalSuiteResult[]> {
+  async runAll(suites: EvalSuiteDefinition[]): Promise<EvalSuiteResult[]> {
     const results: EvalSuiteResult[] = [];
     for (const suite of suites) {
       results.push(await this.runSuite(suite));

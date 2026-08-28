@@ -126,5 +126,37 @@ export {
   type AcceptanceSelectorType,
 } from "./acceptance.js";
 
+export {
+  agentBudgetsSchema,
+  agentDefinitionSchema,
+  agentModelPolicySchema,
+  executionManifestSchema,
+  packContributionKindSchema,
+  packContributionRecordSchema,
+  packContributionStatusSchema,
+  packHookDefinitionSchema,
+  packManifestSchema,
+  packRegistrationResultSchema,
+  packRegistrationStatusSchema,
+  packToolDefinitionSchema,
+  type AgentDefinition,
+  type ExecutionManifest,
+  type PackContributionRecord,
+  type PackHookDefinition,
+  type PackManifest,
+  type PackRegistrationResult,
+  type PackToolDefinition,
+} from "./manifest.js";
+
+export {
+  GOVERNANCE_EVENT_TYPES,
+  governanceEventCandidateSchema,
+  governanceEventEnvelopeSchema,
+  governanceEventTypeSchema,
+  type GovernanceEventCandidate,
+  type GovernanceEventEnvelope,
+  type GovernanceEventType,
+} from "./governance-event.js";
+
 /** Package identity (kept for P0 smoke imports). */
 export const PACKAGE_NAME = "@monai/contracts" as const;

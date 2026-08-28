@@ -4,10 +4,6 @@
  */
 export const MVP_METRIC_GAPS = [
   "non-terminal age (requires live Run snapshot at window end)",
-  "queue latency (requires paired run.queued → run.lease_acquired segments)",
-  "active execution time (requires lease-valid running intervals)",
-  "awaiting time (requires status interval reconstruction)",
-  "total wall time (requires terminal Event pairing per Run)",
   "tool redundancy rate (requires RedundancyDecision records)",
   "intervention rate (requires governance / operator audit projection)",
   "recovery success rate (requires injected fault metadata)",
@@ -19,3 +15,11 @@ export const MVP_METRIC_GAPS = [
 ] as const;
 
 export type MvpMetricGap = (typeof MVP_METRIC_GAPS)[number];
+
+/** Time metrics closed in P9c (Event-replay derivable). */
+export const MVP_TIMING_METRICS_IMPLEMENTED = [
+  "queue latency",
+  "active execution time",
+  "awaiting time",
+  "total wall time",
+] as const;

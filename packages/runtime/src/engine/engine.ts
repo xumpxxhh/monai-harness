@@ -10,13 +10,17 @@ import {
 import type {
   HarnessCommand,
   IdempotencyPort,
+  ExecutionManifestStorePort,
   LeasePort,
   ModelPort,
   PersistencePort,
 } from "@monai/ports";
 
 import { applyCommit } from "../commit/apply-commit.js";
+import type { ExtensionRegistry } from "../extension/extension-registry.js";
 import { HookRunner } from "../hooks/hook-runner.js";
+import { freezeExecutionManifest } from "../manifest/freeze-manifest.js";
+import { resolveRunExecutionPolicy } from "../manifest/resolve-manifest.js";
 import { RecoveryService } from "../recovery/recovery-service.js";
 import { handleApprovalDecision } from "./approval-commands.js";
 import {
@@ -30,6 +34,7 @@ import {
   handleReconcileTool,
   handleToolDispatchTerminal,
 } from "./tool-commands.js";
+import { assertCommandTenant } from "./tenant-guard.js";
 import type { HandleResult } from "./types.js";
 
 export type CreateRunPayload = {
@@ -43,6 +48,8 @@ export type CreateRunPayload = {
   strategy: { type: "light" | "dag"; version: string };
   budgets?: Record<string, unknown>;
   inputRef?: string;
+  /** Agent Definition acceptance checks copied into frozen manifest (P9a2). */
+  acceptanceChecks?: readonly AcceptanceCheck[];
 };
 
 export type EngineDeps = {
@@ -57,6 +64,10 @@ export type EngineDeps = {
   acceptanceChecks?: readonly AcceptanceCheck[];
   /** Default lease TTL when acquire_lease succeeds. */
   leaseTtlMs?: number;
+  /** Registered Pack contracts (P9a); falls back to TOOL_CATALOG when unset. */
+  registry?: ExtensionRegistry;
+  /** Immutable manifest store; CreateRun freezes manifest when set with registry (P9a2). */
+  manifestStore?: ExecutionManifestStorePort;
 };
 
 function eventBase(
@@ -85,6 +96,12 @@ function eventBase(
   };
 }
 
+function isManifestPolicyFailure(
+  value: Awaited<ReturnType<typeof resolveRunExecutionPolicy>>,
+): value is { ok: false; code: "fatal"; message: string } {
+  return "ok" in value && value.ok === false;
+}
+
 function queueDedupeKey(runId: string, postCreateRevision: number): string {
   return `queue_run:${runId}:${postCreateRevision}`;
 }
@@ -102,6 +119,8 @@ export class Engine {
   private readonly requireApprovalTools: readonly string[] | undefined;
   private readonly acceptanceChecks: readonly AcceptanceCheck[] | undefined;
   private readonly leaseTtlMs: number;
+  private readonly registry: ExtensionRegistry | undefined;
+  private readonly manifestStore: ExecutionManifestStorePort | undefined;
 
   constructor(deps: EngineDeps) {
     this.persistence = deps.persistence;
@@ -112,6 +131,8 @@ export class Engine {
     this.requireApprovalTools = deps.requireApprovalTools;
     this.acceptanceChecks = deps.acceptanceChecks;
     this.leaseTtlMs = deps.leaseTtlMs ?? 30_000;
+    this.registry = deps.registry;
+    this.manifestStore = deps.manifestStore;
   }
 
   async handle(command: HarnessCommand): Promise<HandleResult> {
@@ -155,15 +176,36 @@ export class Engine {
         message: "execute_turn requires EngineDeps.model",
       };
     }
+
+    const runId = command.runId;
+    if (!runId) {
+      return { ok: false, code: "validation", message: "execute_turn requires runId" };
+    }
+    const run = await this.persistence.getRun(runId);
+    if (!run) {
+      return { ok: false, code: "fatal", message: "run not found" };
+    }
+
+    const policy = await resolveRunExecutionPolicy(this.manifestStore, run, {
+      toolAllowlist: this.toolAllowlist,
+      requireApprovalTools: this.requireApprovalTools,
+      acceptanceChecks: this.acceptanceChecks,
+    });
+    if (isManifestPolicyFailure(policy)) {
+      return policy;
+    }
+    const resolved = policy;
+
     return handleExecuteTurn(
       {
         persistence: this.persistence,
         lease: this.lease,
         model: this.model,
         hooks: this.hooks,
-        toolAllowlist: this.toolAllowlist,
-        requireApprovalTools: this.requireApprovalTools,
-        acceptanceChecks: this.acceptanceChecks,
+        toolAllowlist: resolved.toolAllowlist,
+        requireApprovalTools: resolved.requireApprovalTools,
+        acceptanceChecks: resolved.acceptanceChecks,
+        registry: this.registry,
       },
       command,
     );
@@ -190,6 +232,28 @@ export class Engine {
       }
     }
 
+    let executionManifestHash: string | undefined;
+    if (this.manifestStore && this.registry) {
+      const effectiveAllowlist = this.toolAllowlist ?? this.registry.getToolAllowlist();
+      const frozen = await freezeExecutionManifest(this.manifestStore, {
+        executionManifestRef: payload.executionManifestRef,
+        tenantId: command.tenantId,
+        agentDefinitionId: payload.agentDefinitionId,
+        agentVersion: payload.agentVersion,
+        packVersions: payload.packVersions,
+        strategy: payload.strategy,
+        registry: this.registry,
+        toolAllowlist: effectiveAllowlist,
+        requireApprovalTools: this.requireApprovalTools,
+        acceptanceChecks: payload.acceptanceChecks ?? this.acceptanceChecks,
+        budgets: payload.budgets,
+      });
+      if (!frozen.ok) {
+        return { ok: false, code: frozen.code, message: frozen.message };
+      }
+      executionManifestHash = frozen.hash;
+    }
+
     const run = createInitialRun({
       runId: payload.runId,
       tenantId: command.tenantId,
@@ -197,6 +261,7 @@ export class Engine {
       agentDefinitionId: payload.agentDefinitionId,
       agentVersion: payload.agentVersion,
       executionManifestRef: payload.executionManifestRef,
+      executionManifestHash,
       packVersions: payload.packVersions,
       goal: payload.goal,
       strategy: payload.strategy,
@@ -301,6 +366,8 @@ export class Engine {
     if (!run) {
       return { ok: false, code: "fatal", message: "run not found" };
     }
+    const tenantFailure = assertCommandTenant(run, command);
+    if (tenantFailure) return tenantFailure;
 
     if (run.revision > command.expectedRevision) {
       return {
@@ -380,6 +447,8 @@ export class Engine {
     if (!run) {
       return { ok: false, code: "fatal", message: "run not found" };
     }
+    const tenantFailure = assertCommandTenant(run, command);
+    if (tenantFailure) return tenantFailure;
 
     if (run.status === "running" && run.revision >= command.expectedRevision) {
       return {
@@ -430,6 +499,7 @@ export class Engine {
     const recovery = new RecoveryService({
       persistence: this.persistence,
       lease: this.lease,
+      manifestStore: this.manifestStore,
     });
     const recovered = await recovery.recover(runId);
     if (!recovered.ok) {

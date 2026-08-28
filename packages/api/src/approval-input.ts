@@ -14,7 +14,7 @@ export type BuildApprovalDecisionCommandInput = {
 };
 
 /**
- * Build an approval_decision HarnessCommand (no HTTP — EDR-007 Deferred).
+ * Build an approval_decision HarnessCommand (used by HTTP handlers and tests).
  */
 export function buildApprovalDecisionCommand(
   input: BuildApprovalDecisionCommandInput,
@@ -49,7 +49,7 @@ export type BuildSubmitInputCommandInput = {
 };
 
 /**
- * Build a submit_input HarnessCommand (no HTTP — EDR-007 Deferred).
+ * Build a submit_input HarnessCommand (used by HTTP handlers and tests).
  */
 export function buildSubmitInputCommand(input: BuildSubmitInputCommandInput): HarnessCommand {
   return {

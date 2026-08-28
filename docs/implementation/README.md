@@ -31,7 +31,7 @@ apps/ + packages/        代码与配置
 | --- | --- |
 | [HANDOFF.md](./HANDOFF.md) | **唯一当前交接入口**：下一会话从哪开始、禁区、未决问题 |
 | [STATUS.md](./STATUS.md) | 全局看板：阶段、包状态、阻塞 |
-| [PHASES.md](./PHASES.md) | 实现阶段 P0–P8、依赖、退出条件 |
+| [PHASES.md](./PHASES.md) | 实现阶段 P0–P9、依赖、退出条件 |
 | [CONVENTIONS.md](./CONVENTIONS.md) | 状态枚举、更新规则、会话日志约定 |
 | [packages/](./packages/) | 各 workspace 包进展 |
 | [adapters/](./adapters/) | 各基础设施适配器进展 |

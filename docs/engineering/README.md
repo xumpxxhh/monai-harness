@@ -52,7 +52,7 @@ apps/ + packages/        （代码与配置）
 
 ## EDR 状态（摘要）
 
-完整状态见 [00 §8](./00-implementation-baseline.md#8-edr-索引)。仍 Deferred、接 API / 隔离扩展时再关：
+完整状态见 [00 §8](./00-implementation-baseline.md#8-edr-索引)。仍 Deferred：仅 EDR-010（`isolated_extension` 载体）。
 
 | ID | 议题 | 状态 |
 | --- | --- | --- |
@@ -62,7 +62,7 @@ apps/ + packages/        （代码与配置）
 | EDR-004 | 内联 Queue/Scheduler，保留 at-least-once 语义 | Accepted |
 | EDR-005 | PostgreSQL 作为首版权威存储 | Accepted |
 | EDR-006 | Run 级互斥：`runs` 行 `FOR UPDATE` | Accepted |
-| EDR-007 | HTTP/SSE 框架选型 | Deferred |
+| EDR-007 | HTTP/SSE 框架选型 | Accepted（Hono） |
 | EDR-008 | Schema 校验：Zod | Accepted |
 | EDR-009 | SQL 访问层：drizzle-orm | Accepted |
 | EDR-010 | `isolated_extension` 运行载体 | Deferred |

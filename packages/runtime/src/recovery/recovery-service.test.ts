@@ -3,10 +3,11 @@ import type { HarnessCommand } from "@monai/ports";
 import { InMemoryLease } from "@monai/lease-memory";
 import { StubModelPort } from "@monai/model-stub";
 import { InMemoryPersistence } from "@monai/persistence-memory";
+import { wireTestWorkspacePack } from "../test-helpers/wire-workspace-pack.js";
 import {
   computeStateHash,
   Engine,
-  HookRunner,
+  InMemoryManifestStore,
   ToolInvoker,
 } from "../index.js";
 import { RecoveryService } from "./recovery-service.js";
@@ -111,19 +112,35 @@ async function dispatchEchoSuccess(
   );
 }
 
+function createRecoveryEngine(
+  persistence: InMemoryPersistence,
+  lease: InMemoryLease,
+  options?: { requireApprovalTools?: readonly string[]; leaseTtlMs?: number },
+) {
+  const pack = wireTestWorkspacePack({ tenantId: "t1" });
+  const manifestStore = new InMemoryManifestStore();
+  const engine = new Engine({
+    persistence,
+    lease,
+    model: new StubModelPort(),
+    hooks: pack.hookRunner,
+    registry: pack.registry,
+    manifestStore,
+    toolAllowlist: pack.toolAllowlist,
+    requireApprovalTools: options?.requireApprovalTools ?? pack.requireApprovalTools,
+    leaseTtlMs: options?.leaseTtlMs,
+  });
+  return { pack, invoker: pack.invoker, engine, manifestStore };
+}
+
 describe("P6 RecoveryService", () => {
   it("full replay matches persisted state after tool chain", async () => {
     const persistence = new InMemoryPersistence();
     const lease = new InMemoryLease();
-    const invoker = new ToolInvoker();
-    const ownerId = "worker-1";
-    const engine = new Engine({
-      persistence,
-      lease,
-      model: new StubModelPort(),
-      hooks: new HookRunner(),
+    const { invoker, engine, manifestStore } = createRecoveryEngine(persistence, lease, {
       requireApprovalTools: [],
     });
+    const ownerId = "worker-1";
 
     const running = await toRunning(engine, "r-rec-echo", "hello world", ownerId);
     expect(running.ok).toBe(true);
@@ -151,7 +168,7 @@ describe("P6 RecoveryService", () => {
     });
     expect(dispatched.ok).toBe(true);
 
-    const recovery = new RecoveryService({ persistence, lease });
+    const recovery = new RecoveryService({ persistence, lease, manifestStore });
     const result = await recovery.recover("r-rec-echo");
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -166,12 +183,7 @@ describe("P6 RecoveryService", () => {
     const persistence = new InMemoryPersistence();
     const lease = new InMemoryLease();
     const ownerId = "worker-1";
-    const engine = new Engine({
-      persistence,
-      lease,
-      model: new StubModelPort(),
-      hooks: new HookRunner(),
-    });
+    const { engine, manifestStore } = createRecoveryEngine(persistence, lease);
 
     const running = await toRunning(engine, "r-rec-cp", "synthetic high", ownerId);
     expect(running.ok).toBe(true);
@@ -211,7 +223,7 @@ describe("P6 RecoveryService", () => {
     );
     expect(acceleratedHash).toBe(fullHash);
 
-    const recovery = new RecoveryService({ persistence, lease });
+    const recovery = new RecoveryService({ persistence, lease, manifestStore });
     const recovered = await recovery.recover("r-rec-cp");
     expect(recovered.ok).toBe(true);
     if (!recovered.ok) return;
@@ -223,13 +235,7 @@ describe("P6 RecoveryService", () => {
     const persistence = new InMemoryPersistence();
     const lease = new InMemoryLease();
     const ownerId = "worker-1";
-    const engine = new Engine({
-      persistence,
-      lease,
-      model: new StubModelPort(),
-      hooks: new HookRunner(),
-      requireApprovalTools: [],
-    });
+    const { engine, manifestStore } = createRecoveryEngine(persistence, lease, { requireApprovalTools: [] });
 
     const running = await toRunning(engine, "r-stale-dispatch", "hello world", ownerId);
     expect(running.ok).toBe(true);
@@ -268,11 +274,7 @@ describe("P6 RecoveryService", () => {
     const persistence = new InMemoryPersistence();
     const lease = new InMemoryLease();
     const ownerId = "worker-1";
-    const engine = new Engine({
-      persistence,
-      lease,
-      model: new StubModelPort(),
-      hooks: new HookRunner(),
+    const { engine, manifestStore } = createRecoveryEngine(persistence, lease, {
       requireApprovalTools: [],
       leaseTtlMs: 5,
     });
@@ -283,7 +285,7 @@ describe("P6 RecoveryService", () => {
 
     await new Promise((r) => setTimeout(r, 15));
 
-    const recovery = new RecoveryService({ persistence, lease });
+    const recovery = new RecoveryService({ persistence, lease, manifestStore });
     const yielded = await recovery.yieldStaleRunningRun("r-yield");
     expect(yielded.ok).toBe(true);
     if (!yielded.ok) return;

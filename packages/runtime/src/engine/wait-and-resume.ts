@@ -16,7 +16,8 @@ import type { CommitPlan, LeasePort, PersistencePort, IdempotencyPort } from "@m
 import { applyCommit } from "../commit/apply-commit.js";
 import { actionDigestMeta, computeActionDigest } from "../control/action-digest.js";
 import { computeStateHash } from "../recovery/state-hash.js";
-import { lookupToolContract, requiresIdempotencyKey } from "../execution/tool-catalog.js";
+import { lookupToolContract, requiresIdempotencyKey } from "../execution/lookup-tool-contract.js";
+import type { ExtensionRegistry } from "../extension/extension-registry.js";
 import type { HookRunner } from "../hooks/hook-runner.js";
 import {
   DEFAULT_REQUIRE_APPROVAL_TOOLS,
@@ -231,6 +232,7 @@ export type ResumeDeps = {
   hooks: HookRunner;
   toolAllowlist?: readonly string[];
   requireApprovalTools?: readonly string[];
+  registry?: ExtensionRegistry;
 };
 
 /**
@@ -306,7 +308,7 @@ export async function resumeApprovedToolCall(
     };
   }
 
-  const contract = lookupToolContract(action.toolId);
+  const contract = lookupToolContract(action.toolId, deps.registry);
   if (!contract) {
     return { ok: false, code: "validation", message: `unknown tool: ${action.toolId}` };
   }

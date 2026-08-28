@@ -1,13 +1,8 @@
 import { CONTRACTS_SCHEMA_VERSION } from "@monai/contracts";
 import type { HarnessCommand } from "@monai/ports";
-import { InMemoryLease } from "@monai/lease-memory";
-import { StubModelPort } from "@monai/model-stub";
-import { InMemoryPersistence } from "@monai/persistence-memory";
-import { IsolatedSyntheticSink } from "@monai/synthetic-sink";
-import { Engine, HookRunner, ToolInvoker } from "@monai/runtime";
 import { describe, expect, it } from "vitest";
 
-import { ToolDispatcher } from "./tool-dispatcher.js";
+import { createPackTestFixtures, toRunning as bootToRunning } from "./test-pack-fixtures.js";
 
 function cmd(
   partial: Partial<HarnessCommand> & Pick<HarnessCommand, "commandType" | "commandId">,
@@ -20,69 +15,11 @@ function cmd(
   };
 }
 
-async function toRunning(engine: Engine, runId: string, goal: string, ownerId: string) {
-  const created = await engine.handle(
-    cmd({
-      commandType: "create_run",
-      commandId: `create-${runId}`,
-      payload: {
-        runId,
-        sessionId: "s1",
-        agentDefinitionId: "agent",
-        agentVersion: "1",
-        executionManifestRef: "manifest://m1",
-        packVersions: [{ packId: "core", version: "0.1.0" }],
-        goal,
-        strategy: { type: "light", version: "1" },
-      },
-    }),
-  );
-  expect(created.ok).toBe(true);
-  if (!created.ok) return created;
-
-  const queued = await engine.handle(
-    cmd({
-      commandType: "queue_run",
-      commandId: `queue-${runId}`,
-      runId,
-      expectedRevision: created.revision,
-    }),
-  );
-  expect(queued.ok).toBe(true);
-  if (!queued.ok) return queued;
-
-  return engine.handle(
-    cmd({
-      commandType: "acquire_lease",
-      commandId: `lease-${runId}`,
-      runId,
-      expectedRevision: queued.revision,
-      actor: { principalId: ownerId },
-    }),
-  );
-}
-
 describe("P5 waiting states", () => {
   it("synthetic.write_high: require_approval → approve → queued → resume consume+prepared → dispatch", async () => {
-    const persistence = new InMemoryPersistence();
-    const lease = new InMemoryLease();
-    const ownerId = "worker-1";
-    const sink = new IsolatedSyntheticSink();
-    const engine = new Engine({
-      persistence,
-      lease,
-      model: new StubModelPort(),
-      hooks: new HookRunner(),
-      // default requireApprovalTools includes synthetic.write_high
-    });
-    const tools = new ToolDispatcher({
-      outbox: persistence,
-      persistence,
-      engine,
-      invoker: new ToolInvoker({ synthetic: sink }),
-    });
+    const { persistence, lease, engine, tools, pack, ownerId } = createPackTestFixtures();
 
-    const running = await toRunning(engine, "r-apr", "do synthetic write", ownerId);
+    const running = await bootToRunning(engine, cmd, "r-apr", "do synthetic write", ownerId);
     expect(running.ok).toBe(true);
     if (!running.ok) return;
 
@@ -169,21 +106,13 @@ describe("P5 waiting states", () => {
     const finalTypes = (await persistence.listEvents("r-apr")).map((e) => e.eventType);
     expect(finalTypes).toContain("tool.succeeded");
     expect(finalTypes).toContain("fact.accepted");
-    expect(sink.effectCount("synthetic://demo/resource")).toBe(1);
+    expect(pack.synthetic.effectCount("synthetic://demo/resource")).toBe(1);
   });
 
   it("approval rejected → failed (not cancelled)", async () => {
-    const persistence = new InMemoryPersistence();
-    const lease = new InMemoryLease();
-    const ownerId = "worker-1";
-    const engine = new Engine({
-      persistence,
-      lease,
-      model: new StubModelPort(),
-      hooks: new HookRunner(),
-    });
+    const { persistence, engine, ownerId } = createPackTestFixtures();
 
-    const running = await toRunning(engine, "r-rej", "approve-me please", ownerId);
+    const running = await bootToRunning(engine, cmd, "r-rej", "do synthetic write", ownerId);
     expect(running.ok).toBe(true);
     if (!running.ok) return;
 
@@ -221,17 +150,9 @@ describe("P5 waiting states", () => {
   });
 
   it("ask_user → awaiting_input → submit_input → queued → resume fact", async () => {
-    const persistence = new InMemoryPersistence();
-    const lease = new InMemoryLease();
-    const ownerId = "worker-1";
-    const engine = new Engine({
-      persistence,
-      lease,
-      model: new StubModelPort(),
-      hooks: new HookRunner(),
-    });
+    const { persistence, engine, ownerId } = createPackTestFixtures();
 
-    const running = await toRunning(engine, "r-ask", "please ask-user now", ownerId);
+    const running = await bootToRunning(engine, cmd, "r-ask", "please ask-user now", ownerId);
     expect(running.ok).toBe(true);
     if (!running.ok) return;
 

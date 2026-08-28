@@ -52,6 +52,13 @@ export const TOOL_CATALOG: Record<string, ToolEffectContract> = {
     reconcileSupported: false,
     timeoutMs: 5_000,
   }),
+  "artifact.validate": base({
+    sideEffectProfile: "read",
+    deliverySemantics: "at_most_once",
+    idempotencyScope: "run",
+    reconcileSupported: false,
+    timeoutMs: 5_000,
+  }),
   "synthetic.write_high": base({
     sideEffectProfile: "write_high",
     deliverySemantics: "at_most_once",

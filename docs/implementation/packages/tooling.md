@@ -49,7 +49,7 @@ ports            ──X──► runtime | adapters | packs
 
 ## 4. 依赖
 
-无代码依赖。EDR-007/010 仍 Deferred。
+无代码依赖。EDR-007 已 Accepted（Hono）。仍 Deferred：EDR-010。
 
 ## 5. 缺口与风险
 

@@ -8,10 +8,11 @@ import {
 import { InMemoryLease } from "@monai/lease-memory";
 import { StubModelPort } from "@monai/model-stub";
 import type { HarnessCommand } from "@monai/ports";
+import { wireWorkspaceGenericPack } from "@monai/delivery";
 import {
   computeStateHash,
   Engine,
-  HookRunner,
+  InMemoryManifestStore,
   RecoveryService,
   replayEvents,
   ToolInvoker,
@@ -22,6 +23,26 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { truncateAll } from "./apply-schema.js";
 import { PostgresPersistence } from "./postgres-persistence.js";
 import { startTestPostgres, type TestPgHandle } from "./postgres-persistence.test-utils.js";
+
+function wirePgEngine(
+  store: PostgresPersistence,
+  lease: InMemoryLease,
+  options?: { requireApprovalTools?: readonly string[] },
+) {
+  const pack = wireWorkspaceGenericPack({ tenantId: "t1" });
+  const manifestStore = new InMemoryManifestStore();
+  const engine = new Engine({
+    persistence: store,
+    lease,
+    model: new StubModelPort(),
+    hooks: pack.hookRunner,
+    registry: pack.registry,
+    manifestStore,
+    toolAllowlist: pack.toolAllowlist,
+    requireApprovalTools: options?.requireApprovalTools ?? pack.requireApprovalTools,
+  });
+  return { pack, invoker: pack.invoker, engine, manifestStore };
+}
 
 function cmd(
   partial: Partial<HarnessCommand> & Pick<HarnessCommand, "commandType" | "commandId">,
@@ -158,15 +179,8 @@ describe("PostgresPersistence L2 scenarios (recovery + prepared)", () => {
 
   it("recovery: full replay State hash matches persisted state after tool chain", async () => {
     const lease = new InMemoryLease();
-    const invoker = new ToolInvoker();
+    const { invoker, engine, manifestStore } = wirePgEngine(store, lease, { requireApprovalTools: [] });
     const ownerId = "worker-1";
-    const engine = new Engine({
-      persistence: store,
-      lease,
-      model: new StubModelPort(),
-      hooks: new HookRunner(),
-      requireApprovalTools: [],
-    });
 
     const running = await toRunning(engine, "r-l2-rec-echo", "hello world", ownerId);
     expect(running.ok).toBe(true);
@@ -194,7 +208,7 @@ describe("PostgresPersistence L2 scenarios (recovery + prepared)", () => {
     });
     expect(dispatched.ok).toBe(true);
 
-    const recovery = new RecoveryService({ persistence: store, lease });
+    const recovery = new RecoveryService({ persistence: store, lease, manifestStore });
     const result = await recovery.recover("r-l2-rec-echo");
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -208,12 +222,7 @@ describe("PostgresPersistence L2 scenarios (recovery + prepared)", () => {
   it("recovery: checkpoint-accelerated replay hash matches full replay", async () => {
     const lease = new InMemoryLease();
     const ownerId = "worker-1";
-    const engine = new Engine({
-      persistence: store,
-      lease,
-      model: new StubModelPort(),
-      hooks: new HookRunner(),
-    });
+    const { engine, manifestStore } = wirePgEngine(store, lease);
 
     const running = await toRunning(engine, "r-l2-rec-cp", "synthetic high", ownerId);
     expect(running.ok).toBe(true);
@@ -253,7 +262,7 @@ describe("PostgresPersistence L2 scenarios (recovery + prepared)", () => {
     );
     expect(acceleratedHash).toBe(fullHash);
 
-    const recovery = new RecoveryService({ persistence: store, lease });
+    const recovery = new RecoveryService({ persistence: store, lease, manifestStore });
     const recovered = await recovery.recover("r-l2-rec-cp");
     expect(recovered.ok).toBe(true);
     if (!recovered.ok) return;
@@ -264,13 +273,7 @@ describe("PostgresPersistence L2 scenarios (recovery + prepared)", () => {
   it("prepared-before-dispatch: prepare UoW rollback leaves no ToolCall / Outbox / Idempotency", async () => {
     const lease = new InMemoryLease();
     const ownerId = "worker-1";
-    const engine = new Engine({
-      persistence: store,
-      lease,
-      model: new StubModelPort(),
-      hooks: new HookRunner(),
-      requireApprovalTools: [],
-    });
+    const { engine } = wirePgEngine(store, lease, { requireApprovalTools: [] });
 
     const running = await toRunning(engine, "r-l2-prep-atom", "hello", ownerId);
     expect(running.ok).toBe(true);
@@ -370,17 +373,10 @@ describe("PostgresPersistence L2 scenarios (recovery + prepared)", () => {
 
   it("prepared-before-dispatch: no prepared ToolCall → accept fails and sink stays at zero", async () => {
     const lease = new InMemoryLease();
-    const sink = new IsolatedSyntheticSink();
-    const invoker = new ToolInvoker({ synthetic: sink });
+    const { pack, invoker, engine } = wirePgEngine(store, lease, { requireApprovalTools: [] });
+    const sink = pack.synthetic;
     const ownerId = "worker-1";
     const resourceKey = "synthetic://demo/resource";
-    const engine = new Engine({
-      persistence: store,
-      lease,
-      model: new StubModelPort(),
-      hooks: new HookRunner(),
-      requireApprovalTools: [],
-    });
 
     const running = await toRunning(engine, "r-l2-prep-none", "do synthetic write", ownerId);
     expect(running.ok).toBe(true);

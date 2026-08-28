@@ -36,7 +36,7 @@
 
 | EDR | 议题 | 状态 / 约束 |
 | --- | --- | --- |
-| EDR-007 | HTTP/SSE 框架 | Deferred；无论选型，api 包不得获得 Persistence 写权 |
+| EDR-007 | HTTP/SSE 框架 | Accepted：Hono（REST + SSE）；api 包不得获得 Persistence 写权 |
 | EDR-008 | Schema：Zod | Accepted；须支持 schemaVersion、未知字段拒绝、与 Manifest digest |
 | EDR-009 | SQL：drizzle-orm | Accepted；不得把事务边界泄漏给 Engine 调用方 |
 | EDR-010 | isolated_extension 载体 | Deferred；MVP 可仅 `trusted_builtin` in-process |
