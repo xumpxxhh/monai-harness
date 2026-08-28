@@ -1,17 +1,20 @@
 import type { HarnessRuntime } from "./bootstrap.js";
+import type { TurnDriver } from "./turn-driver.js";
 
 /**
- * In-process delivery loops: outbox → queue → scheduler; compensation; tool dispatch.
+ * In-process delivery loops: outbox → queue → scheduler; compensation; tool dispatch; app turn driver.
  */
 export class DeliveryLoops {
   private readonly runtime: HarnessRuntime;
   private readonly intervalMs: number;
+  private readonly turnDriver: TurnDriver | undefined;
   private timer: ReturnType<typeof setInterval> | undefined;
   private ticking = false;
 
-  constructor(runtime: HarnessRuntime, intervalMs: number) {
+  constructor(runtime: HarnessRuntime, intervalMs: number, turnDriver?: TurnDriver) {
     this.runtime = runtime;
     this.intervalMs = intervalMs;
+    this.turnDriver = turnDriver;
   }
 
   /** One full tick of all delivery roles (usable in demo without keep-alive). */
@@ -20,12 +23,14 @@ export class DeliveryLoops {
     outbox: number;
     scheduler: number;
     tools: number;
+    turns: number;
   }> {
     const compensation = await this.runtime.compensation.tick();
     const outbox = await this.runtime.dispatcher.tick();
     const scheduler = await this.runtime.scheduler.tick();
+    const turns = this.turnDriver ? await this.turnDriver.tickAuto() : 0;
     const tools = await this.runtime.toolDispatcher.tick();
-    return { compensation, outbox, scheduler, tools };
+    return { compensation, outbox, scheduler, tools, turns };
   }
 
   start(): void {

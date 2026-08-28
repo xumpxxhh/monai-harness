@@ -1,5 +1,6 @@
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { config as loadEnvFile } from "dotenv";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 export type PersistenceDriver = "memory" | "postgres";
 
@@ -20,7 +21,15 @@ export type HarnessConfig = {
   runEvalOnStart: boolean;
   loopIntervalMs: number;
   featureFlags: FeatureFlags;
+  corsOrigins: string[];
+  /** serve: auto execute_turn after lease (app TurnDriver). */
+  autoExecuteTurn: boolean;
 };
+
+/** `apps/harness` package root (works from `src/` and compiled `dist/`). */
+export function harnessRootDir(): string {
+  return resolve(dirname(fileURLToPath(import.meta.url)), "..");
+}
 
 function parseBool(raw: string | undefined, fallback: boolean): boolean {
   if (raw === undefined || raw.trim() === "") return fallback;
@@ -30,35 +39,10 @@ function parseBool(raw: string | undefined, fallback: boolean): boolean {
   return fallback;
 }
 
-/** Load `.env` without overriding existing process.env. Tries cwd then repo root. */
+/** Load `apps/harness/.env` via dotenv; does not override existing process.env. */
 export function loadDotEnv(): void {
-  const candidates = [
-    resolve(process.cwd(), ".env"),
-    resolve(process.cwd(), "../../.env"),
-    resolve(process.cwd(), "../.env"),
-  ];
-  for (const path of candidates) {
-    if (!existsSync(path)) continue;
-    const text = readFileSync(path, "utf8");
-    for (const line of text.split(/\r?\n/)) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("#")) continue;
-      const eq = trimmed.indexOf("=");
-      if (eq <= 0) continue;
-      const key = trimmed.slice(0, eq).trim();
-      let value = trimmed.slice(eq + 1).trim();
-      if (
-        (value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))
-      ) {
-        value = value.slice(1, -1);
-      }
-      if (process.env[key] === undefined) {
-        process.env[key] = value;
-      }
-    }
-    return;
-  }
+  const envPath = resolve(harnessRootDir(), ".env");
+  loadEnvFile({ path: envPath, override: false });
 }
 
 export function loadConfig(): HarnessConfig {
@@ -82,6 +66,10 @@ export function loadConfig(): HarnessConfig {
   // EDR-014: MVP must keep these off unless explicitly overridden (still logged).
   assertMvpFlags(featureFlags);
 
+  const corsOrigins = parseCorsOrigins(process.env.CORS_ORIGIN);
+  const autoExecuteTurn =
+    mode === "serve" && parseBool(process.env.HARNESS_AUTO_EXECUTE_TURN, true);
+
   return {
     persistenceDriver,
     databaseUrl:
@@ -92,7 +80,19 @@ export function loadConfig(): HarnessConfig {
     runEvalOnStart: parseBool(process.env.HARNESS_RUN_EVAL, true),
     loopIntervalMs: Number(process.env.HARNESS_LOOP_INTERVAL_MS ?? "500") || 500,
     featureFlags,
+    corsOrigins,
+    autoExecuteTurn,
   };
+}
+
+function parseCorsOrigins(raw: string | undefined): string[] {
+  const defaults = ["http://localhost:5173", "http://127.0.0.1:5173"];
+  if (!raw?.trim()) return defaults;
+  const parts = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return parts.length > 0 ? parts : defaults;
 }
 
 function assertMvpFlags(flags: FeatureFlags): void {

@@ -23,11 +23,12 @@ import type {
   CommitPlan,
   CommitResult,
   IdempotencyPort,
+  ListRunsFilter,
   OutboxPort,
   PersistencePort,
   UnitOfWork,
 } from "@monai/ports";
-import { and, asc, eq, gte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import pg from "pg";
 
@@ -133,6 +134,24 @@ export class PostgresPersistence implements PersistencePort, OutboxPort, Idempot
   async getRun(runId: string): Promise<Run | undefined> {
     const [row] = await this.db.select().from(runs).where(eq(runs.runId, runId)).limit(1);
     return row ? runSchema.parse(row.body) : undefined;
+  }
+
+  async listRuns(filter: ListRunsFilter): Promise<Run[]> {
+    const limit = Math.min(Math.max(filter.limit ?? 50, 1), 200);
+    const conditions = [eq(runs.tenantId, filter.tenantId)];
+    if (filter.sessionId) {
+      conditions.push(sql`${runs.body}->>'sessionId' = ${filter.sessionId}`);
+    }
+    if (filter.status) {
+      conditions.push(eq(runs.status, filter.status));
+    }
+    const rows = await this.db
+      .select()
+      .from(runs)
+      .where(and(...conditions))
+      .orderBy(desc(runs.updatedAt))
+      .limit(limit);
+    return rows.map((r) => runSchema.parse(r.body));
   }
 
   async getState(runId: string): Promise<RunState | undefined> {

@@ -5,6 +5,7 @@ import { loadConfig } from "./config.js";
 import { runCreateRunToExecuteTurnDemo } from "./demo.js";
 import { startHttpServer } from "./http-server.js";
 import { DeliveryLoops } from "./loops.js";
+import { TurnDriver } from "./turn-driver.js";
 
 /**
  * MVP deployable harness.
@@ -38,15 +39,16 @@ async function main(): Promise<void> {
   }
 
   const runtime = await bootstrap(config);
-  const loops = new DeliveryLoops(runtime, config.loopIntervalMs);
+  const turnDriver = new TurnDriver(runtime, { autoExecute: config.autoExecuteTurn });
+  const loops = new DeliveryLoops(runtime, config.loopIntervalMs, turnDriver);
   let http: { close: () => Promise<void> } | undefined;
 
   try {
     if (config.mode === "serve") {
       loops.start();
-      http = startHttpServer(runtime, config.port);
+      http = startHttpServer(runtime, config.port, config.corsOrigins, turnDriver);
       console.log(
-        `[harness] serve: HTTP :${config.port} + delivery loops every ${config.loopIntervalMs}ms`,
+        `[harness] serve: HTTP :${config.port} + delivery loops every ${config.loopIntervalMs}ms autoTurn=${config.autoExecuteTurn}`,
       );
       await waitForSignal();
       console.log("[harness] shutting down…");

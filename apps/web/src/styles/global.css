@@ -1,0 +1,247 @@
+:root {
+  color-scheme: dark;
+  --bg-deep: #0c1118;
+  --bg-panel: #121a24;
+  --bg-elevated: #1a2430;
+  --border: #2a3644;
+  --text: #e8edf4;
+  --text-muted: #8b9aab;
+  --accent: #3d9a8b;
+  --accent-dim: #2a6b60;
+  --warn: #d4a24a;
+  --danger: #c45c5c;
+  --ok: #5cb87a;
+  --font-sans: "Instrument Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: radial-gradient(1200px 600px at 10% -10%, #1a2a38 0%, var(--bg-deep) 55%);
+  color: var(--text);
+  line-height: 1.45;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: var(--accent);
+}
+
+.console-root {
+  display: grid;
+  grid-template-columns: 260px 1fr 320px;
+  height: 100%;
+  min-height: 0;
+}
+
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  min-height: 0;
+}
+
+.panel-header {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.panel-body {
+  padding: 12px 14px;
+  overflow: auto;
+  min-height: 0;
+}
+
+.status-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+}
+
+.status-pill.running {
+  color: var(--ok);
+  border-color: #3a6b4a;
+}
+
+.status-pill.awaiting_approval,
+.status-pill.awaiting_input {
+  color: var(--warn);
+  border-color: #6b542a;
+}
+
+.status-pill.failed,
+.status-pill.cancelled {
+  color: var(--danger);
+  border-color: #6b3a3a;
+}
+
+.btn {
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.btn:hover {
+  border-color: var(--accent-dim);
+}
+
+.btn-primary {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+.btn-danger {
+  border-color: #6b3a3a;
+  color: var(--danger);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.field label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.field input,
+.field textarea,
+.field select {
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: var(--text);
+}
+
+.field textarea {
+  min-height: 72px;
+  resize: vertical;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.list-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+}
+
+.list-item:hover {
+  background: var(--bg-elevated);
+}
+
+.list-item.active {
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent-dim);
+}
+
+.session-block {
+  margin-bottom: 12px;
+}
+
+.session-title {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  font-family: var(--font-mono);
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.event-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--bg-elevated);
+  font-size: 0.85rem;
+}
+
+.event-type {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--accent);
+}
+
+.event-meta {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.json-block {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.empty-hint {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.error-banner {
+  background: #3a2020;
+  border: 1px solid #6b3a3a;
+  color: #f0c0c0;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 960px) {
+  .console-root {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
+  }
+}

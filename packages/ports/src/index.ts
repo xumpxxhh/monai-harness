@@ -1,7 +1,7 @@
 export type { CommitFailure, CommitPlan, CommitResult, CommitSuccess } from "./commit.js";
 export type { HarnessCommand, HarnessCommandType } from "./commands.js";
 export { HARNESS_COMMAND_TYPES } from "./commands.js";
-export type { PersistencePort, UnitOfWork } from "./persistence.js";
+export type { ListRunsFilter, PersistencePort, UnitOfWork } from "./persistence.js";
 export type { OutboxPort } from "./outbox.js";
 export type { IdempotencyPort } from "./idempotency.js";
 export type {

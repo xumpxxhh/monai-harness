@@ -14,6 +14,7 @@ import type {
   CommitPlan,
   CommitResult,
   IdempotencyPort,
+  ListRunsFilter,
   OutboxPort,
   PersistencePort,
   UnitOfWork,
@@ -72,6 +73,19 @@ export class InMemoryPersistence implements PersistencePort, OutboxPort, Idempot
   async getRun(runId: string): Promise<Run | undefined> {
     const run = this.runs.get(runId);
     return run ? cloneRun(run) : undefined;
+  }
+
+  async listRuns(filter: ListRunsFilter): Promise<Run[]> {
+    const limit = Math.min(Math.max(filter.limit ?? 50, 1), 200);
+    let rows = [...this.runs.values()].filter((r) => r.tenantId === filter.tenantId);
+    if (filter.sessionId) {
+      rows = rows.filter((r) => r.sessionId === filter.sessionId);
+    }
+    if (filter.status) {
+      rows = rows.filter((r) => r.status === filter.status);
+    }
+    rows.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+    return rows.slice(0, limit).map((r) => cloneRun(r));
   }
 
   async getState(runId: string): Promise<RunState | undefined> {

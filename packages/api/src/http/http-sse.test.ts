@@ -118,4 +118,50 @@ describe("P8c HTTP + SSE", () => {
     const body = (await cancel.json()) as { code: string };
     expect(body.code).toBe("conflict");
   });
+
+  it("GET /v1/runs lists runs by tenant with optional sessionId filter", async () => {
+    const persistence = new InMemoryPersistence();
+    const engine = new Engine({
+      persistence,
+      lease: new InMemoryLease(),
+      model: new StubModelPort(),
+      hooks: new HookRunner(),
+      requireApprovalTools: [],
+    });
+    const app = createHttpApp({ engine, persistence });
+
+    await app.request("/v1/runs", {
+      method: "POST",
+      headers: { "content-type": "application/json", "Idempotency-Key": "list-1" },
+      body: JSON.stringify({
+        runId: "run-list-a",
+        sessionId: "sess-a",
+        goal: "a",
+      }),
+    });
+    await app.request("/v1/runs", {
+      method: "POST",
+      headers: { "content-type": "application/json", "Idempotency-Key": "list-2" },
+      body: JSON.stringify({
+        runId: "run-list-b",
+        sessionId: "sess-b",
+        goal: "b",
+      }),
+    });
+
+    const allRes = await app.request("/v1/runs", {
+      headers: { "X-Tenant-Id": "t1" },
+    });
+    expect(allRes.status).toBe(200);
+    const all = (await allRes.json()) as { runs: Array<{ runId: string }> };
+    expect(all.runs.map((r) => r.runId)).toEqual(
+      expect.arrayContaining(["run-list-a", "run-list-b"]),
+    );
+
+    const filtered = await app.request("/v1/runs?sessionId=sess-a", {
+      headers: { "X-Tenant-Id": "t1" },
+    });
+    const filteredBody = (await filtered.json()) as { runs: Array<{ runId: string }> };
+    expect(filteredBody.runs.map((r) => r.runId)).toEqual(["run-list-a"]);
+  });
 });

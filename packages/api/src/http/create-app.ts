@@ -1,5 +1,7 @@
 import { Hono, type Context } from "hono";
+import { cors } from "hono/cors";
 import { streamSSE } from "hono/streaming";
+import { runStatusSchema } from "@monai/contracts";
 import type { PersistencePort } from "@monai/ports";
 import type { Engine, HandleResult } from "@monai/runtime";
 
@@ -32,6 +34,8 @@ export type CreateHttpAppDeps = {
   defaultTenantId?: string;
   /** SSE poll interval (ms). */
   ssePollIntervalMs?: number;
+  /** Allowed CORS origins; default dev Vite origins when unset. */
+  corsOrigins?: string[];
 };
 
 type JsonRecord = Record<string, unknown>;
@@ -95,6 +99,27 @@ export function createHttpApp(deps: CreateHttpAppDeps): Hono {
   const app = new Hono();
   const defaultTenantId = deps.defaultTenantId ?? "t1";
   const ssePollIntervalMs = deps.ssePollIntervalMs ?? 200;
+  const corsOrigins = deps.corsOrigins ?? [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+  ];
+
+  app.use(
+    "*",
+    cors({
+      origin: corsOrigins,
+      allowMethods: ["GET", "POST", "OPTIONS"],
+      allowHeaders: [
+        "Content-Type",
+        "Idempotency-Key",
+        "X-Tenant-Id",
+        "X-Principal-Id",
+        "If-Match",
+        "Last-Event-ID",
+      ],
+      exposeHeaders: ["Content-Type"],
+    }),
+  );
 
   app.get("/healthz", (c) => c.json({ ok: true }));
 
@@ -152,6 +177,30 @@ export function createHttpApp(deps: CreateHttpAppDeps): Hono {
     return jsonHandleResult(result);
   });
 
+  app.get("/v1/runs", async (c) => {
+    const tenantId = tenantIdFrom(c, undefined, defaultTenantId);
+    const sessionId = c.req.query("sessionId")?.trim() || undefined;
+    const statusRaw = c.req.query("status")?.trim();
+    let status: ReturnType<typeof runStatusSchema.parse> | undefined;
+    if (statusRaw) {
+      const parsed = runStatusSchema.safeParse(statusRaw);
+      if (!parsed.success) {
+        return jsonHttpError(badRequest(`invalid status: ${statusRaw}`));
+      }
+      status = parsed.data;
+    }
+    const limitRaw = c.req.query("limit");
+    const limit =
+      limitRaw && /^\d+$/.test(limitRaw) ? Number(limitRaw) : undefined;
+    const runs = await deps.persistence.listRuns({
+      tenantId,
+      sessionId,
+      status,
+      limit,
+    });
+    return c.json({ ok: true, runs });
+  });
+
   app.get("/v1/runs/:runId", async (c) => {
     const run = await deps.persistence.getRun(c.req.param("runId"));
     if (!run) return jsonHttpError(notFound("run not found"));
@@ -164,6 +213,30 @@ export function createHttpApp(deps: CreateHttpAppDeps): Hono {
     if (!run) return jsonHttpError(notFound("run not found"));
     const state = await deps.persistence.getState(runId);
     return c.json({ ok: true, state: state ?? null });
+  });
+
+  app.get("/v1/runs/:runId/continuation", async (c) => {
+    const runId = c.req.param("runId");
+    const run = await deps.persistence.getRun(runId);
+    if (!run) return jsonHttpError(notFound("run not found"));
+    const continuation = await deps.persistence.getContinuation(runId);
+    return c.json({ ok: true, continuation: continuation ?? null });
+  });
+
+  app.get("/v1/runs/:runId/approvals", async (c) => {
+    const runId = c.req.param("runId");
+    const run = await deps.persistence.getRun(runId);
+    if (!run) return jsonHttpError(notFound("run not found"));
+    const approvals = await deps.persistence.listApprovals(runId);
+    return c.json({ ok: true, approvals });
+  });
+
+  app.get("/v1/runs/:runId/tool-calls", async (c) => {
+    const runId = c.req.param("runId");
+    const run = await deps.persistence.getRun(runId);
+    if (!run) return jsonHttpError(notFound("run not found"));
+    const toolCalls = await deps.persistence.listToolCalls(runId);
+    return c.json({ ok: true, toolCalls });
   });
 
   app.get("/v1/runs/:runId/events", async (c) => {

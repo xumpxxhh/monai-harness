@@ -25,7 +25,9 @@
     "@monai/ports": "workspace:*",
     "@monai/queue-memory": "workspace:*",
     "@monai/runtime": "workspace:*",
-    "@monai/synthetic-sink": "workspace:*"
+    "@monai/synthetic-sink": "workspace:*",
+    "dotenv": "^16.6.1",
+    "hono": "^4.9.7"
   },
   "devDependencies": {
     "@types/node": "catalog:",

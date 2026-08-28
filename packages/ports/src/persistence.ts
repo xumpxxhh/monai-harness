@@ -5,6 +5,7 @@ import type {
   EventEnvelope,
   Run,
   RunState,
+  RunStatus,
   ToolCallRecord,
 } from "@monai/contracts";
 
@@ -20,9 +21,19 @@ export type UnitOfWork = {
   rollback(): Promise<void>;
 };
 
+/** Read-only Run list filter (console / ops views). */
+export type ListRunsFilter = {
+  tenantId: string;
+  sessionId?: string;
+  status?: RunStatus;
+  /** Default 50; capped by adapter. */
+  limit?: number;
+};
+
 export type PersistencePort = {
   beginUnitOfWork(runId: string): Promise<UnitOfWork>;
   getRun(runId: string): Promise<Run | undefined>;
+  listRuns(filter: ListRunsFilter): Promise<Run[]>;
   listEvents(runId: string, fromSequence?: number): Promise<EventEnvelope[]>;
   /** Latest committed Run State snapshot (Reducer output). */
   getState(runId: string): Promise<RunState | undefined>;
