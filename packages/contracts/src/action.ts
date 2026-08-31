@@ -26,6 +26,8 @@ export const actionSchema = strictObject({
     .strict()
     .optional(),
   rationaleRef: z.string().optional(),
+  /** Agent-authored text shown to the user (not a user-sent message). Not part of auth digest. */
+  displayText: z.string().optional(),
 });
 
 export type Action = z.infer<typeof actionSchema>;

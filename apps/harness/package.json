@@ -8,6 +8,7 @@
     "check-types": "tsc --noEmit -p tsconfig.build.json",
     "dev": "node --watch dist/index.js",
     "start": "node dist/index.js",
+    "demo": "node dist/cli/demo.js",
     "lint": "echo \"lint: deferred\"",
     "test": "vitest run"
   },

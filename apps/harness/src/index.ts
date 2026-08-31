@@ -53,7 +53,7 @@ async function main(): Promise<void> {
       loops.stop();
       await http?.close();
     } else {
-      await runCreateRunToExecuteTurnDemo(runtime, loops);
+      await runCreateRunToExecuteTurnDemo(runtime, loops, turnDriver);
       console.log("[harness] demo complete");
     }
   } finally {

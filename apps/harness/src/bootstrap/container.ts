@@ -25,7 +25,7 @@ import type {
   SecretPort,
 } from "@monai/ports";
 import { InMemoryQueue } from "@monai/queue-memory";
-import { Engine, InMemoryManifestStore } from "@monai/runtime";
+import { Engine, InMemoryManifestStore, PreviewHub } from "@monai/runtime";
 import { EnvSecretPort } from "@monai/secret-env";
 import { InMemoryWorkspace } from "@monai/workspace-memory";
 
@@ -44,6 +44,7 @@ export type HarnessRuntime = {
   lease: LeasePort;
   queue: QueuePort;
   engine: Engine;
+  previewHub: PreviewHub;
   dispatcher: OutboxDispatcher;
   scheduler: Scheduler;
   compensation: CompensationScanner;
@@ -85,18 +86,32 @@ export async function bootstrap(config: HarnessConfig): Promise<HarnessRuntime> 
       ? new OpenAiModelPort({
           secretPort,
           baseUrl: config.openaiBaseUrl,
+          defaultModel: config.openaiModel,
+          responseFormatMode: config.openaiResponseFormat,
+          authHeaderName: config.openaiAuthHeader,
         })
       : new StubModelPort();
+
+  const previewHub = new PreviewHub();
 
   const engine = new Engine({
     persistence,
     lease,
     model,
+    modelPolicy:
+      config.modelDriver === "openai" && config.openaiModel
+        ? {
+            version: "1.0.0",
+            resolvedTarget: config.openaiModel,
+            digest: `digest:model-policy:${config.openaiModel}`,
+          }
+        : undefined,
     hooks: pack.hookRunner,
     registry: pack.registry,
     manifestStore,
     toolAllowlist: pack.toolAllowlist,
     requireApprovalTools: pack.requireApprovalTools,
+    previewHub,
   });
 
   const dispatcher = new OutboxDispatcher({ outbox: persistence, queue });
@@ -120,6 +135,7 @@ export async function bootstrap(config: HarnessConfig): Promise<HarnessRuntime> 
     lease,
     queue,
     engine,
+    previewHub,
     dispatcher,
     scheduler,
     compensation,

@@ -9,7 +9,9 @@ export type HttpServerHandle = {
   close: () => Promise<void>;
 };
 
-function jsonHandleResult(result: Awaited<ReturnType<TurnDriver["executeTurn"]>>): Response {
+function jsonHandleResult(
+  result: Awaited<ReturnType<TurnDriver["executeTurn"]>>,
+): Response {
   if (!result.ok) {
     const status =
       result.code === "validation"
@@ -20,7 +22,12 @@ function jsonHandleResult(result: Awaited<ReturnType<TurnDriver["executeTurn"]>>
             ? 409
             : 500;
     return Response.json(
-      { ok: false, code: result.code, message: result.message, httpStatus: status },
+      {
+        ok: false,
+        code: result.code,
+        message: result.message,
+        httpStatus: status,
+      },
       { status },
     );
   }
@@ -47,6 +54,7 @@ export function startHttpServer(
     persistence: runtime.persistence,
     defaultTenantId: "t1",
     corsOrigins,
+    previewHub: runtime.previewHub,
   });
 
   /** Harness-only: manual execute_turn (not in @monai/api). */

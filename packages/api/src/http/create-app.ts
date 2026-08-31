@@ -3,7 +3,7 @@ import { cors } from "hono/cors";
 import { streamSSE } from "hono/streaming";
 import { runStatusSchema } from "@monai/contracts";
 import type { PersistencePort } from "@monai/ports";
-import type { Engine, HandleResult } from "@monai/runtime";
+import type { Engine, HandleResult, PreviewHub } from "@monai/runtime";
 
 import {
   buildApprovalDecisionCommand,
@@ -36,6 +36,8 @@ export type CreateHttpAppDeps = {
   ssePollIntervalMs?: number;
   /** Allowed CORS origins; default dev Vite origins when unset. */
   corsOrigins?: string[];
+  /** Optional token preview hub (not Event Log). */
+  previewHub?: PreviewHub;
 };
 
 type JsonRecord = Record<string, unknown>;
@@ -285,6 +287,37 @@ export function createHttpApp(deps: CreateHttpAppDeps): Hono {
         }
       } catch {
         // Client disconnect / abort — do not roll back Run.
+      }
+    });
+  });
+
+  app.get("/v1/runs/:runId/preview", async (c) => {
+    const runId = c.req.param("runId");
+    const run = await deps.persistence.getRun(runId);
+    if (!run) return jsonHttpError(notFound("run not found"));
+    if (!deps.previewHub) {
+      return jsonHttpError(notFound("preview hub not configured"));
+    }
+    const hub = deps.previewHub;
+
+    return streamSSE(c, async (stream) => {
+      const ac = new AbortController();
+      stream.onAbort(() => ac.abort());
+
+      const unsub = hub.subscribe(runId, (event) => {
+        if (ac.signal.aborted) return;
+        void stream.writeSSE({
+          event: event.type,
+          data: JSON.stringify(event),
+        });
+      });
+
+      try {
+        await new Promise<void>((resolve) => {
+          ac.signal.addEventListener("abort", () => resolve(), { once: true });
+        });
+      } finally {
+        unsub();
       }
     });
   });

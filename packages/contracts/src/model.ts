@@ -67,6 +67,10 @@ export const modelRespondedPayloadSchema = strictObject({
   cost: modelCostSchema.optional(),
   finishReason: z.string().optional(),
   latencyMs: z.number().nonnegative().optional(),
+  /** Full model reasoning / thinking text for UX replay (not an execution input). */
+  reasoning: z.string().optional(),
+  /** User-facing projection of the accepted action (not raw JSON). */
+  display: z.string().optional(),
 });
 
 export type ModelRespondedPayload = z.infer<typeof modelRespondedPayloadSchema>;

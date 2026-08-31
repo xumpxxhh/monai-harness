@@ -21,7 +21,9 @@ import type { IdempotencyPort, ModelPort, PersistencePort, LeasePort, HarnessCom
 
 import { buildContext } from "../context/build-context.js";
 import { checkRunBudget } from "../control/budget-guard.js";
+import { projectActionForUser } from "../control/project-action.js";
 import type { HookRunner } from "../hooks/hook-runner.js";
+import type { PreviewHub } from "../preview/preview-hub.js";
 import {
   DEFAULT_REQUIRE_APPROVAL_TOOLS,
   DEFAULT_TOOL_ALLOWLIST,
@@ -94,6 +96,8 @@ export type ExecuteTurnDeps = {
   acceptanceChecks?: readonly AcceptanceCheck[];
   registry?: ExtensionRegistry;
   modelPolicy?: ModelPolicy;
+  /** Optional in-process preview fan-out (token UX; not Event Log). */
+  previewHub?: PreviewHub;
 };
 
 /**
@@ -287,18 +291,60 @@ export async function handleExecuteTurn(
 
     let modelResult: unknown;
     let callFailed = false;
+    let modelReasoning: string | undefined;
+    let modelDisplay: string | undefined;
+
+    deps.previewHub?.publish({
+      type: "preview_start",
+      runId: run.runId,
+      stepId,
+      modelCallId,
+    });
+
     try {
-      modelResult = await deps.model.completeStructured({
+      const modelInput = {
         context,
         schema: { type: "Action" },
         modelPolicy: {
           ...resolvedModelPolicy,
           resolvedTarget: target,
         },
-      });
+      };
+
+      if (typeof deps.model.completeStructuredStream === "function") {
+        for await (const chunk of deps.model.completeStructuredStream(modelInput)) {
+          if (chunk.kind === "delta") {
+            deps.previewHub?.publish({
+              type: "delta",
+              runId: run.runId,
+              stepId,
+              modelCallId,
+              channel: chunk.channel,
+              text: chunk.text,
+            });
+            if (chunk.channel === "reasoning") {
+              modelReasoning = (modelReasoning ?? "") + chunk.text;
+            }
+          } else if (chunk.kind === "done") {
+            modelResult = chunk.result;
+            if (chunk.result.reasoning) {
+              modelReasoning = chunk.result.reasoning;
+            }
+          }
+        }
+      } else {
+        modelResult = await deps.model.completeStructured(modelInput);
+      }
     } catch (err) {
       callFailed = true;
       lastModelError = err instanceof Error ? err.message : "model call failed";
+      deps.previewHub?.publish({
+        type: "preview_invalid",
+        runId: run.runId,
+        stepId,
+        modelCallId,
+        reason: lastModelError,
+      });
     }
 
     const latencyMs = Date.now() - startCallTime;
@@ -315,11 +361,23 @@ export async function handleExecuteTurn(
       typeof modelResult === "object" &&
       "rawAction" in (modelResult as Record<string, unknown>)
     ) {
-      const wrapped = modelResult as { rawAction: unknown; usage?: ModelUsage };
+      const wrapped = modelResult as {
+        rawAction: unknown;
+        usage?: ModelUsage;
+        reasoning?: string;
+      };
       candidateAction = wrapped.rawAction;
       if (wrapped.usage) {
         usage = wrapped.usage;
       }
+      if (wrapped.reasoning) {
+        modelReasoning = wrapped.reasoning;
+      }
+    }
+
+    const preParse = !callFailed ? actionSchema.safeParse(candidateAction) : null;
+    if (preParse?.success) {
+      modelDisplay = projectActionForUser(preParse.data);
     }
 
     modelEvents.push(
@@ -338,6 +396,8 @@ export async function handleExecuteTurn(
           priceTableVersion: PRICE_TABLE_STATIC_VERSION,
           latencyMs,
           failed: callFailed,
+          ...(modelReasoning ? { reasoning: modelReasoning } : {}),
+          ...(modelDisplay ? { display: modelDisplay } : {}),
         },
       }),
     );
@@ -346,13 +406,27 @@ export async function handleExecuteTurn(
       continue;
     }
 
-    const parsed = actionSchema.safeParse(candidateAction);
+    const parsed = preParse ?? actionSchema.safeParse(candidateAction);
     if (!parsed.success) {
       lastModelError = `invalid Action: ${parsed.error.message}`;
+      deps.previewHub?.publish({
+        type: "preview_invalid",
+        runId: run.runId,
+        stepId,
+        modelCallId,
+        reason: lastModelError,
+      });
       continue;
     }
 
     parsedAction = parsed.data;
+    deps.previewHub?.publish({
+      type: "preview_committed",
+      runId: run.runId,
+      stepId,
+      modelCallId,
+      display: modelDisplay ?? projectActionForUser(parsedAction),
+    });
     break;
   }
 

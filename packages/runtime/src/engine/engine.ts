@@ -37,6 +37,7 @@ import {
 } from "./tool-commands.js";
 import { assertCommandTenant } from "./tenant-guard.js";
 import type { HandleResult } from "./types.js";
+import type { PreviewHub } from "../preview/preview-hub.js";
 
 export type CreateRunPayload = {
   runId: string;
@@ -71,6 +72,8 @@ export type EngineDeps = {
   registry?: ExtensionRegistry;
   /** Immutable manifest store; CreateRun freezes manifest when set with registry (P9a2). */
   manifestStore?: ExecutionManifestStorePort;
+  /** In-process token preview fan-out (not Event Log). */
+  previewHub?: PreviewHub;
 };
 
 function eventBase(
@@ -125,6 +128,7 @@ export class Engine {
   private readonly registry: ExtensionRegistry | undefined;
   private readonly manifestStore: ExecutionManifestStorePort | undefined;
   private readonly modelPolicy: ModelPolicy | undefined;
+  private readonly previewHub: PreviewHub | undefined;
 
   constructor(deps: EngineDeps) {
     this.persistence = deps.persistence;
@@ -138,6 +142,7 @@ export class Engine {
     this.registry = deps.registry;
     this.manifestStore = deps.manifestStore;
     this.modelPolicy = deps.modelPolicy;
+    this.previewHub = deps.previewHub;
   }
 
   async handle(command: HarnessCommand): Promise<HandleResult> {
@@ -212,6 +217,7 @@ export class Engine {
         acceptanceChecks: resolved.acceptanceChecks,
         registry: this.registry,
         modelPolicy: resolved.modelPolicy ?? this.modelPolicy,
+        previewHub: this.previewHub,
       },
       command,
     );

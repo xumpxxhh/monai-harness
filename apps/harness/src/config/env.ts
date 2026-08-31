@@ -30,6 +30,9 @@ export type HarnessConfig = {
   modelDriver: "stub" | "openai";
   openaiApiKey?: string;
   openaiBaseUrl?: string;
+  openaiModel?: string;
+  openaiResponseFormat: "json_object" | "none";
+  openaiAuthHeader?: string;
   databaseUrl: string;
   port: number;
   /** demo = CreateRun→execute_turn then exit; serve = keep delivery loops */
@@ -114,10 +117,10 @@ export function hasDeliveryRole(roles: HarnessRoles): boolean {
   return roles.dispatcher || roles.scheduler || roles.worker;
 }
 
-/** Load `apps/harness/.env` via dotenv; does not override existing process.env. */
+/** Load `apps/harness/.env` via dotenv; overrides process.env for configured keys. */
 export function loadDotEnv(): void {
   const envPath = resolve(harnessRootDir(), ".env");
-  loadEnvFile({ path: envPath, override: false });
+  loadEnvFile({ path: envPath, override: true });
 }
 
 export function loadConfig(): HarnessConfig {
@@ -154,6 +157,14 @@ export function loadConfig(): HarnessConfig {
     modelDriver,
     openaiApiKey: process.env.OPENAI_API_KEY,
     openaiBaseUrl: process.env.OPENAI_BASE_URL,
+    openaiModel: process.env.OPENAI_MODEL?.trim() || undefined,
+    openaiResponseFormat:
+      (process.env.OPENAI_RESPONSE_FORMAT ?? "json_object").trim().toLowerCase() === "none"
+        ? "none"
+        : "json_object",
+    openaiAuthHeader:
+      process.env.OPENAI_AUTH_HEADER?.trim() ||
+      (process.env.OPENAI_API_KEY?.startsWith("ak_") ? "api-key" : undefined),
     databaseUrl:
       process.env.DATABASE_URL?.trim() ||
       "postgres://monai:monai@127.0.0.1:54329/monai_harness",

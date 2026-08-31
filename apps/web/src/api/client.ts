@@ -214,6 +214,10 @@ export const api = {
   eventsStreamUrl(runId: string, fromSequence = 1): string {
     return `/v1/runs/${encodeURIComponent(runId)}/events/stream?fromSequence=${fromSequence}`;
   },
+
+  previewStreamUrl(runId: string): string {
+    return `/v1/runs/${encodeURIComponent(runId)}/preview`;
+  },
 };
 
 export function defaultApiContext(): ApiContext {

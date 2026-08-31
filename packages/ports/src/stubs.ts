@@ -51,9 +51,37 @@ export type ExecutionManifestStorePort = {
   get(manifestId: string): Promise<{ content: unknown; hash: string } | undefined>;
 };
 
+/** User-visible stream channels (never raw Action JSON content). */
+export type ModelPreviewChannel = "reasoning" | "display";
+
+export type ModelStreamDelta = {
+  kind: "delta";
+  channel: ModelPreviewChannel;
+  text: string;
+};
+
+export type ModelStreamDone = {
+  kind: "done";
+  result: {
+    rawAction: unknown;
+    usage?: {
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+    };
+    target?: string;
+    finishReason?: string;
+    latencyMs?: number;
+    reasoning?: string;
+  };
+};
+
+export type ModelStreamChunk = ModelStreamDelta | ModelStreamDone;
+
 /**
  * ModelPort — structured completion outside any open UoW (EDR-003).
  * Implementations return an Action-shaped object (validated by Engine).
+ * Optional streaming yields user-facing deltas only; execution waits for `done`.
  */
 export type ModelPort = {
   completeStructured(input: {
@@ -61,6 +89,11 @@ export type ModelPort = {
     schema: unknown;
     modelPolicy?: unknown;
   }): Promise<unknown>;
+  completeStructuredStream?(input: {
+    context: unknown;
+    schema: unknown;
+    modelPolicy?: unknown;
+  }): AsyncIterable<ModelStreamChunk>;
 };
 
 export type KnowledgePort = {

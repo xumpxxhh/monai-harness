@@ -30,6 +30,8 @@ export { ExtensionRegistry, type RegisterPackInput } from "./extension/extension
 export { buildToolInvokerFromRegistry, LEGACY_ECHO_HANDLER } from "./extension/wire-pack.js";
 export { EDR014_DISABLED_TOOL_IDS, isEdr014DisabledTool } from "./extension/edr014.js";
 export { computeActionDigest, actionDigestMeta } from "./control/action-digest.js";
+export { projectActionForUser } from "./control/project-action.js";
+export { PreviewHub, type ModelPreviewEvent, type PreviewListener } from "./preview/preview-hub.js";
 export {
   RecoveryService,
   selectValidCheckpoint,

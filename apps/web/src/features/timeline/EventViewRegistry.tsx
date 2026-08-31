@@ -66,7 +66,20 @@ registerEventView("action.proposed", ({ event }) => {
   return <div>action: {String(p?.actionType ?? p?.type ?? "proposed")}</div>;
 });
 registerEventView("policy.evaluated", GenericEventView);
-registerEventView("model.responded", () => <div>model responded</div>);
+registerEventView("model.responded", ({ event }) => {
+  const p = event.payload as { display?: string; reasoning?: string } | undefined;
+  return (
+    <div>
+      {p?.display ? <div style={{ whiteSpace: "pre-wrap" }}>{p.display}</div> : <div>model responded</div>}
+      {p?.reasoning ? (
+        <details style={{ marginTop: 8 }}>
+          <summary style={{ cursor: "pointer", fontSize: "0.85rem" }}>思考过程</summary>
+          <div style={{ whiteSpace: "pre-wrap", color: "var(--text-muted)" }}>{p.reasoning}</div>
+        </details>
+      ) : null}
+    </div>
+  );
+});
 
 export function EventView({ event }: EventViewProps): ReactNode {
   const View = registry.get(event.eventType) ?? GenericEventView;

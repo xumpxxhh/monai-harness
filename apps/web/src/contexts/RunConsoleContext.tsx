@@ -32,6 +32,34 @@ function parseSseChunk(block: string): EventEnvelope | undefined {
   return JSON.parse(raw) as EventEnvelope;
 }
 
+export type ModelPreviewState = {
+  stepId?: string;
+  modelCallId?: string;
+  reasoning: string;
+  display: string;
+  status: "idle" | "streaming" | "committed" | "invalid";
+  invalidReason?: string;
+};
+
+type PreviewSsePayload = {
+  type: string;
+  runId: string;
+  stepId: string;
+  modelCallId: string;
+  channel?: "reasoning" | "display";
+  text?: string;
+  display?: string;
+  reason?: string;
+};
+
+function parsePreviewSseChunk(block: string): PreviewSsePayload | undefined {
+  const dataLine = block.split("\n").find((line) => line.startsWith("data:"));
+  if (!dataLine) return undefined;
+  const raw = dataLine.slice(5).trim();
+  if (!raw) return undefined;
+  return JSON.parse(raw) as PreviewSsePayload;
+}
+
 async function consumeEventStream(
   url: string,
   signal: AbortSignal,
@@ -57,6 +85,38 @@ async function consumeEventStream(
       buffer = buffer.slice(split + 2);
       const event = parseSseChunk(block);
       if (event) onEvent(event);
+      split = buffer.indexOf("\n\n");
+    }
+  }
+}
+
+async function consumePreviewStream(
+  url: string,
+  signal: AbortSignal,
+  onPreview: (payload: PreviewSsePayload) => void,
+): Promise<void> {
+  const res = await fetch(url, {
+    headers: { Accept: "text/event-stream" },
+    signal,
+  });
+  if (!res.ok || !res.body) {
+    // Preview is optional when hub is absent.
+    if (res.status === 404) return;
+    throw new Error(`Preview SSE failed: ${res.status}`);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let split = buffer.indexOf("\n\n");
+    while (split >= 0) {
+      const block = buffer.slice(0, split);
+      buffer = buffer.slice(split + 2);
+      const event = parsePreviewSseChunk(block);
+      if (event) onPreview(event);
       split = buffer.indexOf("\n\n");
     }
   }
@@ -132,6 +192,7 @@ type RunConsoleState = {
   toolCalls: ToolCallRecord[];
   events: EventEnvelope[];
   streamConnected: boolean;
+  modelPreview: ModelPreviewState;
   runLoading: boolean;
   runError: string | null;
   refreshRunsList: () => Promise<void>;
@@ -165,6 +226,11 @@ export function RunConsoleProvider({
   const [toolCalls, setToolCalls] = useState<ToolCallRecord[]>([]);
   const [events, setEvents] = useState<EventEnvelope[]>([]);
   const [streamConnected, setStreamConnected] = useState(false);
+  const [modelPreview, setModelPreview] = useState<ModelPreviewState>({
+    reasoning: "",
+    display: "",
+    status: "idle",
+  });
   const [runLoading, setRunLoading] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
 
@@ -287,6 +353,7 @@ export function RunConsoleProvider({
       setToolCalls([]);
       setEvents([]);
       setStreamConnected(false);
+      setModelPreview({ reasoning: "", display: "", status: "idle" });
       setRunError(null);
       return;
     }
@@ -302,6 +369,54 @@ export function RunConsoleProvider({
         const fromSeq =
           snap.events.length > 0 ? snap.events[snap.events.length - 1]!.sequence + 1 : 1;
         setStreamConnected(true);
+        setModelPreview({ reasoning: "", display: "", status: "idle" });
+
+        void consumePreviewStream(api.previewStreamUrl(selectedRunId!), ac.signal, (payload) => {
+          if (cancelled) return;
+          if (payload.type === "preview_start") {
+            setModelPreview({
+              stepId: payload.stepId,
+              modelCallId: payload.modelCallId,
+              reasoning: "",
+              display: "",
+              status: "streaming",
+            });
+            return;
+          }
+          if (payload.type === "delta") {
+            setModelPreview((prev) => ({
+              ...prev,
+              stepId: payload.stepId,
+              modelCallId: payload.modelCallId,
+              status: "streaming",
+              reasoning:
+                payload.channel === "reasoning"
+                  ? prev.reasoning + (payload.text ?? "")
+                  : prev.reasoning,
+              display:
+                payload.channel === "display"
+                  ? prev.display + (payload.text ?? "")
+                  : prev.display,
+            }));
+            return;
+          }
+          if (payload.type === "preview_committed") {
+            setModelPreview((prev) => ({
+              ...prev,
+              status: "committed",
+              display: payload.display ?? prev.display,
+            }));
+            return;
+          }
+          if (payload.type === "preview_invalid") {
+            setModelPreview((prev) => ({
+              ...prev,
+              status: "invalid",
+              invalidReason: payload.reason,
+            }));
+          }
+        }).catch(() => undefined);
+
         await consumeEventStream(
           api.eventsStreamUrl(selectedRunId!, fromSeq),
           ac.signal,
@@ -340,6 +455,7 @@ export function RunConsoleProvider({
       toolCalls,
       events,
       streamConnected,
+      modelPreview,
       runLoading,
       runError,
       refreshRunsList,
@@ -358,6 +474,7 @@ export function RunConsoleProvider({
       toolCalls,
       events,
       streamConnected,
+      modelPreview,
       runLoading,
       runError,
       refreshRunsList,
