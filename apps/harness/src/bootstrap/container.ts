@@ -3,6 +3,7 @@ import {
   OutboxDispatcher,
   Scheduler,
   ToolDispatcher,
+  wireWorkspaceGenericPack,
   type CompensationStore,
 } from "@monai/delivery";
 import { InMemoryGovernanceEventStore } from "@monai/governance";
@@ -14,7 +15,6 @@ import {
   createPostgresPersistence,
   type PostgresPersistence,
 } from "@monai/persistence-postgres";
-import { wireWorkspaceGenericPack } from "@monai/delivery";
 import type {
   IdempotencyPort,
   LeasePort,
@@ -29,7 +29,7 @@ import { Engine, InMemoryManifestStore } from "@monai/runtime";
 import { EnvSecretPort } from "@monai/secret-env";
 import { InMemoryWorkspace } from "@monai/workspace-memory";
 
-import type { HarnessConfig } from "./config.js";
+import type { HarnessConfig } from "../config/env.js";
 
 export type PersistenceBundle = PersistencePort &
   OutboxPort &
@@ -52,7 +52,7 @@ export type HarnessRuntime = {
   close: () => Promise<void>;
 };
 
-async function buildPersistence(config: HarnessConfig): Promise<PersistenceBundle> {
+export async function buildPersistence(config: HarnessConfig): Promise<PersistenceBundle> {
   if (config.persistenceDriver === "postgres") {
     const store: PostgresPersistence = await createPostgresPersistence(config.databaseUrl);
     return store;

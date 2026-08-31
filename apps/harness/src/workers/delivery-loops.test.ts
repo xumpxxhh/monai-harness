@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import type { HarnessRuntime } from "./bootstrap.js";
-import { allHarnessRolesEnabled, type HarnessRoles } from "./config.js";
-import { DeliveryLoops } from "./loops.js";
+import type { HarnessRuntime } from "../bootstrap/container.js";
+import { allHarnessRolesEnabled, type HarnessRoles } from "../config/env.js";
+import { DeliveryLoops } from "./delivery-loops.js";
 import type { TurnDriver } from "./turn-driver.js";
 
 function stubRuntime(roles: HarnessRoles): { runtime: HarnessRuntime; calls: string[] } {

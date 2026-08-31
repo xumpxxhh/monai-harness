@@ -1,8 +1,8 @@
 import { serve } from "@hono/node-server";
 import { createHttpApp } from "@monai/api";
 
-import type { HarnessRuntime } from "./bootstrap.js";
-import type { TurnDriver } from "./turn-driver.js";
+import type { HarnessRuntime } from "../bootstrap/container.js";
+import type { TurnDriver } from "../workers/turn-driver.js";
 
 export type HttpServerHandle = {
   port: number;

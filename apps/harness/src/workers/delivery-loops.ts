@@ -1,4 +1,4 @@
-import type { HarnessRuntime } from "./bootstrap.js";
+import type { HarnessRuntime } from "../bootstrap/container.js";
 import type { TurnDriver } from "./turn-driver.js";
 
 /**

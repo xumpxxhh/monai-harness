@@ -1,7 +1,7 @@
 import { CONTRACTS_SCHEMA_VERSION, type Run } from "@monai/contracts";
 import type { HandleResult } from "@monai/runtime";
 
-import type { HarnessRuntime } from "./bootstrap.js";
+import type { HarnessRuntime } from "../bootstrap/container.js";
 
 export type TurnDriverOptions = {
   /** When true, tickAuto runs execute_turn for running runs not yet turned this leaseEpoch. */

@@ -72,6 +72,7 @@ load config (.env)
 
 | 日期 | 说明 |
 | --- | --- |
+| 2026-08-31 | 模块化分层重构：按 config/bootstrap/server/workers/cli 分层拆解 index 与平铺文件 |
 | 2026-08-28 | M1h 实装完成：SecretPort + OpenAiModelPort DI 装配；Eval 仍 stub |
 | 2026-08-28 | M1h 计划：Secret + Model 装配；Eval 仍 stub；见 0018 |
 | 2026-08-28 | P9d：`HARNESS_ROLES` / `HARNESS_ROLE_*` 独立开关；loops 按角色 tick |

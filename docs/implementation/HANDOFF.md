@@ -47,4 +47,4 @@ pnpm --filter harness test
 | SecretPort (Env) | `packages/adapters/secret-env/src/index.ts` |
 | OpenAI ModelPort | `packages/adapters/model-openai/src/index.ts` |
 | 模型与 Context 指标 | `packages/observability/src/metrics/compute-model-metrics.ts` |
-| harness 装配 | `apps/harness/src/bootstrap.ts` |
+| harness 装配 | `apps/harness/src/bootstrap/container.ts` |

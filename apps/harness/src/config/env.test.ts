@@ -5,7 +5,7 @@ import {
   formatHarnessRoles,
   hasDeliveryRole,
   parseHarnessRoles,
-} from "./config.js";
+} from "./env.js";
 
 describe("parseHarnessRoles", () => {
   it("defaults all roles on when unset", () => {
@@ -54,9 +54,14 @@ describe("parseHarnessRoles", () => {
 describe("role helpers", () => {
   it("hasDeliveryRole is true when any delivery role is on", () => {
     expect(hasDeliveryRole(allHarnessRolesEnabled())).toBe(true);
-    expect(hasDeliveryRole({ ...allHarnessRolesEnabled(), dispatcher: false, scheduler: false, worker: false })).toBe(
-      false,
-    );
+    expect(
+      hasDeliveryRole({
+        ...allHarnessRolesEnabled(),
+        dispatcher: false,
+        scheduler: false,
+        worker: false,
+      }),
+    ).toBe(false);
     expect(
       hasDeliveryRole({
         api: true,

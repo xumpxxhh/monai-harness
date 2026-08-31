@@ -1,11 +1,10 @@
-import { EvalHarness, MVP_EVAL_SUITES } from "@monai/observability";
-
-import { bootstrap } from "./bootstrap.js";
-import { formatHarnessRoles, hasDeliveryRole, loadConfig } from "./config.js";
-import { runCreateRunToExecuteTurnDemo } from "./demo.js";
-import { startHttpServer } from "./http-server.js";
-import { DeliveryLoops } from "./loops.js";
-import { TurnDriver } from "./turn-driver.js";
+import { bootstrap } from "./bootstrap/container.js";
+import { runCreateRunToExecuteTurnDemo } from "./cli/demo.js";
+import { runStartupEval } from "./cli/eval-runner.js";
+import { formatHarnessRoles, hasDeliveryRole, loadConfig } from "./config/env.js";
+import { startHttpServer, type HttpServerHandle } from "./server/http-server.js";
+import { DeliveryLoops } from "./workers/delivery-loops.js";
+import { TurnDriver } from "./workers/turn-driver.js";
 
 /**
  * MVP deployable harness.
@@ -23,29 +22,16 @@ async function main(): Promise<void> {
     `[harness][edr-014] flags dag=${config.featureFlags.enableDag} spawn=${config.featureFlags.enableSpawnChild} memory=${config.featureFlags.enableMemory} sandbox=${config.featureFlags.enableSandboxExec} realWriteHigh=${config.featureFlags.enableRealWriteHigh}`,
   );
 
-  if (config.runEvalOnStart && config.roles.observability) {
-    const harness = new EvalHarness();
-    const results = await harness.runAll(MVP_EVAL_SUITES);
-    for (const result of results) {
-      console.log(
-        `[harness][eval] ${result.suiteId}: ${result.passed}/${result.total} (${(result.passRate * 100).toFixed(0)}%) ${result.ok ? "PASS" : "FAIL"}`,
-      );
-      if (!result.ok) {
-        for (const c of result.cases.filter((x) => !x.ok)) {
-          console.log(`  - ${c.caseId}: ${c.message ?? "failed"}`);
-        }
-        process.exitCode = 1;
-        return;
-      }
-    }
-  } else if (config.runEvalOnStart && !config.roles.observability) {
-    console.log("[harness] skip eval (observability role off)");
+  const evalPassed = await runStartupEval(config);
+  if (!evalPassed) {
+    process.exitCode = 1;
+    return;
   }
 
   const runtime = await bootstrap(config);
   const turnDriver = new TurnDriver(runtime, { autoExecute: config.autoExecuteTurn });
   const loops = new DeliveryLoops(runtime, config.loopIntervalMs, turnDriver);
-  let http: { close: () => Promise<void> } | undefined;
+  let http: HttpServerHandle | undefined;
 
   try {
     if (config.mode === "serve") {

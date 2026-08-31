@@ -1,9 +1,9 @@
-import { CONTRACTS_SCHEMA_VERSION } from "@monai/contracts";
 import { buildCreateRunCommand } from "@monai/api";
+import { CONTRACTS_SCHEMA_VERSION } from "@monai/contracts";
 import type { HarnessCommand } from "@monai/ports";
 
-import type { HarnessRuntime } from "./bootstrap.js";
-import { DeliveryLoops } from "./loops.js";
+import type { HarnessRuntime } from "../bootstrap/container.js";
+import type { DeliveryLoops } from "../workers/delivery-loops.js";
 
 /**
  * P8b exit path: CreateRun → outbox/queue/scheduler → running → execute_turn.

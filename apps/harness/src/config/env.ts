@@ -44,9 +44,9 @@ export type HarnessConfig = {
   roles: HarnessRoles;
 };
 
-/** `apps/harness` package root (works from `src/` and compiled `dist/`). */
+/** `apps/harness` package root (works from `src/config/` and compiled `dist/config/`). */
 export function harnessRootDir(): string {
-  return resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  return resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 }
 
 function parseBool(raw: string | undefined, fallback: boolean): boolean {
