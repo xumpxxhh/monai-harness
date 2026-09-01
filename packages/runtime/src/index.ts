@@ -4,7 +4,7 @@ export { Engine, queueDedupeKey, type CreateRunPayload, type EngineDeps } from "
 export { assertCommandTenant } from "./engine/tenant-guard.js";
 export type { HandleFailure, HandleResult, HandleSuccess } from "./engine/types.js";
 export { HookRunner } from "./hooks/hook-runner.js";
-export { buildContext, type TurnContext } from "./context/build-context.js";
+export { buildContext, formatRecentFacts, type TurnContext } from "./context/build-context.js";
 export {
   DEFAULT_REQUIRE_APPROVAL_TOOLS,
   DEFAULT_TOOL_ALLOWLIST,
@@ -32,6 +32,17 @@ export { EDR014_DISABLED_TOOL_IDS, isEdr014DisabledTool } from "./extension/edr0
 export { computeActionDigest, actionDigestMeta } from "./control/action-digest.js";
 export { projectActionForUser } from "./control/project-action.js";
 export { PreviewHub, type ModelPreviewEvent, type PreviewListener } from "./preview/preview-hub.js";
+export { buildAgentSystemPrompt } from "./model/agent-system-prompt.js";
+export { hydrateModelAction } from "./model/hydrate-action.js";
+export {
+  buildModelFunctionCatalog,
+  CONTROL_FUNCTION_NAMES,
+  isControlFunctionName,
+} from "./model/function-catalog.js";
+export {
+  mapModelDecisionToAction,
+  resolveModelActionCandidate,
+} from "./model/map-decision.js";
 export {
   RecoveryService,
   selectValidCheckpoint,

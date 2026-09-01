@@ -4,7 +4,12 @@ import {
   IsolatedSyntheticSink,
   SyntheticTimeoutError,
 } from "@monai/synthetic-sink";
-import type { ExecutionContext, PackHookRegistration, ToolHandler, ToolHandlerInput } from "@monai/pack-sdk";
+import type {
+  ExecutionContext,
+  PackHookRegistration,
+  ToolHandler,
+  ToolHandlerInput,
+} from "@monai/pack-sdk";
 
 const MAX_OUTPUT_CHARS = 512_000;
 
@@ -12,8 +17,12 @@ function workspacePort(ctx: ExecutionContext): WorkspacePort | undefined {
   return ctx.ports?.workspace as WorkspacePort | undefined;
 }
 
-function artifactsStore(ctx: ExecutionContext): Map<string, { markdown: string; hash: string }> {
-  const store = ctx.ports?.objectStore as Map<string, { markdown: string; hash: string }> | undefined;
+function artifactsStore(
+  ctx: ExecutionContext,
+): Map<string, { markdown: string; hash: string }> {
+  const store = ctx.ports?.objectStore as
+    | Map<string, { markdown: string; hash: string }>
+    | undefined;
   if (!store) {
     throw new Error("artifact store not configured");
   }
@@ -36,7 +45,8 @@ function rejectPathEscape(path: string): void {
 }
 
 function rejectSecretMaterial(value: unknown): void {
-  const text = typeof value === "string" ? value : JSON.stringify(value ?? null);
+  const text =
+    typeof value === "string" ? value : JSON.stringify(value ?? null);
   if (/secret:\/\/|sk-live-[A-Za-z0-9]{8,}|AKIA[0-9A-Z]{16}/.test(text)) {
     throw new Error("secret material rejected");
   }
@@ -66,7 +76,10 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
     const path = String(args.path ?? "/");
     rejectPathEscape(path);
     const content = await ws.read(path);
-    return { ok: true, data: { ...(content as object), summary: `read ${path}` } };
+    return {
+      ok: true,
+      data: { ...(content as object), summary: `read ${path}` },
+    };
   },
   "workspace.search": async (input) => {
     const ws = workspacePort(input.executionContext);
@@ -97,7 +110,10 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
   },
   "artifact.validate": async (input) => {
     const args = input.arguments as Record<string, unknown>;
-    const artifactId = String(args.artifactId ?? args.ref ?? "").replace(/^artifact:\/\//, "");
+    const artifactId = String(args.artifactId ?? args.ref ?? "").replace(
+      /^artifact:\/\//,
+      "",
+    );
     if (!artifactId) {
       return { ok: false, error: "artifactId required" };
     }
@@ -125,10 +141,16 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
     const args = input.arguments as Record<string, unknown>;
     const resourceKey = String(args.resourceKey ?? "");
     if (!resourceKey.startsWith("synthetic://")) {
-      return { ok: false, error: "synthetic resourceKey must use synthetic:// prefix" };
+      return {
+        ok: false,
+        error: "synthetic resourceKey must use synthetic:// prefix",
+      };
     }
     if (!input.idempotencyKey) {
-      return { ok: false, error: "synthetic.write_high requires idempotencyKey" };
+      return {
+        ok: false,
+        error: "synthetic.write_high requires idempotencyKey",
+      };
     }
     rejectSecretMaterial(args.payload ?? {});
     try {
@@ -139,7 +161,10 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
       });
       return {
         ok: true,
-        data: { ...result, summary: `synthetic ${resourceKey}#${result.effectCount}` },
+        data: {
+          ...result,
+          summary: `synthetic ${resourceKey}#${result.effectCount}`,
+        },
         resultHash: result.payloadHash,
       };
     } catch (err) {
@@ -164,7 +189,10 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
     }
     return {
       ok: true,
-      data: { ...result, summary: `reconciled ${resourceKey}#${result.effectCount}` },
+      data: {
+        ...result,
+        summary: `reconciled ${resourceKey}#${result.effectCount}`,
+      },
       resultHash: result.payloadHash,
     };
   },
@@ -192,27 +220,47 @@ export const WORKSPACE_GENERIC_MANIFEST = {
     {
       toolId: "workspace.list",
       version: "0.1.0",
-      effectContract: { ...baseContract, sideEffectProfile: "read" as const, reconcileSupported: false },
+      effectContract: {
+        ...baseContract,
+        sideEffectProfile: "read" as const,
+        reconcileSupported: false,
+      },
     },
     {
       toolId: "workspace.read",
       version: "0.1.0",
-      effectContract: { ...baseContract, sideEffectProfile: "read" as const, reconcileSupported: false },
+      effectContract: {
+        ...baseContract,
+        sideEffectProfile: "read" as const,
+        reconcileSupported: false,
+      },
     },
     {
       toolId: "workspace.search",
       version: "0.1.0",
-      effectContract: { ...baseContract, sideEffectProfile: "read" as const, reconcileSupported: false },
+      effectContract: {
+        ...baseContract,
+        sideEffectProfile: "read" as const,
+        reconcileSupported: false,
+      },
     },
     {
       toolId: "artifact.write_markdown",
       version: "0.1.0",
-      effectContract: { ...baseContract, sideEffectProfile: "write_low" as const, reconcileSupported: false },
+      effectContract: {
+        ...baseContract,
+        sideEffectProfile: "write_low" as const,
+        reconcileSupported: false,
+      },
     },
     {
       toolId: "artifact.validate",
       version: "0.1.0",
-      effectContract: { ...baseContract, sideEffectProfile: "read" as const, reconcileSupported: false },
+      effectContract: {
+        ...baseContract,
+        sideEffectProfile: "read" as const,
+        reconcileSupported: false,
+      },
     },
     {
       toolId: "synthetic.write_high",
@@ -226,11 +274,31 @@ export const WORKSPACE_GENERIC_MANIFEST = {
     },
   ],
   hooks: [
-    { hookPoint: "PreReasoning" as const, handlerId: "wg.pre-reasoning", version: "0.1.0" },
-    { hookPoint: "PostReasoning" as const, handlerId: "wg.post-reasoning", version: "0.1.0" },
-    { hookPoint: "PreToolCall" as const, handlerId: "wg.pre-tool", version: "0.1.0" },
-    { hookPoint: "PostToolCall" as const, handlerId: "wg.post-tool", version: "0.1.0" },
-    { hookPoint: "OnRunEnd" as const, handlerId: "wg.on-run-end", version: "0.1.0" },
+    {
+      hookPoint: "PreReasoning" as const,
+      handlerId: "wg.pre-reasoning",
+      version: "0.1.0",
+    },
+    {
+      hookPoint: "PostReasoning" as const,
+      handlerId: "wg.post-reasoning",
+      version: "0.1.0",
+    },
+    {
+      hookPoint: "PreToolCall" as const,
+      handlerId: "wg.pre-tool",
+      version: "0.1.0",
+    },
+    {
+      hookPoint: "PostToolCall" as const,
+      handlerId: "wg.post-tool",
+      version: "0.1.0",
+    },
+    {
+      hookPoint: "OnRunEnd" as const,
+      handlerId: "wg.on-run-end",
+      version: "0.1.0",
+    },
   ],
   digest: "sha256:workspace-generic-0.1.0",
 };
@@ -245,7 +313,9 @@ export const WORKSPACE_GENERIC_TOOL_ALLOWLIST = [
   "synthetic.write_high",
 ] as const;
 
-export const WORKSPACE_GENERIC_REQUIRE_APPROVAL = ["synthetic.write_high"] as const;
+export const WORKSPACE_GENERIC_REQUIRE_APPROVAL = [
+  "synthetic.write_high",
+] as const;
 
 const noopObservation = { data: { pack: "workspace-generic", observed: true } };
 

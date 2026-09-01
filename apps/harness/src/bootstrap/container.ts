@@ -24,12 +24,14 @@ import type {
   QueuePort,
   SecretPort,
 } from "@monai/ports";
+import { mkdir } from "node:fs/promises";
+
 import { InMemoryQueue } from "@monai/queue-memory";
 import { Engine, InMemoryManifestStore, PreviewHub } from "@monai/runtime";
 import { EnvSecretPort } from "@monai/secret-env";
-import { InMemoryWorkspace } from "@monai/workspace-memory";
 
 import type { HarnessConfig } from "../config/env.js";
+import { FsWorkspace } from "../workspace/fs-workspace.js";
 
 export type PersistenceBundle = PersistencePort &
   OutboxPort &
@@ -69,10 +71,9 @@ export async function bootstrap(config: HarnessConfig): Promise<HarnessRuntime> 
   const persistence = await buildPersistence(config);
   const lease: LeasePort = new InMemoryLease();
   const queue: QueuePort = new InMemoryQueue();
-  const workspace = new InMemoryWorkspace({
-    "/readme.md": "hello workspace",
-    "/notes/search-me.md": "retrievable workspace notes",
-  });
+  await mkdir(config.workspaceDir, { recursive: true });
+  const workspace = new FsWorkspace(config.workspaceDir);
+  console.log(`[harness] workspace: ${workspace.getRootDir()}`);
 
   const governanceStore = config.roles.governance
     ? new InMemoryGovernanceEventStore()

@@ -152,7 +152,7 @@ execute_turn:
   strategy propose
   PreReasoning hooks                           # 事务外
   context build (+ KnowledgePort)              # 事务外读
-  model completeStructured                     # 事务外
+  model completeStructured (canonical tools → ModelDecision)  # 事务外
   PostReasoning hooks                          # 事务外
   validate action + policy evaluate
   branch:

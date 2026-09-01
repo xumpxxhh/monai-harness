@@ -37,6 +37,9 @@ import {
 } from "../control/acceptance-checks.js";
 import { lookupToolContract, requiresIdempotencyKey } from "../execution/lookup-tool-contract.js";
 import type { ExtensionRegistry } from "../extension/extension-registry.js";
+import { buildAgentSystemPrompt } from "../model/agent-system-prompt.js";
+import { buildModelFunctionCatalog } from "../model/function-catalog.js";
+import { resolveModelActionCandidate } from "../model/map-decision.js";
 import {
   buildApprovalWaitArtifacts,
   buildInputWaitArtifacts,
@@ -176,6 +179,14 @@ export async function handleExecuteTurn(
   const toolAllowlist = deps.toolAllowlist ?? DEFAULT_TOOL_ALLOWLIST;
   const requireApprovalTools = deps.requireApprovalTools ?? DEFAULT_REQUIRE_APPROVAL_TOOLS;
   const rev = run.revision;
+  const existingToolCalls = await deps.persistence.listToolCalls(runId);
+  const hasUnresolvedTools = existingToolCalls.some(
+    (call) =>
+      call.status === "prepared" ||
+      call.status === "dispatched" ||
+      call.status === "outcome_unknown",
+  );
+  const functionCatalog = buildModelFunctionCatalog({ toolAllowlist });
 
   // 1. Budget check before calling model (design 03 §4.3 / §5.1)
   const budgetCheck = checkRunBudget(run, state);
@@ -304,7 +315,9 @@ export async function handleExecuteTurn(
     try {
       const modelInput = {
         context,
-        schema: { type: "Action" },
+        controlFunctions: functionCatalog.controlFunctions,
+        domainTools: functionCatalog.domainTools,
+        systemPrompt: buildAgentSystemPrompt(),
         modelPolicy: {
           ...resolvedModelPolicy,
           resolvedTarget: target,
@@ -324,11 +337,16 @@ export async function handleExecuteTurn(
             });
             if (chunk.channel === "reasoning") {
               modelReasoning = (modelReasoning ?? "") + chunk.text;
+            } else if (chunk.channel === "display") {
+              modelDisplay = (modelDisplay ?? "") + chunk.text;
             }
           } else if (chunk.kind === "done") {
             modelResult = chunk.result;
             if (chunk.result.reasoning) {
               modelReasoning = chunk.result.reasoning;
+            }
+            if (chunk.result.content?.trim()) {
+              modelDisplay = chunk.result.content.trim();
             }
           }
         }
@@ -356,26 +374,30 @@ export async function handleExecuteTurn(
       totalTokens: buildResult.totalTokens + 30,
     };
 
-    if (
-      modelResult &&
-      typeof modelResult === "object" &&
-      "rawAction" in (modelResult as Record<string, unknown>)
-    ) {
-      const wrapped = modelResult as {
-        rawAction: unknown;
-        usage?: ModelUsage;
-        reasoning?: string;
-      };
-      candidateAction = wrapped.rawAction;
-      if (wrapped.usage) {
-        usage = wrapped.usage;
+    let mapFailed: string | undefined;
+    if (!callFailed) {
+      const resolved = resolveModelActionCandidate(modelResult, {
+        lastFactId: state.lastFactId,
+        hasUnresolvedTools,
+      });
+      if (resolved.usage) {
+        usage = resolved.usage;
       }
-      if (wrapped.reasoning) {
-        modelReasoning = wrapped.reasoning;
+      if (resolved.reasoning) {
+        modelReasoning = resolved.reasoning;
+      }
+      if (resolved.content?.trim()) {
+        modelDisplay = resolved.content.trim();
+      }
+      if (resolved.ok) {
+        candidateAction = resolved.candidate;
+      } else {
+        mapFailed = resolved.reason;
       }
     }
 
-    const preParse = !callFailed ? actionSchema.safeParse(candidateAction) : null;
+    const preParse =
+      !callFailed && !mapFailed ? actionSchema.safeParse(candidateAction) : null;
     if (preParse?.success) {
       modelDisplay = projectActionForUser(preParse.data);
     }
@@ -403,6 +425,18 @@ export async function handleExecuteTurn(
     );
 
     if (callFailed) {
+      continue;
+    }
+
+    if (mapFailed) {
+      lastModelError = mapFailed;
+      deps.previewHub?.publish({
+        type: "preview_invalid",
+        runId: run.runId,
+        stepId,
+        modelCallId,
+        reason: lastModelError,
+      });
       continue;
     }
 
@@ -1097,7 +1131,7 @@ async function commitTurn(
           }
 
           const now = new Date().toISOString();
-          const toolCallId = `tc-${action.actionId}`;
+          const toolCallId = `tc-${run.runId}-${action.actionId}`;
           const postPrepareRevision = rev + 1;
           const toolCall: ToolCallRecord = {
             schemaVersion: CONTRACTS_SCHEMA_VERSION,

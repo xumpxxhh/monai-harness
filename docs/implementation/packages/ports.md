@@ -31,7 +31,7 @@
 
 ### M1（计划 — [0018](../sessions/0018-real-model-cluster-plan.md)）
 
-- [ ] `ModelPort.completeStructured` 签名确认 `modelPolicy` 必传
+- [ ] `ModelPort.completeStructured` 收 canonical `controlFunctions`/`domainTools`，返回 `ModelDecision`
 - [ ] `SecretPort` 接口 + lease 形状（M1e）；ExecutionContext 接线
 - [ ] harness bootstrap 注入 SecretPort → Model adapter
 

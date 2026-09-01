@@ -54,6 +54,48 @@ export type ExecutionManifestStorePort = {
 /** User-visible stream channels (never raw Action JSON content). */
 export type ModelPreviewChannel = "reasoning" | "display";
 
+export type ModelFunctionKind = "control" | "domain";
+
+/** Vendor-neutral function definition. Adapters translate to provider wire format. */
+export type ModelFunctionDef = {
+  name: string;
+  description: string;
+  /** JSON Schema object for arguments. */
+  parameters: unknown;
+  kind: ModelFunctionKind;
+};
+
+export type ModelFunctionCall = {
+  name: string;
+  arguments: unknown;
+};
+
+/** Canonical model decision. Engine maps this to Action; adapters must not emit Action. */
+export type ModelDecision = {
+  content?: string;
+  calls: ModelFunctionCall[];
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  };
+  target?: string;
+  finishReason?: string;
+  latencyMs?: number;
+  reasoning?: string;
+};
+
+export type ModelCompleteInput = {
+  context: unknown;
+  /** @deprecated unused; Engine maps function calls, not Action JSON schema. */
+  schema?: unknown;
+  controlFunctions?: readonly ModelFunctionDef[];
+  domainTools?: readonly ModelFunctionDef[];
+  modelPolicy?: unknown;
+  /** Runtime-owned decision prompt; adapters must not invent their own. */
+  systemPrompt: string;
+};
+
 export type ModelStreamDelta = {
   kind: "delta";
   channel: ModelPreviewChannel;
@@ -62,38 +104,19 @@ export type ModelStreamDelta = {
 
 export type ModelStreamDone = {
   kind: "done";
-  result: {
-    rawAction: unknown;
-    usage?: {
-      inputTokens: number;
-      outputTokens: number;
-      totalTokens: number;
-    };
-    target?: string;
-    finishReason?: string;
-    latencyMs?: number;
-    reasoning?: string;
-  };
+  result: ModelDecision;
 };
 
 export type ModelStreamChunk = ModelStreamDelta | ModelStreamDone;
 
 /**
- * ModelPort — structured completion outside any open UoW (EDR-003).
- * Implementations return an Action-shaped object (validated by Engine).
+ * ModelPort — completion outside any open UoW (EDR-003).
+ * Returns a vendor-neutral ModelDecision (or, for eval stubs, an Action-shaped object).
  * Optional streaming yields user-facing deltas only; execution waits for `done`.
  */
 export type ModelPort = {
-  completeStructured(input: {
-    context: unknown;
-    schema: unknown;
-    modelPolicy?: unknown;
-  }): Promise<unknown>;
-  completeStructuredStream?(input: {
-    context: unknown;
-    schema: unknown;
-    modelPolicy?: unknown;
-  }): AsyncIterable<ModelStreamChunk>;
+  completeStructured(input: ModelCompleteInput): Promise<unknown>;
+  completeStructuredStream?(input: ModelCompleteInput): AsyncIterable<ModelStreamChunk>;
 };
 
 export type KnowledgePort = {

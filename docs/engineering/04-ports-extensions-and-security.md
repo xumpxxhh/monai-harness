@@ -20,7 +20,7 @@
 | `LeasePort` | acquire / heartbeat / validate / release；acquire 返回新 epoch |
 | `ExecutionManifestStorePort` | 不可变 put/get；hash 校验 |
 | `IdempotencyPort` | 条件创建/查询；可并入 Persistence UoW |
-| `ModelPort` | `completeStructured(context, schema, modelPolicy)` |
+| `ModelPort` | `completeStructured(context, controlFunctions, domainTools, modelPolicy)` → 厂商中立 `ModelDecision`；adapter 翻译 tool-call 线格式 |
 | `KnowledgePort` | 按 sourceId/version/权限/预算返回带 provenance 片段 |
 | `WorkspacePort` | list/read/write/search；写仅受控 Tool |
 | `ObjectStorePort` | put/get/signedRef；内容哈希与租户隔离 |

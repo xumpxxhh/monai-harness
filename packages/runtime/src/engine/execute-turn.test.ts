@@ -134,6 +134,36 @@ describe("execute_turn light loop", () => {
     expect(types).toContain("step.failed");
   });
 
+  it("ask-user path waits for input", async () => {
+    const persistence = new InMemoryPersistence();
+    const lease = new InMemoryLease();
+    const ownerId = "worker-1";
+    const engine = new Engine({
+      persistence,
+      lease,
+      model: new StubModelPort(),
+      hooks: new HookRunner(),
+    });
+
+    const running = await toRunning(engine, "r-ask", "please ask-user first", ownerId);
+    expect(running.ok).toBe(true);
+    if (!running.ok) return;
+
+    const turn = await engine.handle(
+      cmd({
+        commandType: "execute_turn",
+        commandId: "turn-ask",
+        runId: "r-ask",
+        expectedRevision: running.revision,
+        leaseEpoch: running.leaseEpoch,
+        actor: { principalId: ownerId },
+      }),
+    );
+    expect(turn.ok).toBe(true);
+    if (!turn.ok) return;
+    expect(turn.run.status).toBe("awaiting_input");
+  });
+
   it("finish path marks run succeeded", async () => {
     const persistence = new InMemoryPersistence();
     const lease = new InMemoryLease();
@@ -324,7 +354,7 @@ describe("execute_turn light loop", () => {
           throw new Error("Primary target timeout");
         }
         return {
-          rawAction: { type: "noop", noopId: "n-fallback" },
+          rawAction: { type: "noop" },
           usage: { inputTokens: 100, outputTokens: 20, totalTokens: 120 },
         };
       },

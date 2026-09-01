@@ -9,6 +9,7 @@
     "dev": "node --watch dist/index.js",
     "start": "node dist/index.js",
     "demo": "node dist/cli/demo.js",
+    "demo:session": "node dist/cli/demo-session.js",
     "lint": "echo \"lint: deferred\"",
     "test": "vitest run"
   },
@@ -31,7 +32,6 @@
     "@monai/runtime": "workspace:*",
     "@monai/secret-env": "workspace:*",
     "@monai/synthetic-sink": "workspace:*",
-    "@monai/workspace-memory": "workspace:*",
     "dotenv": "^16.6.1",
     "hono": "^4.9.7"
   },

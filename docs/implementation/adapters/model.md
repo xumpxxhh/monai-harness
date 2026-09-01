@@ -9,13 +9,16 @@
 | 状态 | `in_progress`（`model-stub`；M1f 真实 adapter 计划） |
 | 首触阶段 | P3（先 stub）；M1f 真实供应商 |
 | 上游 | [engineering/04](../../engineering/04-ports-extensions-and-security.md)、[design/02 §7 ModelPort](../../design/02-core-architecture.md#7-端口清单) |
-| 最后更新 | 2026-08-28 |
+| 最后更新 | 2026-09-01 |
 
 ## 1. 范围
 
-- `completeStructured(context, schema, modelPolicy)` — **modelPolicy 必传**（M1d）
-- MVP：确定性 stub / 固定夹具；M1f 接真实供应商
+- `completeStructured(context, controlFunctions, domainTools, modelPolicy)` — 返回厂商中立 `ModelDecision`（`content` + `calls[]`）；**modelPolicy 必传**（M1d）
+- Runtime 生成 canonical function catalog（控制函数 vs 领域 tools）；adapter 翻译成供应商 `tools` / `tool_calls`
+- 本切片一次决策至多一个 call；领域 tool 并行是后续能力
+- MVP：确定性 stub / 固定夹具；真实供应商走 `@monai/model-openai`
 - 不执行副作用、不写 State、密钥不进 Context（只经 SecretPort lease）
+- 不在 adapter 内生成 Action
 
 ## 2. 非目标
 
@@ -26,7 +29,7 @@
 
 - [x] stub 可驱动主路径（echo / deny-me / approve-me / finish / noop / workspace-read / workspace-search / artifact / acceptance→finish）
 - [x] 失败/超时映射为结构化错误供 Engine 计量 attempt（M1d）
-- [x] 真实供应商适配：`@monai/model-openai` 按 `resolvedTarget` 调 API；返回结构化候选（M1f）
+- [x] 真实供应商适配：`@monai/model-openai` 按 `resolvedTarget` 调 API；返回 `ModelDecision`（不再吐 Action JSON）
 - [x] 调用边界经 SecretPort 取凭证；usage 回传供 Event（M1f）
 
 ## M1 退出条件
@@ -46,6 +49,7 @@ ports、contracts、secret-env；Secret/配置注入。
 
 | 日期 | 说明 |
 | --- | --- |
+| 2026-09-01 | ModelPort 改为 function calling：canonical catalog in、`ModelDecision` out；OpenAI adapter 翻译 `tools`/`tool_calls` |
 | 2026-08-28 | M1f 实装完成：`@monai/model-openai` 支持 OpenAI 兼容端点 + usage 提取 + SecretPort 租约 |
 | 2026-08-28 | M1 计划归档：真实 adapter + SecretPort + usage；见 0018 |
 | 2026-08-27 | Golden：`workspace-search`；`acceptance` + lastFactId → finish |

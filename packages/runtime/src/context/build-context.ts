@@ -59,6 +59,99 @@ function sha256(content: string): string {
   return crypto.createHash("sha256").update(content, "utf8").digest("hex");
 }
 
+/** Static one-line arg hints for known MVP tools (Pack schemas stay unchanged this slice). */
+const TOOL_ARG_HINTS: Record<string, string> = {
+  "workspace.list": 'args: {"path":"/"} (default "/")',
+  "workspace.read": 'args: {"path":"/file.md"} required',
+  "workspace.search": 'args: {"query":"..."} required',
+  "artifact.write_markdown": 'args: {"markdown":"..."} required',
+  "artifact.validate": 'args: {"artifactId":"art-..."} or {"ref":"artifact://..."}',
+  "synthetic.write_high": 'args: {"resourceKey":"...","payload":{...}} + idempotency',
+  echo: 'args: {"text":"..."}',
+};
+
+function formatToolsSection(
+  toolAllowlist: readonly string[],
+  manifest?: ExecutionManifest,
+): string {
+  const effectById = new Map<string, string>();
+  for (const tool of manifest?.tools ?? []) {
+    effectById.set(tool.toolId, tool.effectContract.sideEffectProfile);
+  }
+
+  const lines = toolAllowlist.map((toolId) => {
+    const effect = effectById.get(toolId);
+    const hint = TOOL_ARG_HINTS[toolId];
+    const parts = [toolId];
+    if (effect) parts.push(`effect=${effect}`);
+    if (hint) parts.push(hint);
+    return `- ${parts.join(" | ")}`;
+  });
+
+  return `Available Tools:\n${lines.join("\n")}`;
+}
+
+function formatFactData(data: unknown): string {
+  if (data === null || data === undefined) return "";
+  if (typeof data !== "object") return `   ${String(data)}`;
+
+  const obj = data as Record<string, unknown>;
+
+  if (Array.isArray(obj.entries)) {
+    const path = typeof obj.path === "string" ? obj.path : "/";
+    const entries = obj.entries as Array<{ name?: string; path?: string; kind?: string }>;
+    const listed = entries
+      .map((e) => `   - ${e.kind ?? "entry"}: ${e.path ?? e.name ?? "?"}`)
+      .join("\n");
+    return `   path: ${path}\n${listed || "   (empty)"}`;
+  }
+
+  if (typeof obj.content === "string") {
+    const pathLine = typeof obj.path === "string" ? `   path: ${obj.path}\n` : "";
+    const content =
+      obj.content.length > 500 ? `${obj.content.slice(0, 500)}…` : obj.content;
+    const indented = content
+      .split("\n")
+      .map((line) => `   ${line}`)
+      .join("\n");
+    return `${pathLine}   content:\n${indented}`;
+  }
+
+  if (Array.isArray(obj.hits)) {
+    const query = typeof obj.query === "string" ? obj.query : "";
+    const hits = obj.hits as Array<{ path?: string; snippet?: string }>;
+    const listed = hits
+      .slice(0, 8)
+      .map((h) => `   - ${h.path ?? "?"}${h.snippet ? `: ${String(h.snippet).slice(0, 80)}` : ""}`)
+      .join("\n");
+    return `   query: ${query}\n${listed || "   (no hits)"}`;
+  }
+
+  const json = JSON.stringify(data, null, 2);
+  const capped = json.length > 800 ? `${json.slice(0, 800)}…` : json;
+  return capped
+    .split("\n")
+    .map((line) => `   ${line}`)
+    .join("\n");
+}
+
+/** Model-facing projection of accepted facts (schema data stays intact in State). */
+export function formatRecentFacts(facts: RunState["facts"]): string {
+  const recent = facts.slice(-5);
+  if (recent.length === 0) return "";
+
+  const blocks = recent.map((fact, idx) => {
+    const header = `${idx + 1}. [${fact.factType}] ${fact.summary}`;
+    const body = formatFactData(fact.data);
+    return body ? `${header}\n${body}` : header;
+  });
+
+  return [
+    "Recent Facts (already observed — do not re-call the same tool with the same arguments):",
+    ...blocks,
+  ].join("\n");
+}
+
 /**
  * Context Builder — design 05 §3 assembly, section priority & budget truncation.
  */
@@ -106,7 +199,7 @@ export function buildContext(input: BuildContextInput): ContextBuildResult {
   };
 
   // Priority 4: tools
-  const toolsText = `Available Tools: [${toolAllowlist.join(", ")}]`;
+  const toolsText = formatToolsSection(toolAllowlist, input.manifest);
   const toolsSection: ContextSection = {
     kind: "tools",
     text: toolsText,
@@ -131,11 +224,8 @@ export function buildContext(input: BuildContextInput): ContextBuildResult {
   // Priority 6: knowledge (for this slice: empty)
   const knowledgeSection: ContextSection | null = null;
 
-  // Priority 7: recent_events
-  const recentEventsText =
-    state.facts && state.facts.length > 0
-      ? `Recent Facts: ${JSON.stringify(state.facts.slice(-5))}`
-      : "";
+  // Priority 7: recent_events (readable projection of accepted facts)
+  const recentEventsText = formatRecentFacts(state.facts ?? []);
   const recentEventsSection: ContextSection | null = recentEventsText
     ? {
         kind: "recent_events",

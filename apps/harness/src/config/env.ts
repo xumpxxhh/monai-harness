@@ -45,11 +45,18 @@ export type HarnessConfig = {
   autoExecuteTurn: boolean;
   /** In-process role switches (P9d). Default: all on. */
   roles: HarnessRoles;
+  /** Agent workspace root on disk (`/` maps here). */
+  workspaceDir: string;
 };
 
 /** `apps/harness` package root (works from `src/config/` and compiled `dist/config/`). */
 export function harnessRootDir(): string {
   return resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+}
+
+/** Default on-disk workspace: `apps/harness/workspace`. */
+export function defaultWorkspaceDir(): string {
+  return resolve(harnessRootDir(), "workspace");
 }
 
 function parseBool(raw: string | undefined, fallback: boolean): boolean {
@@ -151,6 +158,10 @@ export function loadConfig(): HarnessConfig {
   const autoExecuteTurn =
     mode === "serve" && parseBool(process.env.HARNESS_AUTO_EXECUTE_TURN, true);
   const roles = parseHarnessRoles(process.env);
+  const workspaceDirRaw = process.env.HARNESS_WORKSPACE_DIR?.trim();
+  const workspaceDir = workspaceDirRaw
+    ? resolve(workspaceDirRaw)
+    : defaultWorkspaceDir();
 
   return {
     persistenceDriver,
@@ -176,6 +187,7 @@ export function loadConfig(): HarnessConfig {
     corsOrigins,
     autoExecuteTurn,
     roles,
+    workspaceDir,
   };
 }
 

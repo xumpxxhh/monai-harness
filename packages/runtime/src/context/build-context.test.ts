@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createEmptyRunState, createInitialRun } from "@monai/contracts";
-import { buildContext } from "./build-context.js";
+import { buildContext, formatRecentFacts } from "./build-context.js";
 
 describe("buildContext", () => {
   const run = createInitialRun({
@@ -34,6 +34,44 @@ describe("buildContext", () => {
       "workspace.read",
       "workspace.write",
     ]);
+    const toolsSection = result.sections.find((s) => s.kind === "tools");
+    expect(toolsSection?.text).toContain("workspace.read");
+    expect(toolsSection?.text).toContain('args: {"path":"/file.md"}');
+  });
+
+  it("formats workspace.list facts in recent_events for the model", () => {
+    const stateWithList = {
+      ...state,
+      facts: [
+        {
+          factId: "f-list",
+          factType: "tool.result",
+          summary: "list /",
+          data: {
+            path: "/",
+            entries: [
+              { kind: "directory", name: "notes", path: "/notes" },
+              { kind: "file", name: "readme.md", path: "/readme.md" },
+            ],
+            summary: "list /",
+          },
+        },
+      ],
+    };
+
+    const result = buildContext({
+      run,
+      stepId: "step-2",
+      state: stateWithList,
+      toolAllowlist: ["workspace.list", "workspace.read"],
+    });
+
+    const recent = result.sections.find((s) => s.kind === "recent_events");
+    expect(recent?.text).toContain("Recent Facts");
+    expect(recent?.text).toContain("do not re-call");
+    expect(recent?.text).toContain("/notes");
+    expect(recent?.text).toContain("/readme.md");
+    expect(recent?.text).not.toMatch(/Recent Facts: \[\{/);
   });
 
   it("truncates low priority sections when exceeding maxTotalTokens", () => {
@@ -76,5 +114,27 @@ describe("buildContext", () => {
 
     expect(result.overflow).toBe(true);
     expect(result.overflowReason).toBeDefined();
+  });
+});
+
+describe("formatRecentFacts", () => {
+  it("returns empty string for no facts", () => {
+    expect(formatRecentFacts([])).toBe("");
+  });
+
+  it("projects list entries instead of raw JSON blob", () => {
+    const text = formatRecentFacts([
+      {
+        factId: "f1",
+        factType: "tool.result",
+        summary: "list /",
+        data: {
+          path: "/",
+          entries: [{ kind: "file", name: "a.md", path: "/a.md" }],
+        },
+      },
+    ]);
+    expect(text).toContain("path: /");
+    expect(text).toContain("file: /a.md");
   });
 });

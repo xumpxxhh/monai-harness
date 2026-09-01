@@ -83,8 +83,8 @@ export function buildApprovalWaitArtifacts(args: {
   const ttlMs = args.ttlMs ?? 3_600_000;
   const digest = computeActionDigest(args.action);
   const meta = actionDigestMeta();
-  const approvalId = `apr-${args.action.actionId}`;
-  const continuationId = `cont-${args.action.actionId}`;
+  const approvalId = `apr-${args.run.runId}-${args.action.actionId}`;
+  const continuationId = `cont-${args.run.runId}-${args.action.actionId}`;
   const cursorRef = `cursor:${args.run.runId}:${args.stepId}`;
   const cursorHash = `ch:${args.stepId}`;
 
@@ -172,7 +172,7 @@ export function buildInputWaitArtifacts(args: {
   continuation: Continuation;
 } {
   const now = new Date().toISOString();
-  const continuationId = `cont-input-${args.action.actionId}`;
+  const continuationId = `cont-input-${args.run.runId}-${args.action.actionId}`;
   const cursorRef = `cursor:${args.run.runId}:${args.stepId}`;
   const cursorHash = `ch:${args.stepId}`;
   const deadline = new Date(Date.now() + (args.deadlineMs ?? 3_600_000)).toISOString();
@@ -336,7 +336,7 @@ export async function resumeApprovedToolCall(
   }
 
   const now = new Date().toISOString();
-  const toolCallId = `tc-${action.actionId}`;
+  const toolCallId = `tc-${run.runId}-${action.actionId}`;
   const postPrepareRevision = rev + 1;
   const toolCall: ToolCallRecord = {
     schemaVersion: CONTRACTS_SCHEMA_VERSION,

@@ -1,12 +1,28 @@
 import { describe, expect, it } from "vitest";
 import { EnvSecretPort } from "@monai/secret-env";
 import {
-  extractClosedDisplayText,
-  normalizeRawAction,
   OpenAiModelPort,
   resolveChatCompletionsUrl,
-  splitModelOutput,
+  splitThinkContent,
+  toOpenAiTools,
 } from "./openai-model.js";
+
+const TEST_SYSTEM_PROMPT = "You are an agent. Call at most one function per turn.";
+
+const SAMPLE_DEFS = [
+  {
+    name: "workspace.read",
+    description: "Read a file",
+    parameters: { type: "object", properties: { path: { type: "string" } } },
+    kind: "domain" as const,
+  },
+  {
+    name: "finish",
+    description: "Finish the run",
+    parameters: { type: "object", properties: {} },
+    kind: "control" as const,
+  },
+];
 
 describe("resolveChatCompletionsUrl", () => {
   it("appends chat/completions to base /v1", () => {
@@ -22,53 +38,34 @@ describe("resolveChatCompletionsUrl", () => {
   });
 });
 
-describe("splitModelOutput", () => {
-  it("preserves think blocks and extracts JSON", () => {
-    const split = splitModelOutput(
-      `<think>plan first</think>\n\`\`\`json\n{"type":"noop","actionId":"a1","schemaVersion":"1"}\n\`\`\``,
-    );
+describe("splitThinkContent", () => {
+  it("preserves think blocks and returns remaining text", () => {
+    const split = splitThinkContent(`<think>plan first</think>\n正在读取`);
     expect(split.reasoning).toContain("plan first");
-    expect(JSON.parse(split.jsonText)).toMatchObject({ type: "noop" });
-  });
-
-  it("extracts JSON from surrounding prose", () => {
-    const split = splitModelOutput(`Here is the action:\n{"type":"finish","actionId":"a1","schemaVersion":"1"}\nThanks`);
-    expect(JSON.parse(split.jsonText).type).toBe("finish");
-    expect(split.reasoning).toContain("Here is the action");
+    expect(split.text).toBe("正在读取");
   });
 });
 
-describe("extractClosedDisplayText", () => {
-  it("extracts closed displayText from partial JSON", () => {
-    expect(extractClosedDisplayText(`{"type":"ask_user","displayText":"确认继续？","actionId":`)).toBe(
-      "确认继续？",
-    );
-  });
-
-  it("returns undefined while string is open", () => {
-    expect(extractClosedDisplayText(`{"displayText":"确认`)).toBeUndefined();
-  });
-});
-
-describe("normalizeRawAction", () => {
-  it("fills schemaVersion and actionId when omitted", () => {
-    const normalized = normalizeRawAction({ type: "noop" }) as {
-      schemaVersion: string;
-      actionId: string;
-      type: string;
-    };
-    expect(normalized.type).toBe("noop");
-    expect(normalized.schemaVersion).toBe("0.1.0");
-    expect(normalized.actionId.length).toBeGreaterThan(0);
-  });
-
-  it("preserves existing identity fields", () => {
-    const normalized = normalizeRawAction({
-      schemaVersion: "0.1.0",
-      actionId: "act-keep",
-      type: "finish",
-    }) as { actionId: string };
-    expect(normalized.actionId).toBe("act-keep");
+describe("toOpenAiTools", () => {
+  it("wraps canonical defs in OpenAI tools shape", () => {
+    expect(toOpenAiTools(SAMPLE_DEFS)).toEqual([
+      {
+        type: "function",
+        function: {
+          name: "workspace.read",
+          description: "Read a file",
+          parameters: { type: "object", properties: { path: { type: "string" } } },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "finish",
+          description: "Finish the run",
+          parameters: { type: "object", properties: {} },
+        },
+      },
+    ]);
   });
 });
 
@@ -77,7 +74,7 @@ describe("OpenAiModelPort", () => {
     envMap: { OPENAI_API_KEY: "sk-mock-key-12345" },
   });
 
-  it("streams SSE, keeps JSON off display channel, emits displayText + reasoning", async () => {
+  it("streams SSE, sends tools, and keeps JSON off display channel", async () => {
     let capturedUrl = "";
     let capturedBody: Record<string, unknown> = {};
 
@@ -88,11 +85,20 @@ describe("OpenAiModelPort", () => {
       const chunks = [
         `data: ${JSON.stringify({ choices: [{ delta: { reasoning_content: "thinking…" } }] })}\n\n`,
         `data: ${JSON.stringify({
+          choices: [{ delta: { content: "正在读取" } }],
+        })}\n\n`,
+        `data: ${JSON.stringify({
           choices: [
             {
               delta: {
-                content:
-                  '{"schemaVersion":"1.0.0","actionId":"act-1","type":"tool.call","toolId":"workspace.read","displayText":"正在读取",',
+                tool_calls: [
+                  {
+                    index: 0,
+                    id: "call_1",
+                    type: "function",
+                    function: { name: "workspace.read", arguments: "" },
+                  },
+                ],
               },
             },
           ],
@@ -101,9 +107,14 @@ describe("OpenAiModelPort", () => {
           choices: [
             {
               delta: {
-                content: '"arguments":{"path":"hello.txt"}}',
+                tool_calls: [
+                  {
+                    index: 0,
+                    function: { arguments: '{"path":"hello.txt"}' },
+                  },
+                ],
               },
-              finish_reason: "stop",
+              finish_reason: "tool_calls",
             },
           ],
           usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
@@ -141,7 +152,9 @@ describe("OpenAiModelPort", () => {
 
     for await (const chunk of port.completeStructuredStream({
       context: { goal: "read hello.txt", toolAllowlist: ["workspace.read"] },
-      schema: { type: "Action" },
+      domainTools: [SAMPLE_DEFS[0]!],
+      controlFunctions: [SAMPLE_DEFS[1]!],
+      systemPrompt: TEST_SYSTEM_PROMPT,
       modelPolicy: { version: "1.0.0", resolvedTarget: "gpt-4o" },
     })) {
       if (chunk.kind === "delta") {
@@ -154,13 +167,14 @@ describe("OpenAiModelPort", () => {
 
     expect(capturedUrl).toBe("https://api.dots.ai/v1/chat/completions");
     expect(capturedBody.stream).toBe(true);
-    expect(capturedBody.response_format).toEqual({ type: "json_object" });
+    expect(capturedBody.response_format).toBeUndefined();
+    expect(capturedBody.tool_choice).toBe("auto");
+    expect(capturedBody.parallel_tool_calls).toBe(false);
+    expect(capturedBody.tools).toEqual(
+      toOpenAiTools([SAMPLE_DEFS[1]!, SAMPLE_DEFS[0]!]),
+    );
     const system = (capturedBody.messages as Array<{ role: string; content: string }>)[0]!.content;
-    expect(system).toContain("tool.call");
-    expect(system).toContain("ask_user");
-    expect(system).toContain("spawn_child");
-    expect(system).toContain("displayText");
-    expect(system).not.toContain("userMessage");
+    expect(system).toBe(TEST_SYSTEM_PROMPT);
 
     expect(deltas.some((d) => d.channel === "reasoning" && d.text.includes("thinking"))).toBe(true);
     expect(deltas.some((d) => d.channel === "display" && d.text.includes("正在读取"))).toBe(true);
@@ -169,15 +183,12 @@ describe("OpenAiModelPort", () => {
     expect(doneResult).toMatchObject({
       target: "gpt-4o",
       usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
-      rawAction: {
-        type: "tool.call",
-        toolId: "workspace.read",
-        displayText: "正在读取",
-      },
+      content: "正在读取",
+      calls: [{ name: "workspace.read", arguments: { path: "hello.txt" } }],
     });
   });
 
-  it("omits response_format when mode is none", async () => {
+  it("omits tools wrapping and response_format when catalog is empty and mode is none", async () => {
     let capturedBody: Record<string, unknown> = {};
     const mockFetch: typeof fetch = async (_url, init) => {
       capturedBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
@@ -186,11 +197,7 @@ describe("OpenAiModelPort", () => {
           choices: [
             {
               message: {
-                content: JSON.stringify({
-                  schemaVersion: "1.0.0",
-                  actionId: "a1",
-                  type: "noop",
-                }),
+                content: "ok",
               },
               finish_reason: "stop",
             },
@@ -209,10 +216,12 @@ describe("OpenAiModelPort", () => {
 
     await port.completeStructured({
       context: { goal: "noop" },
-      schema: { type: "Action" },
+      systemPrompt: TEST_SYSTEM_PROMPT,
     });
 
     expect(capturedBody.response_format).toBeUndefined();
+    expect(capturedBody.tools).toBeUndefined();
+    expect((capturedBody.messages as Array<{ content: string }>)[0]!.content).toBe(TEST_SYSTEM_PROMPT);
   });
 
   it("handles HTTP error properly", async () => {
@@ -228,7 +237,7 @@ describe("OpenAiModelPort", () => {
     await expect(
       port.completeStructured({
         context: { goal: "test" },
-        schema: { type: "Action" },
+        systemPrompt: TEST_SYSTEM_PROMPT,
       }),
     ).rejects.toThrow("OpenAI model HTTP 401 error: Invalid API key");
   });

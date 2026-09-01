@@ -1,0 +1,239 @@
+import { describe, expect, it } from "vitest";
+
+import { buildAgentSystemPrompt } from "./agent-system-prompt.js";
+import { hydrateModelAction } from "./hydrate-action.js";
+import {
+  buildModelFunctionCatalog,
+  isControlFunctionName,
+} from "./function-catalog.js";
+import { mapModelDecisionToAction, resolveModelActionCandidate } from "./map-decision.js";
+
+describe("buildAgentSystemPrompt", () => {
+  it("describes function calling and control vs domain exclusivity", () => {
+    const prompt = buildAgentSystemPrompt();
+    expect(prompt).toContain("ask_user");
+    expect(prompt).toContain("finish");
+    expect(prompt).toContain("at most one function call");
+    expect(prompt).not.toContain("schemaVersion");
+    expect(prompt).not.toContain("userMessage");
+  });
+});
+
+describe("buildModelFunctionCatalog", () => {
+  it("splits reserved control functions from allowlisted domain tools", () => {
+    const catalog = buildModelFunctionCatalog({
+      toolAllowlist: ["workspace.read", "echo", "ask_user"],
+    });
+    expect(catalog.controlFunctions.map((d) => d.name)).toEqual([
+      "ask_user",
+      "finish",
+      "noop",
+    ]);
+    expect(catalog.domainTools.map((d) => d.name)).toEqual(["workspace.read", "echo"]);
+    expect(catalog.controlFunctions.every((d) => d.kind === "control")).toBe(true);
+    expect(catalog.domainTools.every((d) => d.kind === "domain")).toBe(true);
+  });
+
+  it("includes spawn_child only when enabled", () => {
+    const off = buildModelFunctionCatalog({ toolAllowlist: [] });
+    expect(off.controlFunctions.some((d) => d.name === "spawn_child")).toBe(false);
+    const on = buildModelFunctionCatalog({ toolAllowlist: [], includeSpawnChild: true });
+    expect(on.controlFunctions.some((d) => d.name === "spawn_child")).toBe(true);
+  });
+});
+
+describe("mapModelDecisionToAction", () => {
+  const ready = { lastFactId: "f1", hasUnresolvedTools: false };
+  const empty = { lastFactId: undefined, hasUnresolvedTools: false };
+
+  it("maps content-only to finish when facts exist and tools are resolved", () => {
+    const mapped = mapModelDecisionToAction(
+      { content: "总结如下。", calls: [] },
+      ready,
+    );
+    expect(mapped.ok).toBe(true);
+    if (!mapped.ok) return;
+    expect(mapped.action).toMatchObject({
+      type: "finish",
+      displayText: "总结如下。",
+      arguments: { summary: "总结如下。" },
+    });
+  });
+
+  it("rejects content-only without facts", () => {
+    const mapped = mapModelDecisionToAction({ content: "好的我来。", calls: [] }, empty);
+    expect(mapped.ok).toBe(false);
+    if (mapped.ok) return;
+    expect(mapped.reason).toContain("incomplete decision");
+  });
+
+  it("rejects content-only when tools are unresolved", () => {
+    const mapped = mapModelDecisionToAction(
+      { content: "还在跑", calls: [] },
+      { lastFactId: "f1", hasUnresolvedTools: true },
+    );
+    expect(mapped.ok).toBe(false);
+  });
+
+  it("maps a control function", () => {
+    const mapped = mapModelDecisionToAction(
+      {
+        content: "确认范围？",
+        calls: [{ name: "ask_user", arguments: { prompt: "确认范围？" } }],
+      },
+      empty,
+    );
+    expect(mapped.ok).toBe(true);
+    if (!mapped.ok) return;
+    expect(mapped.action).toMatchObject({
+      type: "ask_user",
+      displayText: "确认范围？",
+    });
+  });
+
+  it("maps explicit finish without requiring facts", () => {
+    const mapped = mapModelDecisionToAction(
+      { calls: [{ name: "finish", arguments: { summary: "done" } }] },
+      empty,
+    );
+    expect(mapped.ok).toBe(true);
+    if (!mapped.ok) return;
+    expect(mapped.action).toMatchObject({ type: "finish" });
+  });
+
+  it("maps a domain tool", () => {
+    const mapped = mapModelDecisionToAction(
+      {
+        content: "正在读取",
+        calls: [{ name: "workspace.read", arguments: { path: "/readme.md" } }],
+      },
+      empty,
+    );
+    expect(mapped.ok).toBe(true);
+    if (!mapped.ok) return;
+    expect(mapped.action).toMatchObject({
+      type: "tool.call",
+      toolId: "workspace.read",
+      arguments: { path: "/readme.md" },
+      displayText: "正在读取",
+    });
+  });
+
+  it("rejects two calls", () => {
+    const mapped = mapModelDecisionToAction(
+      {
+        calls: [
+          { name: "workspace.read", arguments: { path: "/a" } },
+          { name: "workspace.read", arguments: { path: "/b" } },
+        ],
+      },
+      empty,
+    );
+    expect(mapped.ok).toBe(false);
+    if (mapped.ok) return;
+    expect(mapped.reason).toContain("at most one");
+  });
+
+  it("maps unknown names as tool.call so Policy can deny", () => {
+    const mapped = mapModelDecisionToAction(
+      { calls: [{ name: "forbidden.tool", arguments: {} }] },
+      empty,
+    );
+    expect(mapped.ok).toBe(true);
+    if (!mapped.ok) return;
+    expect(mapped.action).toMatchObject({ type: "tool.call", toolId: "forbidden.tool" });
+  });
+
+  it("treats reserved names as control even if they look like tools", () => {
+    expect(isControlFunctionName("finish")).toBe(true);
+  });
+});
+
+describe("resolveModelActionCandidate", () => {
+  it("hydrates Action-shaped eval stubs", () => {
+    const resolved = resolveModelActionCandidate(
+      { type: "noop" },
+      { hasUnresolvedTools: false },
+    );
+    expect(resolved.ok).toBe(true);
+    if (!resolved.ok) return;
+    expect(resolved.candidate).toMatchObject({ type: "noop", schemaVersion: "0.1.0" });
+  });
+
+  it("maps ModelDecision and hydrates identity", () => {
+    const resolved = resolveModelActionCandidate(
+      {
+        content: "读文件",
+        calls: [{ name: "workspace.read", arguments: { path: "/x" } }],
+        usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 },
+      },
+      { hasUnresolvedTools: false },
+    );
+    expect(resolved.ok).toBe(true);
+    if (!resolved.ok) return;
+    expect(resolved.candidate).toMatchObject({
+      type: "tool.call",
+      toolId: "workspace.read",
+      displayText: "读文件",
+    });
+    expect((resolved.candidate as { actionId: string }).actionId.startsWith("act-")).toBe(true);
+    expect(resolved.usage?.totalTokens).toBe(3);
+  });
+});
+
+describe("hydrateModelAction", () => {
+  it("stamps schemaVersion and a fresh actionId", () => {
+    const hydrated = hydrateModelAction({ type: "noop" }) as {
+      schemaVersion: string;
+      actionId: string;
+      type: string;
+    };
+    expect(hydrated.type).toBe("noop");
+    expect(hydrated.schemaVersion).toBe("0.1.0");
+    expect(hydrated.actionId.startsWith("act-")).toBe(true);
+  });
+
+  it("overwrites model-supplied identity fields", () => {
+    const hydrated = hydrateModelAction({
+      schemaVersion: "9.9.9",
+      actionId: "act-from-model",
+      type: "finish",
+      displayText: "done",
+    }) as {
+      schemaVersion: string;
+      actionId: string;
+      arguments?: { summary?: string };
+      displayText: string;
+    };
+    expect(hydrated.schemaVersion).toBe("0.1.0");
+    expect(hydrated.actionId).not.toBe("act-from-model");
+    expect(hydrated.displayText).toBe("done");
+    expect(hydrated.arguments?.summary).toBe("done");
+  });
+
+  it("mirrors displayText into ask_user arguments.prompt", () => {
+    const hydrated = hydrateModelAction({
+      type: "ask_user",
+      displayText: "确认？",
+    }) as { arguments?: { prompt?: string } };
+    expect(hydrated.arguments?.prompt).toBe("确认？");
+  });
+
+  it("derives idempotencyKey for write tools when missing", () => {
+    const hydrated = hydrateModelAction({
+      type: "tool.call",
+      toolId: "artifact.write_markdown",
+      arguments: { markdown: "# hi" },
+    }) as { idempotencyKey?: string };
+    expect(hydrated.idempotencyKey).toContain("artifact.write_markdown");
+  });
+
+  it("does not invent idempotencyKey for read tools", () => {
+    const hydrated = hydrateModelAction({
+      type: "tool.call",
+      toolId: "workspace.list",
+      arguments: { path: "/" },
+    }) as { idempotencyKey?: string };
+    expect(hydrated.idempotencyKey).toBeUndefined();
+  });
+});
