@@ -2,8 +2,10 @@
  * Shared Agent decision prompt (Runtime-owned).
  * Models use function calling for the next step; Engine hydrates Action identity.
  */
-export function buildAgentSystemPrompt(): string {
-  return [
+export function buildAgentSystemPrompt(options?: {
+  toolAllowlist?: readonly string[];
+}): string {
+  const lines = [
     "You are an agent working on the user's Goal.",
     "Each turn: write user-facing language in the message content.",
     "Domain tools: you may issue one or more function calls in the same turn (a batch).",
@@ -14,5 +16,19 @@ export function buildAgentSystemPrompt(): string {
     "When you can answer from context (including listing available tools from the tools schema), put the answer in content; calling finish explicitly is optional.",
     "If prior tool results already satisfy the Goal, summarize in content and call finish.",
     "If you still need information not in prior messages, call the domain tool(s) you need or ask_user.",
-  ].join("\n");
+  ];
+
+  if (options?.toolAllowlist?.includes("knowledge.search")) {
+    lines.push(
+      "",
+      "Knowledge base (knowledge.search):",
+      "1. Before answering factual questions that need external docs, call knowledge.search with a specific query.",
+      "2. Answer only from hits[].content; do not invent information not present in hits.",
+      "3. Cite sourceId or title in your answer, e.g. [intro.md].",
+      "4. If grounding.empty is true, say no relevant knowledge was found; do not guess.",
+      "5. When you know which knowledge base applies, pass collection_ids to improve accuracy.",
+    );
+  }
+
+  return lines.join("\n");
 }

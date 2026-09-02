@@ -10,6 +10,7 @@ export type StubModelOptions = {
    * - `finish` → finish
    * - `acceptance` + state.lastFactId → content-only (Engine fact-gates to finish)
    * - `workspace-search` → workspace.search
+   * - `knowledge-search` → knowledge.search
    * - `workspace-read` → workspace.read
    * - `artifact` → artifact.write_markdown
    * - default → echo
@@ -97,6 +98,12 @@ export class StubModelPort implements ModelPort {
     if (goal.includes("workspace-search")) {
       return decision({
         calls: [{ name: "workspace.search", arguments: { query: "workspace" } }],
+      });
+    }
+
+    if (goal.includes("knowledge-search")) {
+      return decision({
+        calls: [{ name: "knowledge.search", arguments: { query: goal } }],
       });
     }
 

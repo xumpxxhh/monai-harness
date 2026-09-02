@@ -70,6 +70,7 @@ const TOOL_ARG_HINTS: Record<string, string> = {
   "workspace.list": 'args: {"path":"/"} (default "/")',
   "workspace.read": 'args: {"path":"/file.md"} required',
   "workspace.search": 'args: {"query":"..."} required',
+  "knowledge.search": 'args: {"query":"..."} required; optional collection_ids[], top_k',
   "artifact.write_markdown": 'args: {"markdown":"..."} required',
   "artifact.validate": 'args: {"artifactId":"art-..."} or {"ref":"artifact://..."}',
   "synthetic.write_high": 'args: {"resourceKey":"...","payload":{...}} + idempotency',
@@ -125,8 +126,37 @@ function formatFactData(data: unknown): string {
 
   if (Array.isArray(obj.hits)) {
     const query = typeof obj.query === "string" ? obj.query : "";
-    const hits = obj.hits as Array<{ path?: string; snippet?: string }>;
-    const listed = hits
+    const hits = obj.hits as Array<Record<string, unknown>>;
+    const isKnowledgeHit =
+      hits.length > 0 &&
+      (typeof hits[0]?.sourceId === "string" || typeof hits[0]?.content === "string");
+
+    if (isKnowledgeHit) {
+      const listed = hits
+        .slice(0, 6)
+        .map((h) => {
+          const sourceId = String(h.sourceId ?? h.title ?? "?");
+          const title = typeof h.title === "string" && h.title !== sourceId ? ` (${h.title})` : "";
+          const content =
+            typeof h.content === "string"
+              ? h.content.length > 120
+                ? `${h.content.slice(0, 120)}…`
+                : h.content
+              : "";
+          return `   - [${sourceId}]${title}${content ? `: ${content}` : ""}`;
+        })
+        .join("\n");
+      const grounding =
+        typeof obj.grounding === "object" && obj.grounding !== null
+          ? (obj.grounding as { empty?: boolean })
+          : undefined;
+      const emptyLine =
+        grounding?.empty === true ? "\n   (grounding.empty — no usable hits)" : "";
+      return `   query: ${query}\n${listed || "   (no hits)"}${emptyLine}`;
+    }
+
+    const workspaceHits = hits as Array<{ path?: string; snippet?: string }>;
+    const listed = workspaceHits
       .slice(0, 8)
       .map((h) => `   - ${h.path ?? "?"}${h.snippet ? `: ${String(h.snippet).slice(0, 80)}` : ""}`)
       .join("\n");

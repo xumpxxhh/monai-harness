@@ -19,6 +19,7 @@
     "@monai/contracts": "workspace:*",
     "@monai/delivery": "workspace:*",
     "@monai/governance": "workspace:*",
+    "@monai/knowledge-http": "workspace:*",
     "@monai/lease-memory": "workspace:*",
     "@monai/model-openai": "workspace:*",
     "@monai/model-stub": "workspace:*",

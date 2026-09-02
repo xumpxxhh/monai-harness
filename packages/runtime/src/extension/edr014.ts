@@ -37,6 +37,9 @@ export function requiredPermissionsForTool(
   if (toolId.startsWith("synthetic.")) {
     return ["synthetic.write_high"];
   }
+  if (toolId === "knowledge.search") {
+    return ["knowledge.read"];
+  }
   if (sideEffectProfile === "read") return ["workspace.read"];
   if (sideEffectProfile === "write_low") return ["workspace.write"];
   if (sideEffectProfile === "write_high") return ["synthetic.write_high"];

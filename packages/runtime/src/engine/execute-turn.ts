@@ -276,7 +276,7 @@ export async function handleExecuteTurn(
     digest: "digest:model-policy:default",
   };
 
-  const systemPrompt = buildAgentSystemPrompt();
+  const systemPrompt = buildAgentSystemPrompt({ toolAllowlist });
   const modelContextResult = await buildModelContext(
     {
       run,

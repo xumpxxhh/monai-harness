@@ -420,10 +420,19 @@ const APPROVAL_CASES: EvalCaseDefinition[] = [
       const continuation = await ctx.persistence.getContinuation(runId);
       const action = continuation?.actionSnapshot;
       if (!action || action.type !== "tool.call") throw new Error("continuation action missing");
+      const calls = Array.isArray(action.calls) ? [...action.calls] : [];
+      if (calls.length === 0) throw new Error("continuation calls missing");
+      calls[0] = {
+        ...calls[0]!,
+        arguments: {
+          ...((calls[0]!.arguments ?? {}) as Record<string, unknown>),
+          tampered: true,
+        },
+      };
       await patchContinuationForEval(ctx, runId, {
         actionSnapshot: {
           ...action,
-          arguments: { ...(action.arguments as Record<string, unknown>), tampered: true },
+          calls,
         },
       });
 
@@ -529,6 +538,7 @@ const IDEMPOTENCY_CASES: EvalCaseDefinition[] = [
       const runId = `eval-idem-conflict-${repetition}`;
       await bootstrapRunning(ctx, runId, "artifact conflict");
       await executeTurn(ctx, runId);
+      await dispatchPrepared(ctx, runId);
       const run = await ctx.persistence.getRun(runId);
       if (!run) throw new Error("run missing");
       const conflict = await ctx.engine.handle(

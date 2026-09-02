@@ -47,6 +47,11 @@ export type HarnessConfig = {
   roles: HarnessRoles;
   /** Agent workspace root on disk (`/` maps here). */
   workspaceDir: string;
+  /** RAG HTTP base URL; empty = knowledge.search disabled (EDR-016). */
+  knowledgeBaseUrl?: string;
+  knowledgeCollectionIds: readonly string[];
+  knowledgeTopK?: number;
+  knowledgeTimeoutMs: number;
 };
 
 /** `apps/harness` package root (works from `src/config/` and compiled `dist/config/`). */
@@ -163,6 +168,13 @@ export function loadConfig(): HarnessConfig {
     ? resolve(workspaceDirRaw)
     : defaultWorkspaceDir();
 
+  const knowledgeBaseUrl = process.env.KNOWLEDGE_BASE_URL?.trim() || undefined;
+  const knowledgeCollectionIds = parseCommaSeparated(process.env.KNOWLEDGE_COLLECTION_IDS);
+  const knowledgeTopKRaw = process.env.KNOWLEDGE_TOP_K?.trim();
+  const knowledgeTopK = knowledgeTopKRaw ? Number(knowledgeTopKRaw) : undefined;
+  const knowledgeTimeoutMs =
+    Number(process.env.KNOWLEDGE_TIMEOUT_MS ?? "60000") || 60_000;
+
   return {
     persistenceDriver,
     modelDriver,
@@ -188,7 +200,19 @@ export function loadConfig(): HarnessConfig {
     autoExecuteTurn,
     roles,
     workspaceDir,
+    knowledgeBaseUrl,
+    knowledgeCollectionIds,
+    knowledgeTopK: Number.isFinite(knowledgeTopK) ? knowledgeTopK : undefined,
+    knowledgeTimeoutMs,
   };
+}
+
+function parseCommaSeparated(raw: string | undefined): string[] {
+  if (!raw?.trim()) return [];
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 function parseCorsOrigins(raw: string | undefined): string[] {

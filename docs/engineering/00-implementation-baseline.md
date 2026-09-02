@@ -132,6 +132,7 @@ flowchart TB
 | EDR-013 | Governance Event 与 Evaluation Store 与 Run 真相分离存储/表族 | Accepted | [03](./03-persistence-and-transactions.md)；[04](./04-ports-extensions-and-security.md) |
 | EDR-014 | MVP 装配层显式禁用 DAG、spawn_child、Memory、sandbox.exec、真实 write_high | Accepted | [04](./04-ports-extensions-and-security.md)；设计 [08](../design/08-mvp-and-evolution.md) |
 | EDR-015 | 测试金字塔：纯函数 → InMemory 故障注入 → 真实单库集成 → 08 Eval Suite | Accepted | [05](./05-testing-and-evolution.md) |
+| EDR-016 | 自研 RAG HTTP 以 Pack Tool `knowledge.search` 接入；装配层仅在配置 `KNOWLEDGE_BASE_URL` 时加入 allowlist；**不**实现 KnowledgePort 预检索；Eval 默认不挂载 | Accepted | [04](./04-ports-extensions-and-security.md)；`packages/adapters/knowledge-http` |
 
 ### 8.1 取舍摘要
 
@@ -146,6 +147,7 @@ flowchart TB
 | HTTP/SSE | Hono | Express / Fastify / 原生 http | EDR-007；轻量、Web 标准、SSE 友好 |
 | SQL 层 | drizzle-orm | kysely / 手写 SQL | EDR-009；事务仅在 adapter |
 | 决策编号 | EDR 与 ADR 分离 | 混入 design ADR | 避免污染设计层技术中立 |
+| 自研 RAG 接入 | `knowledge.search` Pack Tool（模型按需调用） | KnowledgePort 每 Goal 预检索 | RAG 为 live index、无冻结 sourceVersion；按需检索成本更低；KnowledgePort / Context `knowledge` section 仍后置（design 08 §2.6） |
 
 ### 8.2 验证假设
 

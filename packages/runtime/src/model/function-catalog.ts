@@ -50,6 +50,32 @@ const DOMAIN_TOOL_DEFS: Record<string, Pick<ModelFunctionDef, "description" | "p
       additionalProperties: true,
     },
   },
+  "knowledge.search": {
+    description:
+      "Search enterprise knowledge bases for document snippets. Returns full content and sourceId for citations. When grounding.empty is true, do not invent facts.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "Natural-language search query; be specific",
+        },
+        collection_ids: {
+          type: "array",
+          items: { type: "string" },
+          description: "Optional knowledge base ids (kb-…). Pass when the domain is known.",
+        },
+        top_k: {
+          type: "integer",
+          minimum: 1,
+          maximum: 20,
+          description: "Optional max hits (default 8)",
+        },
+      },
+      required: ["query"],
+      additionalProperties: true,
+    },
+  },
   "workspace.write": {
     description: "Write a workspace file (low side-effect).",
     parameters: {

@@ -19,6 +19,7 @@
 | [P9](./PHASES.md#p9--阶段-a-收口) | `done` | P9a–P9d 完成 |
 | [M1](./PHASES.md#m1--真实模型簇可选) | `done` | M1a–M1h 实装完成；Knowledge 后置 |
 | [M2](./PHASES.md#m2--agent-loop-增强) | `done` | function calling + 并行工具 + Dialogue Context + Session Demo |
+| [M3](./PHASES.md#m3--rag-knowledge-search-tool) | `done` | EDR-016：`knowledge.search` RAG HTTP Tool；KnowledgePort 仍后置 |
 
 ## 2. 包状态
 
@@ -46,7 +47,7 @@
 | model | `done`（stub + openai；M2b function calling） | [model.md](./adapters/model.md) |
 | workspace | `done`（memory + harness FsWorkspace） | [workspace.md](./adapters/workspace.md) |
 | objectstore | `not_started` | [objectstore.md](./adapters/objectstore.md) |
-| knowledge | `not_started` | [knowledge.md](./adapters/knowledge.md) — M1 后置 |
+| knowledge | `in_progress`（RAG HTTP + Tool done；KnowledgePort 后置） | [knowledge.md](./adapters/knowledge.md) |
 | secret | `done`（`@monai/secret-env`；M1e） | [secret.md](./adapters/secret.md) |
 | sandbox-stub | `not_started` | [sandbox-stub.md](./adapters/sandbox-stub.md) |
 | synthetic-sink | `in_progress` | [synthetic-sink.md](./adapters/synthetic-sink.md) |
@@ -56,7 +57,7 @@
 | 项 | 级别 | 说明 |
 | --- | --- | --- |
 | Eval 完整矩阵 | 信息 | 114/114 绿（stub）；M2 未影响 Eval 门禁 |
-| Knowledge 缺口 | 信息 | KnowledgePort 真实检索后置切片 |
+| Knowledge 缺口 | 信息 | KnowledgePort / Context `knowledge` section 仍后置；RAG Tool 已接 |
 | ConfirmationGrant | 信息 | P5 未做 confirm_once |
 | EDR-010 | 低 | Deferred |
 
@@ -73,6 +74,7 @@
 | 2026-08-27 | — | LeasePort.bind | |
 | 2026-08-28 | M1 | Accepted | Context Builder + BudgetGuard + SecretPort + OpenAiModelPort |
 | 2026-09-02 | M2 | Accepted | function calling + Action.calls[] + Dialogue Context + Session Demo |
+| 2026-09-02 | EDR-016 | Accepted | RAG HTTP → `knowledge.search` Tool；非 KnowledgePort |
 
 ## 6. 测试 readiness
 

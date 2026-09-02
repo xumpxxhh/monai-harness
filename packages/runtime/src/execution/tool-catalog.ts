@@ -38,6 +38,13 @@ export const TOOL_CATALOG: Record<string, ToolEffectContract> = {
     reconcileSupported: false,
     timeoutMs: 5_000,
   }),
+  "knowledge.search": base({
+    sideEffectProfile: "read",
+    deliverySemantics: "at_most_once",
+    idempotencyScope: "run",
+    reconcileSupported: false,
+    timeoutMs: 60_000,
+  }),
   "workspace.write": base({
     sideEffectProfile: "write_low",
     deliverySemantics: "at_most_once",

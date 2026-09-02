@@ -1,7 +1,8 @@
 import type { ToolCallRecord } from "@monai/contracts";
 import { PackRegistrationService } from "@monai/governance";
-import { createWorkspaceGenericPack, WORKSPACE_GENERIC_REQUIRE_APPROVAL, WORKSPACE_GENERIC_TOOL_ALLOWLIST } from "@monai/pack-workspace-generic";
+import { createWorkspaceGenericPack, KNOWLEDGE_SEARCH_ALLOWLIST_ENTRY, WORKSPACE_GENERIC_REQUIRE_APPROVAL, WORKSPACE_GENERIC_TOOL_ALLOWLIST } from "@monai/pack-workspace-generic";
 import type { GovernanceEventStorePort, WorkspacePort } from "@monai/ports";
+import type { KnowledgeSearchClient } from "@monai/knowledge-http";
 import type { ExecutionContext } from "@monai/pack-sdk";
 import {
   ExtensionRegistry,
@@ -15,6 +16,8 @@ import { IsolatedSyntheticSink } from "@monai/synthetic-sink";
 export type WireWorkspaceGenericOptions = {
   workspace?: WorkspacePort;
   tenantId?: string;
+  /** When set, enables `knowledge.search` in allowlist and injects ports.knowledge (EDR-016). */
+  knowledgeSearch?: KnowledgeSearchClient;
   /** When set, Pack registration is audited to GovernanceEvent (P9c). */
   governanceStore?: GovernanceEventStorePort;
 };
@@ -72,6 +75,7 @@ export function wireWorkspaceGenericPack(
       workspace: options.workspace,
       objectStore: artifacts,
       telemetry: synthetic,
+      ...(options.knowledgeSearch ? { knowledge: options.knowledgeSearch } : {}),
     },
   });
 
@@ -80,13 +84,17 @@ export function wireWorkspaceGenericPack(
     buildExecutionContext,
   });
 
+  const toolAllowlist = options.knowledgeSearch
+    ? [...WORKSPACE_GENERIC_TOOL_ALLOWLIST, KNOWLEDGE_SEARCH_ALLOWLIST_ENTRY]
+    : WORKSPACE_GENERIC_TOOL_ALLOWLIST;
+
   return {
     registry,
     invoker,
     hookRunner,
     synthetic,
     artifacts,
-    toolAllowlist: WORKSPACE_GENERIC_TOOL_ALLOWLIST,
+    toolAllowlist,
     requireApprovalTools: WORKSPACE_GENERIC_REQUIRE_APPROVAL,
     packRegistration,
   };

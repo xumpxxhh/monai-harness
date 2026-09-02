@@ -115,6 +115,41 @@ describe("buildContext", () => {
     expect(result.overflow).toBe(true);
     expect(result.overflowReason).toBeDefined();
   });
+
+  it("formats knowledge search hits with sourceId and content preview", () => {
+    const stateWithKnowledge = {
+      ...state,
+      facts: [
+        {
+          factId: "f-kb",
+          factType: "tool.result",
+          summary: "knowledge search test",
+          data: {
+            query: "什么是知识库",
+            hits: [
+              {
+                sourceId: "intro.md",
+                title: "RAG 入门",
+                content: "知识库是用于存储与检索的结构化资料。",
+              },
+            ],
+            grounding: { empty: false },
+          },
+        },
+      ],
+    };
+
+    const result = buildContext({
+      run,
+      stepId: "step-kb",
+      state: stateWithKnowledge,
+      toolAllowlist: ["knowledge.search"],
+    });
+
+    const recent = result.sections.find((s) => s.kind === "recent_events");
+    expect(recent?.text).toContain("[intro.md]");
+    expect(recent?.text).toContain("知识库");
+  });
 });
 
 describe("formatRecentFacts", () => {

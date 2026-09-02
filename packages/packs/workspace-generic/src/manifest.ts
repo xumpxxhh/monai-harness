@@ -13,8 +13,40 @@ import type {
 
 const MAX_OUTPUT_CHARS = 512_000;
 
+/** Tool id for RAG HTTP retrieve-only search (EDR-016). Not in default allowlist. */
+export const KNOWLEDGE_SEARCH_TOOL_ID = "knowledge.search" as const;
+
+export type KnowledgeSearchClientPort = {
+  search(input: {
+    query: string;
+    collectionIds?: readonly string[];
+    topK?: number;
+  }): Promise<{
+    query: string;
+    effectiveQuery?: string;
+    traceId: string;
+    hits: Array<{
+      rank: number;
+      collectionId: string;
+      sourceId: string;
+      title: string;
+      content: string;
+      score: number;
+      scoreKind?: string;
+    }>;
+    grounding: {
+      empty: boolean;
+      chunksEmptyReason?: string;
+    };
+  }>;
+};
+
 function workspacePort(ctx: ExecutionContext): WorkspacePort | undefined {
   return ctx.ports?.workspace as WorkspacePort | undefined;
+}
+
+function knowledgeSearchPort(ctx: ExecutionContext): KnowledgeSearchClientPort | undefined {
+  return ctx.ports?.knowledge as KnowledgeSearchClientPort | undefined;
 }
 
 function artifactsStore(
@@ -88,6 +120,46 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
     const query = capOutput(String(args.query ?? ""));
     const hits = await ws.search(query);
     return { ok: true, data: { query, hits, summary: `search ${query}` } };
+  },
+  [KNOWLEDGE_SEARCH_TOOL_ID]: async (input) => {
+    const client = knowledgeSearchPort(input.executionContext);
+    if (!client) {
+      return { ok: false, error: "knowledge search not configured" };
+    }
+    const args = input.arguments as Record<string, unknown>;
+    const query = capOutput(String(args.query ?? "")).trim();
+    if (!query) {
+      return { ok: false, error: "query is required" };
+    }
+    const collectionIdsRaw = args.collection_ids ?? args.collectionIds;
+    const collectionIds = Array.isArray(collectionIdsRaw)
+      ? collectionIdsRaw.map((id) => String(id)).filter(Boolean)
+      : undefined;
+    const topKRaw = args.top_k ?? args.topK;
+    const topK =
+      topKRaw !== undefined && topKRaw !== null ? Number(topKRaw) : undefined;
+
+    try {
+      const result = await client.search({
+        query,
+        collectionIds,
+        topK: Number.isFinite(topK) ? topK : undefined,
+      });
+      const hitCount = result.hits.length;
+      const summary = result.grounding.empty
+        ? `knowledge search "${query}" (no hits)`
+        : `knowledge search "${query}" (${hitCount} hits)`;
+      return {
+        ok: true,
+        data: {
+          ...result,
+          summary,
+        },
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "knowledge search failed";
+      return { ok: false, error: message };
+    }
   },
   "artifact.write_markdown": async (input) => {
     const args = input.arguments as Record<string, unknown>;
@@ -205,6 +277,13 @@ const baseContract = {
   timeoutMs: 5_000,
 };
 
+const knowledgeContract = {
+  schemaVersion: CONTRACTS_SCHEMA_VERSION,
+  deliverySemantics: "at_most_once" as const,
+  idempotencyScope: "run" as const,
+  timeoutMs: 60_000,
+};
+
 export const WORKSPACE_GENERIC_MANIFEST = {
   schemaVersion: CONTRACTS_SCHEMA_VERSION,
   packId: "com.monai.pack.workspace-generic",
@@ -215,6 +294,7 @@ export const WORKSPACE_GENERIC_MANIFEST = {
     "workspace.write",
     "artifact.write",
     "synthetic.write_high",
+    "knowledge.read",
   ],
   tools: [
     {
@@ -240,6 +320,15 @@ export const WORKSPACE_GENERIC_MANIFEST = {
       version: "0.1.0",
       effectContract: {
         ...baseContract,
+        sideEffectProfile: "read" as const,
+        reconcileSupported: false,
+      },
+    },
+    {
+      toolId: KNOWLEDGE_SEARCH_TOOL_ID,
+      version: "0.1.0",
+      effectContract: {
+        ...knowledgeContract,
         sideEffectProfile: "read" as const,
         reconcileSupported: false,
       },
@@ -312,6 +401,9 @@ export const WORKSPACE_GENERIC_TOOL_ALLOWLIST = [
   "artifact.validate",
   "synthetic.write_high",
 ] as const;
+
+/** Appended at wiring time when RAG client is configured (EDR-016). */
+export const KNOWLEDGE_SEARCH_ALLOWLIST_ENTRY = KNOWLEDGE_SEARCH_TOOL_ID;
 
 export const WORKSPACE_GENERIC_REQUIRE_APPROVAL = [
   "synthetic.write_high",

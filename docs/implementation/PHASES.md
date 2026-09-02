@@ -286,6 +286,22 @@ M2e  harness：demo-session / SessionDemoObserver / FsWorkspace；pnpm demo:sess
 
 **非目标**：KnowledgePort 实装；Memory 进 Context；ConfirmationGrant；`atomic` / `dependencies` 依赖图执行。
 
+## M3 — RAG `knowledge.search` Tool
+
+**目标**：按 [docs/rag/agent-integration.md](../rag/agent-integration.md) 接入自研 RAG HTTP 为 Pack Tool；模型按需检索；**不**关闭 KnowledgePort 缺口（EDR-016）。
+
+**计划**：[sessions/0020-knowledge-search-tool.md](sessions/0020-knowledge-search-tool.md)
+
+**退出条件**：
+
+- [x] `@monai/knowledge-http` 客户端 + 单测
+- [x] Pack Tool `knowledge.search`；未配置 client 时 fail closed
+- [x] harness 配置 `KNOWLEDGE_BASE_URL` 时注入 client 并扩展 allowlist
+- [x] function catalog / system prompt / fact 投影支持 knowledge hits
+- [x] Eval 114 仍 stub 绿（Eval 不挂载 RAG）
+
+**非目标**：KnowledgePort；Context `knowledge` section；`list_knowledge_collections`；RAG 认证。
+
 ## 阶段与测试层映射
 
 | 阶段 | 最低测试层 |
@@ -303,5 +319,6 @@ M2e  harness：demo-session / SessionDemoObserver / FsWorkspace；pnpm demo:sess
 | P9d | L0 角色解析 + L1-on-PG CreateRun 循环 |
 | M1 | L0 BudgetGuard/Builder + L1 真实模型端到端（Eval 仍 stub） |
 | M2 | L0 投影/决策/并行 prepared 单测 + L1 工具链 + harness session demo |
+| M3 | L0 knowledge-http + handler；Eval 仍无 RAG 挂载 |
 
 详见 [engineering/05](../engineering/05-testing-and-evolution.md)。

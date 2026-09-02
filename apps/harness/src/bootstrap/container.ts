@@ -7,6 +7,7 @@ import {
   type CompensationStore,
 } from "@monai/delivery";
 import { InMemoryGovernanceEventStore } from "@monai/governance";
+import { HttpKnowledgeSearchClient } from "@monai/knowledge-http";
 import { InMemoryLease } from "@monai/lease-memory";
 import { OpenAiModelPort } from "@monai/model-openai";
 import { StubModelPort } from "@monai/model-stub";
@@ -78,7 +79,24 @@ export async function bootstrap(config: HarnessConfig): Promise<HarnessRuntime> 
   const governanceStore = config.roles.governance
     ? new InMemoryGovernanceEventStore()
     : undefined;
-  const pack = wireWorkspaceGenericPack({ workspace, tenantId: "t1", governanceStore });
+  const pack = wireWorkspaceGenericPack({
+    workspace,
+    tenantId: "t1",
+    governanceStore,
+    knowledgeSearch: config.knowledgeBaseUrl
+      ? new HttpKnowledgeSearchClient({
+          baseUrl: config.knowledgeBaseUrl,
+          defaultCollectionIds: config.knowledgeCollectionIds,
+          defaultTopK: config.knowledgeTopK,
+          timeoutMs: config.knowledgeTimeoutMs,
+        })
+      : undefined,
+  });
+  if (config.knowledgeBaseUrl) {
+    console.log(
+      `[harness] knowledge.search enabled base=${config.knowledgeBaseUrl} collections=${config.knowledgeCollectionIds.length}`,
+    );
+  }
   const manifestStore = new InMemoryManifestStore();
 
   const secretPort: SecretPort = new EnvSecretPort();

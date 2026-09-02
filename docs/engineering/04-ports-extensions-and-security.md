@@ -108,7 +108,7 @@ ExecutionContext {
 | `model-*` | 结构化输出；密钥经配置/Secret，不进 Context |
 | `workspace-*` | 授权根路径防逃逸 |
 | `objectstore-*` | Artifact 正文 |
-| `knowledge-*` | 精确/规则检索 only |
+| `knowledge-http` | RAG `POST /api/v1/search` 客户端（Tool 后端；非 KnowledgePort） |
 | `secret-*` | 可 stub；禁止明文落 Event |
 | `sandbox-stub` | 仅占位，拒绝 exec |
 | `synthetic-sink` | `synthetic.write_high` + reconcile |
