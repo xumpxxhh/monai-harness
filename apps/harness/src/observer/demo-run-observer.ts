@@ -95,7 +95,7 @@ export class DemoRunObserver {
     await mkdir(this.archiveDir, { recursive: true });
     await mkdir(`${this.archiveDir}/preview`, { recursive: true });
     await mkdir(`${this.archiveDir}/model-input`, { recursive: true });
-    await mkdir(`${this.archiveDir}/model-request`, { recursive: true });
+    await mkdir(`${this.archiveDir}/model-context`, { recursive: true });
     await mkdir(`${this.archiveDir}/final`, { recursive: true });
 
     await writeFile(
@@ -263,25 +263,30 @@ export class DemoRunObserver {
         });
         break;
       }
-      case "model_request": {
+      case "model_context": {
         await writeFile(
-          `${this.archiveDir}/model-request/${event.modelCallId}.json`,
+          `${this.archiveDir}/model-context/${event.modelCallId}.json`,
           JSON.stringify(
             {
               modelCallId: event.modelCallId,
               stepId: event.stepId,
-              url: event.url,
-              body: event.body,
+              contextHash: event.contextHash,
+              status: event.status,
+              messages: event.messages,
+              ...(event.reasoning ? { reasoning: event.reasoning } : {}),
+              ...(event.reason ? { reason: event.reason } : {}),
             },
             null,
             2,
           ),
           "utf8",
         );
-        await this.record("preview", "model.request", {
+        await this.record("preview", "model.context", {
           modelCallId: event.modelCallId,
           stepId: event.stepId,
-          url: event.url,
+          contextHash: event.contextHash,
+          status: event.status,
+          messageCount: event.messages.length,
         });
         break;
       }

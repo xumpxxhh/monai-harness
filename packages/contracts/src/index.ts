@@ -177,6 +177,29 @@ export {
 } from "./context.js";
 
 export {
+  contextCompressionRecordSchema,
+  contextDialogueSourceSchema,
+  contextMemoryContributionSchema,
+  contextProjectionPolicySchema,
+  DEFAULT_CONTEXT_PROJECTION_POLICY,
+  dialogueEventRangeSchema,
+  dialogueTurnSchema,
+  DIALOGUE_TURN_ROLES,
+  modelMessageRoleSchema,
+  modelMessageSchema,
+  modelMessageToolCallSchema,
+  type ContextCompressionRecord,
+  type ContextDialogueSource,
+  type ContextMemoryContribution,
+  type ContextProjectionPolicy,
+  type DialogueTurn,
+  type DialogueTurnRole,
+  type ModelMessage,
+  type ModelMessageRole,
+  type ModelMessageToolCall,
+} from "./dialogue.js";
+
+export {
   PRICE_TABLE_STATIC_VERSION,
   STATIC_PRICE_TABLE,
   modelCalledPayloadSchema,

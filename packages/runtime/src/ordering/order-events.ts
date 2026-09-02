@@ -18,6 +18,8 @@ const EVENT_ORDER: Record<KnownEventType, number> = {
   "hook.vetoed": 120,
   "hook.failed": 120,
   "context.built": 130,
+  "context.summary_requested": 131,
+  "context.summary_created": 132,
   "model.called": 140,
   "model.responded": 150,
   "action.proposed": 160,

@@ -22,21 +22,9 @@ export class SessionTranscript {
   }
 }
 
-/** Compose a Run goal that carries prior session dialogue. */
-export function buildSessionGoal(transcript: readonly SessionTurn[], userMessage: string): string {
-  const message = userMessage.trim();
-  if (transcript.length === 0) return message;
-
-  const history = transcript
-    .map((turn) => `${turn.role === "user" ? "User" : "Assistant"}: ${turn.content}`)
-    .join("\n");
-
-  return [
-    "You are continuing a multi-turn session. Prior turns:",
-    history,
-    "",
-    `Current user message: ${message}`,
-  ].join("\n");
+/** @deprecated Session history is projected from prior Run Events; goal is the current user message only. */
+export function buildSessionGoal(_transcript: readonly SessionTurn[], userMessage: string): string {
+  return userMessage.trim();
 }
 
 function actionFromEventPayload(payload: unknown): Action | undefined {

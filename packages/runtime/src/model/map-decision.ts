@@ -85,7 +85,7 @@ function mapControlCall(call: ModelFunctionCall, displayText?: string): unknown 
 
 /**
  * Map a vendor-neutral ModelDecision to an unhydrated Action candidate.
- * Control XOR domain batch; content-only finish is fact-gated.
+ * Control XOR domain batch; substantive content-only maps to implicit finish when tools are resolved.
  */
 export function mapModelDecisionToAction(
   decision: ModelDecision,
@@ -95,12 +95,16 @@ export function mapModelDecisionToAction(
   const displayText = displayTextOf(decision);
 
   if (calls.length === 0) {
-    const hasFact = Boolean(ctx.lastFactId);
-    if (!hasFact || ctx.hasUnresolvedTools) {
+    if (ctx.hasUnresolvedTools) {
       return {
         ok: false,
-        reason:
-          "incomplete decision: content-only reply requires facts and no unresolved tools",
+        reason: "incomplete decision: content-only reply requires no unresolved tools",
+      };
+    }
+    if (!displayText) {
+      return {
+        ok: false,
+        reason: "incomplete decision: empty reply with no function calls",
       };
     }
     return {
@@ -108,7 +112,7 @@ export function mapModelDecisionToAction(
       action: {
         type: "finish" satisfies ActionType,
         displayText,
-        arguments: displayText ? { summary: displayText } : undefined,
+        arguments: { summary: displayText },
       },
     };
   }

@@ -135,6 +135,21 @@ ContextBuildResult {
 
 Context Builder 是动态 Knowledge 检索的唯一入口。只有它可以按当前 Run 的 `tenantId`、主体、冻结 `sourceId + version`、敏感级和预算调用 KnowledgePort。Model Port、Skill、Tool、Hook、Workflow 和 Reducer 都不能自行查询 Knowledge Source 后把结果塞入 Context。
 
+#### 3.1.1 Dialogue 投影与 ModelView（实现）
+
+审计层（Event Log）保留完整对话证据；Context Builder 额外投影 **ModelView** 给模型：
+
+```text
+Event Log (full) → projectDialogue → DialogueTurn[]
+  → planCompression (recent 完整 / history LLM 摘要)
+  → projectModelMessages → ModelMessage[]
+```
+
+- **Recent 窗口**：最近 N 个 turn 或 token 预算内，以原生 `user` / `assistant` / `tool` messages 完整保留。
+- **History 窗口**：超出阈值时由 Summarizer 压缩；摘要写入 `context.summary_created` Event，原始 Event 不删改。
+- **Session 多轮**：跨 Run 历史从各 Run 的 Event 投影；`Run.goal` 仅为当前用户一句。
+- **Memory**：接口预留；MVP 默认 `memoryEnabled=false`，不进入 ModelView。
+
 ### 3.2 PreReasoning Hook 边界
 
 PreReasoning Hook 只能贡献已授权、带 provenance 的 Context 候选：

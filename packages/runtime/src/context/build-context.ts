@@ -5,6 +5,8 @@ import {
   type ContextBudget,
   type ContextBuildRecord,
   type ContextBuildTruncation,
+  type ContextDialogueSource,
+  type ContextProjectionPolicy,
   type ContextSection,
   type ContextSectionKind,
   type ExecutionManifest,
@@ -22,6 +24,10 @@ export interface BuildContextInput {
   hookContributions?: ContextContribution[];
   budget?: ContextBudget;
   modelPolicy?: ModelPolicy;
+  projectionPolicy?: ContextProjectionPolicy;
+  dialogueSource?: ContextDialogueSource;
+  compressionRef?: string;
+  memoryEnabled?: boolean;
 }
 
 export interface TurnContext {
@@ -349,6 +355,11 @@ export function buildContext(input: BuildContextInput): ContextBuildResult {
     contextHash,
     totalTokens: currentTokens,
     truncations,
+    projectionPolicy: input.projectionPolicy,
+    dialogueSource: input.dialogueSource,
+    compressionRef: input.compressionRef,
+    memoryContributions: [],
+    memoryEnabled: input.memoryEnabled ?? false,
     createdAt: new Date().toISOString(),
   };
 

@@ -7,6 +7,7 @@ import type {
   ModelDecision,
   ModelFunctionCall,
   ModelFunctionDef,
+  ModelMessage,
   ModelPort,
   ModelStreamChunk,
   SecretPort,
@@ -89,6 +90,32 @@ function buildUserPrompt(context: unknown): string {
     userPrompt += `Available Tools: [${contextObj.toolAllowlist.join(", ")}]\n`;
   }
   return userPrompt;
+}
+
+function resolveWireMessages(input: ModelCompleteInput): Array<Record<string, unknown>> {
+  if (input.messages && input.messages.length > 0) {
+    return input.messages.map((message: ModelMessage) => {
+      const wire: Record<string, unknown> = {
+        role: message.role,
+      };
+      if (message.content !== undefined) wire.content = message.content;
+      if (message.name) wire.name = message.name;
+      if (message.toolCallId) wire.tool_call_id = message.toolCallId;
+      if (message.toolCalls?.length) {
+        wire.tool_calls = message.toolCalls.map((call) => ({
+          id: call.id,
+          type: call.type,
+          function: call.function,
+        }));
+      }
+      return wire;
+    });
+  }
+
+  return [
+    { role: "system", content: input.systemPrompt },
+    { role: "user", content: buildUserPrompt(input.context) },
+  ];
 }
 
 type ChatToolCall = {
@@ -192,10 +219,7 @@ export class OpenAiModelPort implements ModelPort {
     const requestBody: Record<string, unknown> = {
       model: targetModel,
       stream: true,
-      messages: [
-        { role: "system", content: input.systemPrompt },
-        { role: "user", content: buildUserPrompt(input.context) },
-      ],
+      messages: resolveWireMessages(input),
       temperature: policy?.temperature ?? 0.0,
       max_tokens: policy?.maxTokens ?? 1024,
     };
@@ -205,8 +229,6 @@ export class OpenAiModelPort implements ModelPort {
     } else if (this.responseFormatMode === "json_object") {
       requestBody.response_format = { type: "json_object" };
     }
-
-    yield { kind: "request", url, body: requestBody };
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",

@@ -99,6 +99,7 @@ export async function bootstrap(config: HarnessConfig): Promise<HarnessRuntime> 
     persistence,
     lease,
     model,
+    leaseTtlMs: 300_000,
     modelPolicy:
       config.modelDriver === "openai" && config.openaiModel
         ? {

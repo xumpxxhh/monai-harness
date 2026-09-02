@@ -71,6 +71,15 @@ BudgetGuard → Context Builder → context.built + ContextBuildRecord
 - [x] M1d：从冻结 Manifest 解析 Model Policy → 传入 `ModelPort`
 - [x] M1d：网络失败 / fallback / Action 解析重试：同 Step、新 `modelCallId`
 
+### Context 分层投影（2026-09）
+
+- [x] `projectDialogueFromEvents`：从 Event 重建 user/assistant/tool turns
+- [x] `projectSessionDialogue`：Session 跨 Run 合并对话（goal 仅当前句）
+- [x] `projectModelMessages`：recent 窗口完整 messages + history 摘要
+- [x] `ensureDialogueCompression`：超阈值 LLM/确定性摘要 + `context.summary_*` Event
+- [x] `ModelCompleteInput.messages` + OpenAI adapter 优先使用
+- [x] `DisabledMemoryPort` 占位（MVP 不检索）
+
 ## 4. 依赖
 
 contracts、ports、pack-sdk、synthetic-sink（invoker）；workspace 运行期注入。

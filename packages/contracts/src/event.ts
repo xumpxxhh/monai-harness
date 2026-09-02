@@ -24,6 +24,8 @@ export const TURN_EVENT_TYPES = [
   "hook.vetoed",
   "hook.failed",
   "context.built",
+  "context.summary_requested",
+  "context.summary_created",
   "model.called",
   "model.responded",
   "action.proposed",

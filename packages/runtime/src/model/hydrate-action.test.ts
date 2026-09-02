@@ -60,11 +60,22 @@ describe("mapModelDecisionToAction", () => {
     });
   });
 
-  it("rejects content-only without facts", () => {
-    const mapped = mapModelDecisionToAction({ content: "好的我来。", calls: [] }, empty);
+  it("maps content-only to implicit finish without facts when tools are resolved", () => {
+    const mapped = mapModelDecisionToAction({ content: "工具列表如下。", calls: [] }, empty);
+    expect(mapped.ok).toBe(true);
+    if (!mapped.ok) return;
+    expect(mapped.action).toMatchObject({
+      type: "finish",
+      displayText: "工具列表如下。",
+      arguments: { summary: "工具列表如下。" },
+    });
+  });
+
+  it("rejects empty content-only with no function calls", () => {
+    const mapped = mapModelDecisionToAction({ content: "  ", calls: [] }, empty);
     expect(mapped.ok).toBe(false);
     if (mapped.ok) return;
-    expect(mapped.reason).toContain("incomplete decision");
+    expect(mapped.reason).toContain("empty reply");
   });
 
   it("rejects content-only when tools are unresolved", () => {

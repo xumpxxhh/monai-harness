@@ -5,6 +5,21 @@ export { assertCommandTenant } from "./engine/tenant-guard.js";
 export type { HandleFailure, HandleResult, HandleSuccess } from "./engine/types.js";
 export { HookRunner } from "./hooks/hook-runner.js";
 export { buildContext, formatRecentFacts, type TurnContext } from "./context/build-context.js";
+export { buildModelContext, type BuildModelContextInput, type BuildModelContextResult } from "./context/build-model-context.js";
+export {
+  ensureDialogueCompression,
+  findCachedCompression,
+  planDialogueCompression,
+  summarizeDialogueDeterministic,
+} from "./context/compress-dialogue.js";
+export { DisabledMemoryPort } from "./context/memory-stub.js";
+export {
+  dialogueSourceRangeHash,
+  estimateDialogueTokens,
+  projectDialogueFromEvents,
+} from "./context/project-dialogue.js";
+export { projectModelMessages, assistantMessageFromAction } from "./context/project-messages.js";
+export { projectSessionDialogue } from "./context/project-session-dialogue.js";
 export {
   DEFAULT_REQUIRE_APPROVAL_TOOLS,
   DEFAULT_TOOL_ALLOWLIST,
@@ -31,7 +46,14 @@ export { buildToolInvokerFromRegistry, LEGACY_ECHO_HANDLER } from "./extension/w
 export { EDR014_DISABLED_TOOL_IDS, isEdr014DisabledTool } from "./extension/edr014.js";
 export { computeActionDigest, actionDigestMeta } from "./control/action-digest.js";
 export { projectActionForUser } from "./control/project-action.js";
-export { PreviewHub, type ModelPreviewEvent, type PreviewListener } from "./preview/preview-hub.js";
+export {
+  extractApprovalStepContext,
+  projectApprovalDisplay,
+  type ApprovalDisplayInput,
+  type ApprovalDisplayLine,
+} from "./control/project-approval.js";
+export { PreviewHub, type ModelPreviewEvent, type ModelContextStatus, type PreviewListener } from "./preview/preview-hub.js";
+export { buildModelContextMessages, publishModelContext } from "./preview/publish-model-context.js";
 export { buildAgentSystemPrompt } from "./model/agent-system-prompt.js";
 export { hydrateModelAction } from "./model/hydrate-action.js";
 export {

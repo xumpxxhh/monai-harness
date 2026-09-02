@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import {
+  contextDialogueSourceSchema,
+  contextMemoryContributionSchema,
+  contextProjectionPolicySchema,
+} from "./dialogue.js";
 import { schemaVersionSchema, strictObject } from "./schema.js";
 
 export const CONTEXT_SECTION_KINDS = [
@@ -126,6 +131,12 @@ export const contextBuildRecordSchema = strictObject({
   contextHash: z.string().min(1),
   totalTokens: z.number().int().nonnegative(),
   truncations: z.array(contextBuildTruncationSchema),
+  projectionPolicy: contextProjectionPolicySchema.optional(),
+  dialogueSource: contextDialogueSourceSchema.optional(),
+  compressionRef: z.string().optional(),
+  messagesHash: z.string().optional(),
+  memoryContributions: z.array(contextMemoryContributionSchema).optional(),
+  memoryEnabled: z.boolean().optional(),
   createdAt: z.string().min(1),
 });
 

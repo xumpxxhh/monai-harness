@@ -6,7 +6,12 @@ import {
   buildSubmitInputCommand,
 } from "@monai/api";
 import { CONTRACTS_SCHEMA_VERSION, type Action, type Continuation, type Run } from "@monai/contracts";
-import { projectActionForUser, type ModelPreviewEvent } from "@monai/runtime";
+import {
+  projectActionForUser,
+  projectApprovalDisplay,
+  extractApprovalStepContext,
+  type ModelPreviewEvent,
+} from "@monai/runtime";
 
 import type { HarnessRuntime } from "../bootstrap/container.js";
 import { countPendingTools, DemoRunObserver } from "../observer/demo-run-observer.js";
@@ -62,7 +67,7 @@ export function attachPreviewPrinter(runtime: HarnessRuntime, runId: string): ()
 
     switch (event.type) {
       case "model_input":
-      case "model_request":
+      case "model_context":
         break;
       case "preview_start":
         closeReasoning();
@@ -97,6 +102,20 @@ export function attachPreviewPrinter(runtime: HarnessRuntime, runId: string): ()
         break;
     }
   });
+}
+
+async function refreshRunLease(runtime: HarnessRuntime, runId: string): Promise<void> {
+  const run = await runtime.persistence.getRun(runId);
+  if (!run || run.status !== "running" || run.leaseEpoch < 1) return;
+
+  const valid = await runtime.lease.validate(runId, runtime.ownerId, run.leaseEpoch);
+  if (valid) {
+    await runtime.lease.heartbeat(runId, runtime.ownerId, run.leaseEpoch);
+    return;
+  }
+
+  // In-memory lease TTL expired while run is still running (long demo/model loop).
+  await runtime.lease.bind(runId, runtime.ownerId, run.leaseEpoch, 300_000);
 }
 
 async function acquireLeaseIfQueued(
@@ -312,13 +331,26 @@ export async function handleAwaitingApproval(
   const approval = await runtime.persistence.getApproval(approvalId);
   const action: Action | undefined =
     approval?.actionSnapshot ?? continuation?.actionSnapshot;
-  const summary = action ? projectActionForUser(action) : `approval ${approvalId}`;
-  const toolId = action?.toolId ?? approval?.toolRef?.toolId ?? "tool";
+  if (!approval || !action) {
+    throw new Error("awaiting_approval missing approval record or action snapshot");
+  }
+
+  const stepId = approval.stepId ?? continuation?.stepId;
+  const events = await runtime.persistence.listEvents(runId);
+  const stepContext = stepId ? extractApprovalStepContext(events, stepId) : {};
+  const summary = projectActionForUser(action);
+  const toolId = action.toolId ?? approval.toolRef?.toolId ?? "tool";
+  const displayLines = projectApprovalDisplay({
+    goal: run.goal,
+    action,
+    approval,
+    ...stepContext,
+  });
 
   console.log("\n┌─ approval ─────────────────────────────────");
-  console.log(`│ tool: ${toolId}`);
-  console.log(`│ risk: ${approval?.riskLevel ?? "unknown"}`);
-  console.log(`│ ${summary}`);
+  for (const line of displayLines) {
+    console.log(`│ ${line.label}: ${line.value}`);
+  }
   console.log("└────────────────────────────────────────────");
 
   if (!cli.isTty) {
@@ -452,6 +484,7 @@ export async function runAgentLoop(
     if (run.status === "running") {
       const revBefore = run.revision;
       const eventsBefore = (await runtime.persistence.listEvents(runId)).length;
+      await refreshRunLease(runtime, runId);
       console.log(`\n[demo] execute_turn (rev=${run.revision} leaseEpoch=${run.leaseEpoch})…`);
       await observer.onTurnStart(run);
       const turn = await turnDriver.executeTurn(runId);

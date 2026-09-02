@@ -1,4 +1,6 @@
-import type { ModelCompleteInput, ModelPreviewChannel } from "@monai/ports";
+import type { ModelCompleteInput, ModelMessage, ModelPreviewChannel } from "@monai/ports";
+
+export type ModelContextStatus = "committed" | "invalid" | "failed";
 
 export type ModelPreviewEvent =
   | {
@@ -9,12 +11,15 @@ export type ModelPreviewEvent =
       input: ModelCompleteInput;
     }
   | {
-      type: "model_request";
+      type: "model_context";
       runId: string;
       stepId: string;
       modelCallId: string;
-      url: string;
-      body: unknown;
+      contextHash: string;
+      messages: ModelMessage[];
+      status: ModelContextStatus;
+      reasoning?: string;
+      reason?: string;
     }
   | {
       type: "preview_start";

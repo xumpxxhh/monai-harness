@@ -94,7 +94,11 @@ export type ModelCompleteInput = {
   modelPolicy?: unknown;
   /** Runtime-owned decision prompt; adapters must not invent their own. */
   systemPrompt: string;
+  /** Runtime-projected chat messages; adapters prefer this over flattening context. */
+  messages?: readonly ModelMessage[];
 };
+
+export type { ModelMessage, ModelMessageToolCall };
 
 export type ModelStreamDelta = {
   kind: "delta";
@@ -130,6 +134,28 @@ export type KnowledgePort = {
   retrieve(query: unknown): Promise<unknown[]>;
 };
 
+/** MVP: Memory retrieval disabled by default (design 05 §7). */
+export type MemoryRetrieveInput = {
+  tenantId: string;
+  sessionId: string;
+  runId: string;
+  subjectRef?: string;
+  query?: string;
+  limit?: number;
+};
+
+export type MemoryItem = {
+  memoryId: string;
+  version: string;
+  hash: string;
+  content?: string;
+  contentRef?: string;
+};
+
+export type MemoryPort = {
+  retrieve(input: MemoryRetrieveInput): Promise<MemoryItem[]>;
+};
+
 export type WorkspacePort = {
   list(path: string): Promise<unknown[]>;
   read(path: string): Promise<unknown>;
@@ -162,7 +188,7 @@ export type SecretPort = {
   lease(secretRef: string, ttlMs?: number): Promise<SecretLease>;
 };
 
-import type { EventEnvelope } from "@monai/contracts";
+import type { EventEnvelope, ModelMessage, ModelMessageToolCall } from "@monai/contracts";
 
 export type EventStreamPort = {
   readFrom(runId: string, fromSequence: number): AsyncIterable<EventEnvelope>;

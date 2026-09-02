@@ -224,6 +224,36 @@ describe("OpenAiModelPort", () => {
     expect((capturedBody.messages as Array<{ content: string }>)[0]!.content).toBe(TEST_SYSTEM_PROMPT);
   });
 
+  it("uses runtime-projected messages when provided", async () => {
+    let capturedBody: Record<string, unknown> = {};
+    const mockFetch: typeof fetch = async (_url, init) => {
+      capturedBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "ok" }, finish_reason: "stop" }],
+          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    };
+
+    const port = new OpenAiModelPort({ secretPort, customFetch: mockFetch });
+    await port.completeStructured({
+      context: { goal: "ignored when messages set" },
+      systemPrompt: TEST_SYSTEM_PROMPT,
+      messages: [
+        { role: "system", content: "sys" },
+        { role: "user", content: "hello" },
+        { role: "assistant", content: "hi", toolCalls: [{ id: "tc-1", type: "function", function: { name: "echo", arguments: "{}" } }] },
+        { role: "tool", content: "{}", toolCallId: "tc-1" },
+      ],
+    });
+
+    const messages = capturedBody.messages as Array<{ role: string }>;
+    expect(messages).toHaveLength(4);
+    expect(messages.map((m) => m.role)).toEqual(["system", "user", "assistant", "tool"]);
+  });
+
   it("handles HTTP error properly", async () => {
     const mockFetch: typeof fetch = async () => {
       return new Response("Invalid API key", { status: 401 });

@@ -19,11 +19,12 @@ import {
 } from "@monai/contracts";
 import type { IdempotencyPort, ModelPort, PersistencePort, LeasePort, HarnessCommand } from "@monai/ports";
 
-import { buildContext } from "../context/build-context.js";
+import { buildModelContext } from "../context/build-model-context.js";
 import { checkRunBudget } from "../control/budget-guard.js";
 import { projectActionForUser } from "../control/project-action.js";
 import type { HookRunner } from "../hooks/hook-runner.js";
 import type { PreviewHub } from "../preview/preview-hub.js";
+import { publishModelContext } from "../preview/publish-model-context.js";
 import {
   DEFAULT_REQUIRE_APPROVAL_TOOLS,
   DEFAULT_TOOL_ALLOWLIST,
@@ -275,14 +276,26 @@ export async function handleExecuteTurn(
     digest: "digest:model-policy:default",
   };
 
-  const buildResult = buildContext({
-    run,
-    stepId,
-    state,
-    toolAllowlist,
-    hookContributions: pre.merged.contextContributions,
-    modelPolicy: resolvedModelPolicy,
-  });
+  const systemPrompt = buildAgentSystemPrompt();
+  const modelContextResult = await buildModelContext(
+    {
+      run,
+      stepId,
+      state,
+      toolAllowlist,
+      hookContributions: pre.merged.contextContributions,
+      modelPolicy: resolvedModelPolicy,
+      persistence: deps.persistence,
+      model: deps.model,
+      systemPrompt,
+    },
+    eventBase,
+    correlationId,
+    rev,
+  );
+  const buildResult = modelContextResult.buildResult;
+  const modelMessages = modelContextResult.messages;
+  const compressionEvents = modelContextResult.compressionEvents;
 
   if (buildResult.overflow) {
     return commitStepFailed(deps, run, {
@@ -363,9 +376,10 @@ export async function handleExecuteTurn(
     try {
       const modelInput = {
         context,
+        messages: modelMessages,
         controlFunctions: functionCatalog.controlFunctions,
         domainTools: functionCatalog.domainTools,
-        systemPrompt: buildAgentSystemPrompt(),
+        systemPrompt,
         modelPolicy: {
           ...resolvedModelPolicy,
           resolvedTarget: target,
@@ -382,16 +396,7 @@ export async function handleExecuteTurn(
 
       if (typeof deps.model.completeStructuredStream === "function") {
         for await (const chunk of deps.model.completeStructuredStream(modelInput)) {
-          if (chunk.kind === "request") {
-            deps.previewHub?.publish({
-              type: "model_request",
-              runId: run.runId,
-              stepId,
-              modelCallId,
-              url: chunk.url,
-              body: chunk.body,
-            });
-          } else if (chunk.kind === "delta") {
+          if (chunk.kind === "delta") {
             deps.previewHub?.publish({
               type: "delta",
               runId: run.runId,
@@ -426,6 +431,17 @@ export async function handleExecuteTurn(
         runId: run.runId,
         stepId,
         modelCallId,
+        reason: lastModelError,
+      });
+      publishModelContext(deps.previewHub, {
+        runId: run.runId,
+        stepId,
+        modelCallId,
+        contextHash: buildResult.contextHash,
+        messages: modelMessages,
+        status: "failed",
+        display: modelDisplay,
+        reasoning: modelReasoning,
         reason: lastModelError,
       });
     }
@@ -502,6 +518,17 @@ export async function handleExecuteTurn(
         modelCallId,
         reason: lastModelError,
       });
+      publishModelContext(deps.previewHub, {
+        runId: run.runId,
+        stepId,
+        modelCallId,
+        contextHash: buildResult.contextHash,
+        messages: modelMessages,
+        status: "invalid",
+        display: modelDisplay,
+        reasoning: modelReasoning,
+        reason: lastModelError,
+      });
       continue;
     }
 
@@ -515,6 +542,17 @@ export async function handleExecuteTurn(
         modelCallId,
         reason: lastModelError,
       });
+      publishModelContext(deps.previewHub, {
+        runId: run.runId,
+        stepId,
+        modelCallId,
+        contextHash: buildResult.contextHash,
+        messages: modelMessages,
+        status: "invalid",
+        display: modelDisplay,
+        reasoning: modelReasoning,
+        reason: lastModelError,
+      });
       continue;
     }
 
@@ -525,6 +563,17 @@ export async function handleExecuteTurn(
       stepId,
       modelCallId,
       display: modelDisplay ?? projectActionForUser(parsedAction),
+    });
+    publishModelContext(deps.previewHub, {
+      runId: run.runId,
+      stepId,
+      modelCallId,
+      contextHash: buildResult.contextHash,
+      messages: modelMessages,
+      status: "committed",
+      action: parsedAction,
+      display: modelDisplay ?? projectActionForUser(parsedAction),
+      reasoning: modelReasoning,
     });
     break;
   }
@@ -655,6 +704,7 @@ export async function handleExecuteTurn(
     preEvents: hookEvents(run, stepId, rev, correlationId, "PreReasoning", pre),
     postEvents: hookEvents(run, stepId, rev, correlationId, "PostReasoning", post),
     preToolEvents,
+    compressionEvents,
     contextEvent,
     modelEvents,
   });
@@ -789,6 +839,7 @@ async function commitTurn(
     preEvents: EventCandidate[];
     postEvents: EventCandidate[];
     preToolEvents: EventCandidate[];
+    compressionEvents?: EventCandidate[];
     contextEvent?: EventCandidate;
     modelEvents?: EventCandidate[];
   },
@@ -836,6 +887,7 @@ async function commitTurn(
       stepId,
     }),
     ...args.preEvents,
+    ...(args.compressionEvents ?? []),
     contextEvt,
     ...modelEvts,
     eventBase(run, {
