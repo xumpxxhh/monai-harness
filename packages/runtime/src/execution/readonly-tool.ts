@@ -4,6 +4,8 @@ import {
 } from "@monai/contracts";
 import type { Action } from "@monai/contracts";
 
+import { getToolCallInvocations } from "../model/normalize-action.js";
+
 /**
  * P3 readonly tool stub — no prepared/dispatch (P4).
  * Invoked only for allowlisted readonly tools after Policy allow.
@@ -15,8 +17,9 @@ export async function invokeReadonlyTool(input: {
   runId: string;
   stepId: string;
 }): Promise<Observation> {
-  const toolId = input.action.toolId ?? "unknown";
-  const args = (input.action.arguments ?? {}) as Record<string, unknown>;
+  const inv = getToolCallInvocations(input.action)[0];
+  const toolId = inv?.toolId ?? input.action.toolId ?? "unknown";
+  const args = (inv?.arguments ?? input.action.arguments ?? {}) as Record<string, unknown>;
   const text =
     toolId === "echo"
       ? String(args.text ?? "")

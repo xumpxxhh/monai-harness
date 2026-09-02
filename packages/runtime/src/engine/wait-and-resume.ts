@@ -5,18 +5,16 @@ import {
   type Checkpoint,
   type Continuation,
   type EventCandidate,
-  type IdempotencyRecord,
-  type OutboxRecord,
   type Run,
   type RunState,
-  type ToolCallRecord,
 } from "@monai/contracts";
 import type { CommitPlan, LeasePort, PersistencePort, IdempotencyPort } from "@monai/ports";
 
 import { applyCommit } from "../commit/apply-commit.js";
 import { actionDigestMeta, computeActionDigest } from "../control/action-digest.js";
 import { computeStateHash } from "../recovery/state-hash.js";
-import { lookupToolContract, requiresIdempotencyKey } from "../execution/lookup-tool-contract.js";
+import { prepareToolCalls } from "../execution/prepare-tool-calls.js";
+import { normalizeToolCallAction, getToolCallInvocations } from "../model/normalize-action.js";
 import type { ExtensionRegistry } from "../extension/extension-registry.js";
 import type { HookRunner } from "../hooks/hook-runner.js";
 import {
@@ -56,10 +54,6 @@ function eventBase(
     expectedRevision: args.expectedRevision,
     payload: args.payload ?? {},
   };
-}
-
-function inputHash(action: Action): string {
-  return `ih:${action.toolId}:${action.idempotencyKey ?? ""}:${stable(action.arguments)}`;
 }
 
 function stable(value: unknown): string {
@@ -260,8 +254,10 @@ export async function resumeApprovedToolCall(
     return null;
   }
 
-  const action = continuation.actionSnapshot ?? approval.actionSnapshot;
-  if (!action || action.type !== "tool.call" || !action.toolId) {
+  const action = normalizeToolCallAction(
+    (continuation.actionSnapshot ?? approval.actionSnapshot) as Action,
+  );
+  if (!action || action.type !== "tool.call" || getToolCallInvocations(action).length === 0) {
     return {
       ok: false,
       code: "validation",
@@ -280,7 +276,7 @@ export async function resumeApprovedToolCall(
   const toolAllowlist = deps.toolAllowlist ?? DEFAULT_TOOL_ALLOWLIST;
   const requireApprovalTools = deps.requireApprovalTools ?? DEFAULT_REQUIRE_APPROVAL_TOOLS;
   const policy = evaluatePolicy({ action, toolAllowlist, requireApprovalTools });
-  if (policy.decision === "deny") {
+  if (policy.decision === "deny" || policy.actionDecision === "all_deny") {
     return {
       ok: false,
       code: "validation",
@@ -308,67 +304,50 @@ export async function resumeApprovedToolCall(
     };
   }
 
-  const contract = lookupToolContract(action.toolId, deps.registry);
-  if (!contract) {
-    return { ok: false, code: "validation", message: `unknown tool: ${action.toolId}` };
-  }
-  if (requiresIdempotencyKey(contract) && !action.idempotencyKey) {
-    return { ok: false, code: "validation", message: "idempotencyKey required" };
-  }
+  // Approval already granted — prepare every non-denied invocation (require_approval is satisfied).
+  const invocations = getToolCallInvocations(action);
+  const allowedIndices = invocations
+    .map((_, index) => index)
+    .filter((index) => {
+      const result = policy.callResults?.find((r) => r.callIndex === index);
+      return result?.decision !== "deny";
+    });
+  const prepared = await prepareToolCalls({
+    run,
+    stepId,
+    action,
+    correlationId: args.correlationId,
+    expectedRevision: rev,
+    callIndices: allowedIndices,
+    persistence: deps.persistence,
+    registry: deps.registry,
+    eventBase,
+  });
 
-  const hash = inputHash(action);
-  if (action.idempotencyKey && deps.persistence.get) {
-    const existing = await deps.persistence.get("tool_call", run.tenantId, action.idempotencyKey);
-    if (existing) {
-      if (existing.requestHash !== hash) {
-        return { ok: false, code: "conflict", message: "tool_call idempotency requestHash mismatch" };
-      }
-      const saved = await deps.persistence.getRun(run.runId);
-      if (!saved) return { ok: false, code: "fatal", message: "run missing" };
-      return {
-        ok: true,
-        run: saved,
-        revision: saved.revision,
-        leaseEpoch: saved.leaseEpoch,
-        idempotent: true,
-      };
-    }
+  if (!prepared.ok) {
+    return { ok: false, code: prepared.code, message: prepared.message };
+  }
+  if (prepared.toolCalls.length === 0) {
+    const saved = await deps.persistence.getRun(run.runId);
+    if (!saved) return { ok: false, code: "fatal", message: "run missing" };
+    return {
+      ok: true,
+      run: saved,
+      revision: saved.revision,
+      leaseEpoch: saved.leaseEpoch,
+      idempotent: true,
+    };
   }
 
   const now = new Date().toISOString();
-  const toolCallId = `tc-${run.runId}-${action.actionId}`;
-  const postPrepareRevision = rev + 1;
-  const toolCall: ToolCallRecord = {
-    schemaVersion: CONTRACTS_SCHEMA_VERSION,
-    toolCallId,
-    tenantId: run.tenantId,
-    sessionId: run.sessionId,
-    runId: run.runId,
-    stepId,
-    actionId: action.actionId,
-    toolId: action.toolId,
-    toolVersion: "0.1.0",
-    executionManifestRef: run.executionManifestRef,
-    inputHash: hash,
-    arguments: action.arguments,
-    resourceScope: action.resourceScope,
-    idempotencyKey: action.idempotencyKey,
-    idempotencyScope: contract.idempotencyScope,
-    deliverySemantics: contract.deliverySemantics,
-    sideEffectProfile: contract.sideEffectProfile,
-    status: "prepared",
-    attempt: 1,
-    preparedAt: now,
-    dispatchLeaseEpoch: run.leaseEpoch,
-    revision: 0,
-    reconcileSupported: contract.reconcileSupported,
-  };
+  const toolCallIds = prepared.toolCalls.map((t) => t.toolCallId);
 
   const consumed: ApprovalRecord = {
     ...approval,
     status: "consumed",
     consumedAt: now,
-    consumedByToolCallId: toolCallId,
+    consumedByToolCallId: toolCallIds[0],
+    consumedByToolCallIds: toolCallIds,
     revision: approval.revision + 1,
   };
 
@@ -383,6 +362,8 @@ export async function resumeApprovedToolCall(
         decision: policy.decision,
         policyVersion: policy.policyVersion,
         reason: policy.reason,
+        actionDecision: policy.actionDecision,
+        callResults: policy.callResults,
         resume: true,
       },
     }),
@@ -409,91 +390,20 @@ export async function resumeApprovedToolCall(
       correlationId: args.correlationId,
       stepId,
       approvalId: approval.approvalId,
-      toolCallId,
+      toolCallId: toolCallIds[0],
+      payload: { toolCallIds },
     }),
-    eventBase(run, {
-      eventId: `evt-tool-prep-${toolCallId}`,
-      eventType: "tool.call_prepared",
-      expectedRevision: rev,
-      correlationId: args.correlationId,
-      stepId,
-      toolCallId,
-      payload: { toolId: action.toolId, idempotencyKey: action.idempotencyKey },
-    }),
-  ];
-
-  let idempotency: IdempotencyRecord[] | undefined;
-  if (action.idempotencyKey) {
-    idempotency = [
-      {
-        schemaVersion: CONTRACTS_SCHEMA_VERSION,
-        idempotencyRecordId: `idem-tc-${toolCallId}`,
-        namespace: "tool_call",
-        tenantId: run.tenantId,
-        key: action.idempotencyKey,
-        dedupeKey: action.idempotencyKey,
-        requestHash: hash,
-        ownerRef: {
-          ownerType: "tool_call",
-          runId: run.runId,
-          stepId,
-          toolCallId,
-        },
-        resultRef: {
-          resultType: "tool_result",
-          runId: run.runId,
-          toolCallId,
-        },
-        status: "completed",
-        revision: 0,
-        createdAt: now,
-        updatedAt: now,
-        expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
-        completedAt: now,
-      },
-    ];
-  }
-
-  const outbox: OutboxRecord[] = [
-    {
-      schemaVersion: CONTRACTS_SCHEMA_VERSION,
-      outboxRecordId: `ob-dispatch-${toolCallId}`,
-      message: {
-        messageType: "dispatch_tool",
-        tenantId: run.tenantId,
-        aggregateRef: {
-          aggregateType: "tool_call",
-          aggregateId: toolCallId,
-          revision: postPrepareRevision,
-        },
-        dedupeKey: `dispatch_tool:${toolCallId}`,
-        payloadHash: `dispatch_tool:${toolCallId}`,
-        availableAt: now,
-        payload: {
-          runId: run.runId,
-          toolCallId,
-          revision: postPrepareRevision,
-          leaseEpoch: run.leaseEpoch,
-          tenantId: run.tenantId,
-        },
-      },
-      status: "pending",
-      publishAttempts: 0,
-      revision: 0,
-      createdAt: now,
-      updatedAt: now,
-      expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
-    },
+    ...prepared.events,
   ];
 
   const plan: CommitPlan = {
     expectedRevision: args.commandExpectedRevision,
     expectedLeaseEpoch: args.commandLeaseEpoch,
     events,
-    toolCalls: [toolCall],
+    toolCalls: prepared.toolCalls,
     approvals: [consumed],
-    outbox,
-    idempotency,
+    outbox: prepared.outbox,
+    idempotency: prepared.idempotency.length > 0 ? prepared.idempotency : undefined,
     clearContinuation: true,
   };
 

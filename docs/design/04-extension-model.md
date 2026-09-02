@@ -6,7 +6,7 @@ Capability Pack 在不改变 Harness Core 对象、状态机和提交协议的�
 
 扩展系统遵守以下不变量：
 
-1. 所有 Tool 统一以 `toolId` 标识；Action 调用 Tool 时只使用 `type=tool.call` 与 `toolId`。
+1. 所有 Tool 统一以 `toolId` 标识；领域 Action 使用 `type=tool.call` 与 `calls[].toolId`（批次 N≥1；顶层 `toolId` 仅兼容 N=1 旧形状）。
 2. Pack、Tool、Hook 和 Agent 获得的权限只能逐层收紧，不能扩大平台或租户授权。
 3. Policy 的组合结果只能保持或提高限制强度，不能把 `deny` 或 `require_approval` 放宽为 `allow`。
 4. Hook 只返回 Context contribution、veto 或 Observation；Hook 不是隐式 Tool、Reducer、审批器或 Event 提交者。

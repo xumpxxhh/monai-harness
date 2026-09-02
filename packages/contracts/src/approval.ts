@@ -67,6 +67,7 @@ export const approvalRecordSchema = strictObject({
   decisionReason: z.string().optional(),
   consumedAt: z.string().optional(),
   consumedByToolCallId: z.string().optional(),
+  consumedByToolCallIds: z.array(z.string().min(1)).optional(),
   revision: z.number().int().nonnegative(),
   /** MVP resume aid; Event Log remains source of truth for Action. */
   actionSnapshot: actionSchema.optional(),

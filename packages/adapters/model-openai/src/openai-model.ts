@@ -202,11 +202,11 @@ export class OpenAiModelPort implements ModelPort {
     if (defs.length > 0) {
       requestBody.tools = toOpenAiTools(defs);
       requestBody.tool_choice = "auto";
-      // Slice limit: one Action per turn. Not a long-term "domain tools cannot run in parallel" rule.
-      requestBody.parallel_tool_calls = false;
     } else if (this.responseFormatMode === "json_object") {
       requestBody.response_format = { type: "json_object" };
     }
+
+    yield { kind: "request", url, body: requestBody };
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",

@@ -337,14 +337,15 @@ ConfirmationGrant 的创建 Run、首次 Action 与后续使用 Run 都通过 `c
 
 ### 6.1 `tool.call`
 
-1. 校验 `toolId`、参数、资源范围、Execution Manifest 中的精确 Tool 版本和 ToolEffectContract。
-2. Policy 判定先提交 `policy.evaluated`；返回 `deny` 时再提交 `policy.denied` 并结束当前 Step，返回 `require_approval` 时进入审批等待。
-3. 有批准时重新计算 `actionDigest`，校验 TTL、资源范围、审批人、Manifest 和 Policy 版本。
-4. 调用 PreToolCall；veto 或失败时不消费审批。
-5. Engine 原子提交 ToolCallRecord `prepared`、01 定义的 `namespace=tool_call` IdempotencyRecord、`tool.call_prepared` 与派发 OutboxRecord；有审批时同事务提交 `approval.consumed`。
+1. 校验 `calls[]`（或兼容的顶层 `toolId`）中每条调用的参数、资源范围、Execution Manifest 中的精确 Tool 版本和 ToolEffectContract。
+2. Policy **按条**判定每条调用，聚合成 Action 级 `all_allow` / `partial` / `all_deny` / `require_approval`；默认非原子，一条 `deny` 只拒绝该条。先提交 `policy.evaluated`（含逐条 `callResults`）；`all_deny` 时提交 `policy.denied` 并结束 Step；`require_approval` 时整批等待审批。
+3. 有批准时重新计算 `actionDigest`（基于规范化 `calls[]`），校验 TTL、资源范围、审批人、Manifest 和 Policy 版本。
+4. 调用 PreToolCall（整 Action 级 veto）；veto 或失败时不消费审批。
+5. 仅为 allow（及审批后非 deny）的调用扇出：Engine 原子提交对应 ToolCallRecord `prepared`（`toolCallId` 含调用下标）、`namespace=tool_call` IdempotencyRecord、`tool.call_prepared` 与派发 OutboxRecord；有审批时同事务提交 `approval.consumed`（绑定整批 `toolCallIds`）。
 6. Dispatcher 在 epoch 和 lease 有效时派发。Runtime 只返回执行结果候选。
 7. Adapter 接受派发后，Dispatcher 向 Engine 返回候选；Engine 先提交 `tool.dispatched`，再接收并提交 `tool.succeeded`、`tool.failed` 或 `tool.outcome_unknown`。
-8. 权威 Tool 结果先形成 Observation；PostToolCall 的每条数据也形成独立 Observation。每条 Observation 都先提交 `observation.recorded`，随后才能提交 `fact.accepted` 或 `fact.rejected`；只有接受后的 FactEnvelope 交给 Reducer。
+8. **Step 闭合**：同一 `actionId` 下已 prepared 的兄弟 ToolCall 全部进入 `succeeded` 或 `failed` 后，才提交一次 `step.completed` 或 `step.failed`（`outcome_unknown` 仍算未闭合）。存在 `prepared` / `dispatched` 时不得再次调用模型。
+9. 权威 Tool 结果先形成 Observation；PostToolCall 的每条数据也形成独立 Observation。每条 Observation 都先提交 `observation.recorded`，随后才能提交 `fact.accepted` 或 `fact.rejected`；只有接受后的 FactEnvelope 交给 Reducer。
 
 ### 6.2 `ask_user`
 

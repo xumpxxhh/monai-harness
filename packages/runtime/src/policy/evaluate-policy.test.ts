@@ -80,4 +80,39 @@ describe("evaluatePolicy", () => {
     });
     expect(result.decision).toBe("allow");
   });
+
+  it("partial allow: one forbidden and one allowed in batch", () => {
+    const result = evaluatePolicy({
+      action: action({
+        actionId: "a8",
+        type: "tool.call",
+        calls: [
+          { toolId: "forbidden.tool", arguments: {} },
+          { toolId: "echo", arguments: { text: "hi" } },
+        ],
+      }),
+      toolAllowlist: DEFAULT_TOOL_ALLOWLIST,
+    });
+    expect(result.decision).toBe("allow");
+    expect(result.actionDecision).toBe("partial");
+    expect(result.allowedCallIndices).toEqual([1]);
+    expect(result.callResults?.filter((c) => c.decision === "deny")).toHaveLength(1);
+  });
+
+  it("all_deny when every invocation is forbidden", () => {
+    const result = evaluatePolicy({
+      action: action({
+        actionId: "a9",
+        type: "tool.call",
+        calls: [
+          { toolId: "forbidden.a", arguments: {} },
+          { toolId: "forbidden.b", arguments: {} },
+        ],
+      }),
+      toolAllowlist: DEFAULT_TOOL_ALLOWLIST,
+    });
+    expect(result.decision).toBe("deny");
+    expect(result.actionDecision).toBe("all_deny");
+    expect(result.allowedCallIndices).toEqual([]);
+  });
 });

@@ -61,7 +61,7 @@ recovery/
 ```text
 BudgetGuard → Context Builder → context.built + ContextBuildRecord
 → Model Policy 解析 → completeStructured(modelPolicy, controlFunctions, domainTools)
-→ ModelDecision 映射为 Action（无 call 且已有 fact 才 implicit finish）
+→ ModelDecision 映射为 Action（领域 calls 批次；控制 XOR 领域；无 call 且已有 fact 才 implicit finish）
 → 失败/fallback/解析重试（同 Step、新 modelCallId）
 ```
 

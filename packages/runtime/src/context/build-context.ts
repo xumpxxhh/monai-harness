@@ -137,7 +137,7 @@ function formatFactData(data: unknown): string {
 
 /** Model-facing projection of accepted facts (schema data stays intact in State). */
 export function formatRecentFacts(facts: RunState["facts"]): string {
-  const recent = facts.slice(-5);
+  const recent = facts.slice(-20);
   if (recent.length === 0) return "";
 
   const blocks = recent.map((fact, idx) => {

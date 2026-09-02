@@ -94,6 +94,8 @@ export class DemoRunObserver {
   async start(): Promise<void> {
     await mkdir(this.archiveDir, { recursive: true });
     await mkdir(`${this.archiveDir}/preview`, { recursive: true });
+    await mkdir(`${this.archiveDir}/model-input`, { recursive: true });
+    await mkdir(`${this.archiveDir}/model-request`, { recursive: true });
     await mkdir(`${this.archiveDir}/final`, { recursive: true });
 
     await writeFile(
@@ -232,6 +234,57 @@ export class DemoRunObserver {
     if (event.runId !== this.runId) return;
 
     switch (event.type) {
+      case "model_input": {
+        await writeFile(
+          `${this.archiveDir}/model-input/${event.modelCallId}.json`,
+          JSON.stringify(
+            {
+              modelCallId: event.modelCallId,
+              stepId: event.stepId,
+              input: event.input,
+            },
+            null,
+            2,
+          ),
+          "utf8",
+        );
+        await this.record("preview", "model.input", {
+          modelCallId: event.modelCallId,
+          stepId: event.stepId,
+          contextHash:
+            typeof event.input.context === "object" &&
+            event.input.context &&
+            "contextHash" in event.input.context
+              ? String((event.input.context as { contextHash: unknown }).contextHash)
+              : undefined,
+          systemPrompt: event.input.systemPrompt,
+          controlFunctionCount: event.input.controlFunctions?.length ?? 0,
+          domainToolCount: event.input.domainTools?.length ?? 0,
+        });
+        break;
+      }
+      case "model_request": {
+        await writeFile(
+          `${this.archiveDir}/model-request/${event.modelCallId}.json`,
+          JSON.stringify(
+            {
+              modelCallId: event.modelCallId,
+              stepId: event.stepId,
+              url: event.url,
+              body: event.body,
+            },
+            null,
+            2,
+          ),
+          "utf8",
+        );
+        await this.record("preview", "model.request", {
+          modelCallId: event.modelCallId,
+          stepId: event.stepId,
+          url: event.url,
+        });
+        break;
+      }
       case "preview_start": {
         this.previewBuffers.set(event.modelCallId, {
           stepId: event.stepId,

@@ -14,8 +14,7 @@
 ## 1. 范围
 
 - `completeStructured(context, controlFunctions, domainTools, modelPolicy)` — 返回厂商中立 `ModelDecision`（`content` + `calls[]`）；**modelPolicy 必传**（M1d）
-- Runtime 生成 canonical function catalog（控制函数 vs 领域 tools）；adapter 翻译成供应商 `tools` / `tool_calls`
-- 本切片一次决策至多一个 call；领域 tool 并行是后续能力
+- Runtime 生成 canonical function catalog（控制函数 vs 领域 tools）；adapter 翻译成供应商 `tools` / `tool_calls`（允许多 call 批次）
 - MVP：确定性 stub / 固定夹具；真实供应商走 `@monai/model-openai`
 - 不执行副作用、不写 State、密钥不进 Context（只经 SecretPort lease）
 - 不在 adapter 内生成 Action

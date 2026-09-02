@@ -61,6 +61,9 @@ export function attachPreviewPrinter(runtime: HarnessRuntime, runId: string): ()
     if (event.runId !== runId) return;
 
     switch (event.type) {
+      case "model_input":
+      case "model_request":
+        break;
       case "preview_start":
         closeReasoning();
         closeDisplay();
@@ -214,7 +217,8 @@ function lastPreparedToolFingerprint(
   fromIndex: number,
   toolCalls: Array<{ toolCallId: string; toolId: string; arguments?: unknown }>,
 ): string | undefined {
-  for (let i = events.length - 1; i >= fromIndex; i -= 1) {
+  const fingerprints: string[] = [];
+  for (let i = fromIndex; i < events.length; i += 1) {
     const e = events[i]!;
     if (e.eventType !== "tool.call_prepared") continue;
     const payload = e.payload as { toolId?: unknown } | undefined;
@@ -225,9 +229,10 @@ function lastPreparedToolFingerprint(
       ? toolCalls.find((c) => c.toolCallId === e.toolCallId)
       : undefined;
     const argsKey = stableArgsKey(call?.arguments ?? null);
-    return `${toolId}:${argsKey}`;
+    fingerprints.push(`${toolId}:${argsKey}`);
   }
-  return undefined;
+  if (fingerprints.length === 0) return undefined;
+  return [...fingerprints].sort().join("|");
 }
 
 function askUserPromptText(continuation: Continuation): string {
@@ -516,6 +521,25 @@ export async function runAgentLoop(
 
       await drainPendingTools(loops, runtime, runId, 32, observer);
       run = (await runtime.persistence.getRun(runId)) ?? run;
+
+      const pendingAfterDrain = await countPendingTools(runtime, runId);
+      if (run.status === "running" && run.revision === revBefore && pendingAfterDrain > 0) {
+        stagnantTurns += 1;
+        const calls = await runtime.persistence.listToolCalls(runId);
+        const leftover = calls.filter((c) => PENDING_TOOL_STATUSES.has(c.status));
+        console.log(
+          `[demo] turn stalled: ${pendingAfterDrain} tool(s) still pending (${stagnantTurns}/${MAX_STAGNANT}): ${leftover
+            .map((c) => `${c.toolId}/${c.status}`)
+            .join(", ")}`,
+        );
+        if (stagnantTurns >= MAX_STAGNANT) {
+          console.log("[demo] aborting: tools did not complete after repeated drains");
+          runOutcome = "aborted";
+          return await maybeFinish(runOutcome);
+        }
+      } else if (run.revision > revBefore) {
+        stagnantTurns = 0;
+      }
 
       if (TERMINAL_STATUSES.has(run.status)) {
         runOutcome = run.status;

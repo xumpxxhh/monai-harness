@@ -261,16 +261,26 @@ Action {
   schemaVersion
   actionId
   type                       // tool.call | ask_user | finish | spawn_child | noop
-  toolId?                    // type=tool.call 时必填
+  calls? {                   // type=tool.call 的权威形状；N≥1 次领域调用
+    toolId
+    arguments?
+    resourceScope?
+    idempotencyKey?          // 有副作用的调用必填（按条）
+  }[]
+  toolId?                    // 仅 N=1 旧夹具兼容；门禁/digest 以 calls[] 为准
   arguments?
   resourceScope?
-  idempotencyKey?            // 有副作用的 tool.call 必填
+  idempotencyKey?
+  atomic?                    // 预留：true 时任一 deny 视同整批拒绝（默认 false）
+  dependencies? { fromIndex; toIndex }[]  // 预留：本轮不执行依赖图
   childSpec? {
     goal, inputRef?, delegationScope, strategy?
   }
   rationaleRef?              // 可选解释引用，不作为执行依据
 }
 ```
+
+`tool.call` 表示一批领域工具意图（长度为 1 即单次调用）。控制函数（`ask_user` / `finish` / `noop` / `spawn_child`）与领域批次互斥，不得混在同一决策中。执行面为 **1 Action : N ToolCallRecord**（共享 `actionId`）。
 
 ### 4.6 Artifact
 

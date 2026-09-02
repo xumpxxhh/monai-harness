@@ -43,13 +43,19 @@ export class ToolDispatcher {
         tenantId: string;
       };
 
+      let run = await this.persistence.getRun(payload.runId);
+      if (!run) {
+        await this.outbox.markFailed(record.outboxRecordId, "run missing");
+        continue;
+      }
+
       const accepted = await this.engine.handle({
         schemaVersion: CONTRACTS_SCHEMA_VERSION,
         commandId: `td-accept-${record.outboxRecordId}`,
         commandType: "tool_dispatch_result",
         tenantId: payload.tenantId,
         runId: payload.runId,
-        expectedRevision: payload.revision,
+        expectedRevision: run.revision,
         leaseEpoch: payload.leaseEpoch,
         issuedAt: new Date().toISOString(),
         payload: {
@@ -69,13 +75,19 @@ export class ToolDispatcher {
       }
 
       const outcome = await this.invoker.invoke(toolCall);
+      run = await this.persistence.getRun(payload.runId);
+      if (!run) {
+        await this.outbox.markFailed(record.outboxRecordId, "run missing after invoke");
+        continue;
+      }
+
       const terminal = await this.engine.handle({
         schemaVersion: CONTRACTS_SCHEMA_VERSION,
         commandId: `td-term-${record.outboxRecordId}`,
         commandType: "tool_dispatch_result",
         tenantId: payload.tenantId,
         runId: payload.runId,
-        expectedRevision: accepted.revision,
+        expectedRevision: run.revision,
         leaseEpoch: payload.leaseEpoch,
         issuedAt: new Date().toISOString(),
         payload: outcome.ok
@@ -122,13 +134,17 @@ export class ToolDispatcher {
       return { ok: false, message: "toolCall not found" };
     }
     const outcome = await this.invoker.reconcile(toolCall);
+    const run = await this.persistence.getRun(input.runId);
+    if (!run) {
+      return { ok: false, message: "run not found" };
+    }
     const result = await this.engine.handle({
       schemaVersion: CONTRACTS_SCHEMA_VERSION,
       commandId: `reconcile-${input.toolCallId}-${Date.now()}`,
       commandType: "reconcile_tool",
       tenantId: input.tenantId,
       runId: input.runId,
-      expectedRevision: input.expectedRevision,
+      expectedRevision: run.revision,
       leaseEpoch: input.leaseEpoch,
       issuedAt: new Date().toISOString(),
       payload: {

@@ -10,6 +10,7 @@ import {
 import type { HarnessCommand, PersistencePort } from "@monai/ports";
 
 import { applyCommit } from "../commit/apply-commit.js";
+import { inspectActionBatchSiblings } from "../execution/prepare-tool-calls.js";
 import { reduce, validateObservationToFact } from "../state/reducer.js";
 import { assertCommandTenant } from "./tenant-guard.js";
 import type { HandleResult } from "./types.js";
@@ -42,6 +43,60 @@ function eventBase(
     expectedRevision: args.expectedRevision,
     payload: args.payload ?? {},
   };
+}
+
+async function appendStepTerminalIfBatchReady(
+  persistence: PersistencePort,
+  run: Run,
+  pendingTool: ToolCallRecord,
+  events: EventCandidate[],
+  correlationId: string,
+  revision: number,
+  nextState?: RunState,
+): Promise<void> {
+  const siblings = await persistence.listToolCalls(run.runId);
+  const merged = siblings.map((t) =>
+    t.toolCallId === pendingTool.toolCallId ? pendingTool : t,
+  );
+  const batch = inspectActionBatchSiblings(merged, pendingTool.actionId);
+  if (!batch.allTerminal) {
+    return;
+  }
+
+  if (batch.stepShouldFail) {
+    const reason =
+      merged.find((t) => t.actionId === pendingTool.actionId && t.status === "failed")?.error ??
+      "tool batch failed";
+    events.push(
+      eventBase(run, {
+        eventId: `evt-step-fail-${pendingTool.stepId}-batch`,
+        eventType: "step.failed",
+        expectedRevision: revision,
+        correlationId,
+        stepId: pendingTool.stepId,
+        payload: { reason },
+      }),
+    );
+    return;
+  }
+
+  if (batch.stepShouldComplete) {
+    events.push(
+      eventBase(run, {
+        eventId: `evt-step-ok-${pendingTool.stepId}`,
+        eventType: "step.completed",
+        expectedRevision: revision,
+        correlationId,
+        stepId: pendingTool.stepId,
+        payload: nextState
+          ? {
+              lastFactId: nextState.lastFactId,
+              stepCount: nextState.cursor.stepCount,
+            }
+          : undefined,
+      }),
+    );
+  }
 }
 
 export type ToolDispatchResultPayload = {
@@ -266,14 +321,14 @@ export async function handleToolDispatchTerminal(
         toolCallId: toolCall.toolCallId,
         payload: { error: nextTool.error },
       }),
-      eventBase(run, {
-        eventId: `evt-step-fail-${toolCall.stepId}-tool`,
-        eventType: "step.failed",
-        expectedRevision: run.revision,
-        correlationId,
-        stepId: toolCall.stepId,
-        payload: { reason: nextTool.error },
-      }),
+    );
+    await appendStepTerminalIfBatchReady(
+      persistence,
+      run,
+      nextTool,
+      events,
+      correlationId,
+      run.revision,
     );
   } else {
     // succeeded
@@ -338,7 +393,7 @@ export async function handleToolDispatchTerminal(
           toolCallId: toolCall.toolCallId,
         }),
         eventBase(run, {
-          eventId: `evt-state-${toolCall.stepId}-tool`,
+          eventId: `evt-state-${toolCall.toolCallId}-tool`,
           eventType: "state.reduced",
           expectedRevision: run.revision,
           correlationId,
@@ -348,13 +403,15 @@ export async function handleToolDispatchTerminal(
             stepCount: nextState.cursor.stepCount,
           },
         }),
-        eventBase(run, {
-          eventId: `evt-step-ok-${toolCall.stepId}`,
-          eventType: "step.completed",
-          expectedRevision: run.revision,
-          correlationId,
-          stepId: toolCall.stepId,
-        }),
+      );
+      await appendStepTerminalIfBatchReady(
+        persistence,
+        run,
+        nextTool,
+        events,
+        correlationId,
+        run.revision,
+        nextState,
       );
     } else {
       events.push(
@@ -477,14 +534,14 @@ export async function handleReconcileTool(
         stepId: toolCall.stepId,
         toolCallId: toolCall.toolCallId,
       }),
-      eventBase(run, {
-        eventId: `evt-step-fail-${toolCall.stepId}-rec`,
-        eventType: "step.failed",
-        expectedRevision: run.revision,
-        correlationId,
-        stepId: toolCall.stepId,
-        payload: { reason: nextTool.error },
-      }),
+    );
+    await appendStepTerminalIfBatchReady(
+      persistence,
+      run,
+      nextTool,
+      events,
+      correlationId,
+      run.revision,
     );
   } else {
     const observationId = `obs-rec-${toolCall.toolCallId}`;
@@ -546,7 +603,7 @@ export async function handleReconcileTool(
           stepId: toolCall.stepId,
         }),
         eventBase(run, {
-          eventId: `evt-state-${toolCall.stepId}-rec`,
+          eventId: `evt-state-${toolCall.toolCallId}-rec`,
           eventType: "state.reduced",
           expectedRevision: run.revision,
           correlationId,
@@ -556,13 +613,15 @@ export async function handleReconcileTool(
             stepCount: nextState.cursor.stepCount,
           },
         }),
-        eventBase(run, {
-          eventId: `evt-step-ok-${toolCall.stepId}-rec`,
-          eventType: "step.completed",
-          expectedRevision: run.revision,
-          correlationId,
-          stepId: toolCall.stepId,
-        }),
+      );
+      await appendStepTerminalIfBatchReady(
+        persistence,
+        run,
+        nextTool,
+        events,
+        correlationId,
+        run.revision,
+        nextState,
       );
     }
   }

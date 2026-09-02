@@ -2,23 +2,11 @@ import { randomUUID } from "node:crypto";
 
 import { CONTRACTS_SCHEMA_VERSION } from "@monai/contracts";
 
-import { lookupToolContract, requiresIdempotencyKey } from "../execution/lookup-tool-contract.js";
-
-function stable(value: unknown): string {
-  if (value === null || typeof value !== "object") {
-    return JSON.stringify(value);
-  }
-  if (Array.isArray(value)) {
-    return `[${value.map((item) => stable(item)).join(",")}]`;
-  }
-  const record = value as Record<string, unknown>;
-  const keys = Object.keys(record).sort();
-  return `{${keys.map((key) => `${JSON.stringify(key)}:${stable(record[key])}`).join(",")}}`;
-}
+import { normalizeToolCallAction } from "./normalize-action.js";
 
 /**
  * Hydrate model JSON into an Action candidate before schema validation.
- * Runtime owns schemaVersion / actionId / optional idempotencyKey.
+ * Runtime owns schemaVersion / actionId / per-invocation idempotencyKey.
  */
 export function hydrateModelAction(raw: unknown): unknown {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
@@ -56,15 +44,8 @@ export function hydrateModelAction(raw: unknown): unknown {
     obj.arguments = args;
   }
 
-  if (
-    obj.type === "tool.call" &&
-    typeof obj.toolId === "string" &&
-    (typeof obj.idempotencyKey !== "string" || !obj.idempotencyKey.trim())
-  ) {
-    const contract = lookupToolContract(obj.toolId);
-    if (contract && requiresIdempotencyKey(contract)) {
-      obj.idempotencyKey = `ik:${obj.toolId}:${stable(obj.arguments)}`;
-    }
+  if (obj.type === "tool.call") {
+    return normalizeToolCallAction(obj as Parameters<typeof normalizeToolCallAction>[0]);
   }
 
   return obj;

@@ -13,7 +13,7 @@ describe("buildAgentSystemPrompt", () => {
     const prompt = buildAgentSystemPrompt();
     expect(prompt).toContain("ask_user");
     expect(prompt).toContain("finish");
-    expect(prompt).toContain("at most one function call");
+    expect(prompt).toContain("one or more function calls");
     expect(prompt).not.toContain("schemaVersion");
     expect(prompt).not.toContain("userMessage");
   });
@@ -101,7 +101,7 @@ describe("mapModelDecisionToAction", () => {
     expect(mapped.action).toMatchObject({ type: "finish" });
   });
 
-  it("maps a domain tool", () => {
+  it("maps a single domain tool into calls batch", () => {
     const mapped = mapModelDecisionToAction(
       {
         content: "正在读取",
@@ -113,13 +113,12 @@ describe("mapModelDecisionToAction", () => {
     if (!mapped.ok) return;
     expect(mapped.action).toMatchObject({
       type: "tool.call",
-      toolId: "workspace.read",
-      arguments: { path: "/readme.md" },
+      calls: [{ toolId: "workspace.read", arguments: { path: "/readme.md" } }],
       displayText: "正在读取",
     });
   });
 
-  it("rejects two calls", () => {
+  it("maps multiple domain tools into one batch action", () => {
     const mapped = mapModelDecisionToAction(
       {
         calls: [
@@ -129,9 +128,30 @@ describe("mapModelDecisionToAction", () => {
       },
       empty,
     );
+    expect(mapped.ok).toBe(true);
+    if (!mapped.ok) return;
+    expect(mapped.action).toMatchObject({
+      type: "tool.call",
+      calls: [
+        { toolId: "workspace.read", arguments: { path: "/a" } },
+        { toolId: "workspace.read", arguments: { path: "/b" } },
+      ],
+    });
+  });
+
+  it("rejects mixed control and domain calls", () => {
+    const mapped = mapModelDecisionToAction(
+      {
+        calls: [
+          { name: "workspace.read", arguments: { path: "/a" } },
+          { name: "finish", arguments: { summary: "done" } },
+        ],
+      },
+      empty,
+    );
     expect(mapped.ok).toBe(false);
     if (mapped.ok) return;
-    expect(mapped.reason).toContain("at most one");
+    expect(mapped.reason).toContain("mixed");
   });
 
   it("maps unknown names as tool.call so Policy can deny", () => {
@@ -141,7 +161,10 @@ describe("mapModelDecisionToAction", () => {
     );
     expect(mapped.ok).toBe(true);
     if (!mapped.ok) return;
-    expect(mapped.action).toMatchObject({ type: "tool.call", toolId: "forbidden.tool" });
+    expect(mapped.action).toMatchObject({
+      type: "tool.call",
+      calls: [{ toolId: "forbidden.tool", arguments: {} }],
+    });
   });
 
   it("treats reserved names as control even if they look like tools", () => {
@@ -173,7 +196,7 @@ describe("resolveModelActionCandidate", () => {
     if (!resolved.ok) return;
     expect(resolved.candidate).toMatchObject({
       type: "tool.call",
-      toolId: "workspace.read",
+      calls: [{ toolId: "workspace.read", arguments: { path: "/x" } }],
       displayText: "读文件",
     });
     expect((resolved.candidate as { actionId: string }).actionId.startsWith("act-")).toBe(true);
@@ -219,13 +242,22 @@ describe("hydrateModelAction", () => {
     expect(hydrated.arguments?.prompt).toBe("确认？");
   });
 
+  it("normalizes legacy toolId into calls[]", () => {
+    const hydrated = hydrateModelAction({
+      type: "tool.call",
+      toolId: "workspace.list",
+      arguments: { path: "/" },
+    }) as { calls?: Array<{ toolId: string }> };
+    expect(hydrated.calls?.[0]?.toolId).toBe("workspace.list");
+  });
+
   it("derives idempotencyKey for write tools when missing", () => {
     const hydrated = hydrateModelAction({
       type: "tool.call",
       toolId: "artifact.write_markdown",
       arguments: { markdown: "# hi" },
-    }) as { idempotencyKey?: string };
-    expect(hydrated.idempotencyKey).toContain("artifact.write_markdown");
+    }) as { calls?: Array<{ idempotencyKey?: string }> };
+    expect(hydrated.calls?.[0]?.idempotencyKey).toContain("artifact.write_markdown");
   });
 
   it("does not invent idempotencyKey for read tools", () => {
@@ -233,7 +265,7 @@ describe("hydrateModelAction", () => {
       type: "tool.call",
       toolId: "workspace.list",
       arguments: { path: "/" },
-    }) as { idempotencyKey?: string };
-    expect(hydrated.idempotencyKey).toBeUndefined();
+    }) as { calls?: Array<{ idempotencyKey?: string }> };
+    expect(hydrated.calls?.[0]?.idempotencyKey).toBeUndefined();
   });
 });

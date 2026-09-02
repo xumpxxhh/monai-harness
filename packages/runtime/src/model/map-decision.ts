@@ -85,7 +85,7 @@ function mapControlCall(call: ModelFunctionCall, displayText?: string): unknown 
 
 /**
  * Map a vendor-neutral ModelDecision to an unhydrated Action candidate.
- * This slice: at most one call; control XOR domain; content-only finish is fact-gated.
+ * Control XOR domain batch; content-only finish is fact-gated.
  */
 export function mapModelDecisionToAction(
   decision: ModelDecision,
@@ -93,10 +93,6 @@ export function mapModelDecisionToAction(
 ): MapDecisionResult {
   const calls = decision.calls ?? [];
   const displayText = displayTextOf(decision);
-
-  if (calls.length > 1) {
-    return { ok: false, reason: "expected at most one function call this turn" };
-  }
 
   if (calls.length === 0) {
     const hasFact = Boolean(ctx.lastFactId);
@@ -117,21 +113,41 @@ export function mapModelDecisionToAction(
     };
   }
 
-  const call = calls[0]!;
-  if (!call.name || typeof call.name !== "string") {
+  const controlCalls = calls.filter((c) => c.name && isControlFunctionName(c.name));
+  const domainCalls = calls.filter((c) => c.name && !isControlFunctionName(c.name));
+
+  if (controlCalls.length > 0 && domainCalls.length > 0) {
+    return { ok: false, reason: "control and domain function calls cannot be mixed" };
+  }
+  if (controlCalls.length > 1) {
+    return { ok: false, reason: "expected exactly one control function call" };
+  }
+  if (controlCalls.length === 1) {
+    const call = controlCalls[0]!;
+    if (!call.name || typeof call.name !== "string") {
+      return { ok: false, reason: "function call missing name" };
+    }
+    return { ok: true, action: mapControlCall(call, displayText) };
+  }
+
+  if (domainCalls.length === 0) {
     return { ok: false, reason: "function call missing name" };
   }
 
-  if (isControlFunctionName(call.name)) {
-    return { ok: true, action: mapControlCall(call, displayText) };
+  for (const call of domainCalls) {
+    if (!call.name || typeof call.name !== "string") {
+      return { ok: false, reason: "function call missing name" };
+    }
   }
 
   return {
     ok: true,
     action: {
       type: "tool.call" satisfies ActionType,
-      toolId: call.name,
-      arguments: call.arguments,
+      calls: domainCalls.map((call) => ({
+        toolId: call.name!,
+        arguments: call.arguments,
+      })),
       displayText,
     },
   };

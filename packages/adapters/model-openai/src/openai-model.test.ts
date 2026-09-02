@@ -169,7 +169,7 @@ describe("OpenAiModelPort", () => {
     expect(capturedBody.stream).toBe(true);
     expect(capturedBody.response_format).toBeUndefined();
     expect(capturedBody.tool_choice).toBe("auto");
-    expect(capturedBody.parallel_tool_calls).toBe(false);
+    expect(capturedBody.parallel_tool_calls).toBeUndefined();
     expect(capturedBody.tools).toEqual(
       toOpenAiTools([SAMPLE_DEFS[1]!, SAMPLE_DEFS[0]!]),
     );

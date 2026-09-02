@@ -50,12 +50,16 @@ export {
 export {
   ACTION_TYPES,
   POLICY_DECISIONS,
+  actionDependencySchema,
   actionSchema,
   actionTypeSchema,
   policyDecisionSchema,
+  toolCallInvocationSchema,
   type Action,
+  type ActionDependency,
   type ActionType,
   type PolicyDecision,
+  type ToolCallInvocation,
 } from "./action.js";
 
 export {

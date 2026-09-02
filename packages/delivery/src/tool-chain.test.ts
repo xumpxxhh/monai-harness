@@ -1,6 +1,7 @@
 import { CONTRACTS_SCHEMA_VERSION } from "@monai/contracts";
-import type { HarnessCommand } from "@monai/ports";
+import type { HarnessCommand, ModelPort } from "@monai/ports";
 import { StubModelPort } from "@monai/model-stub";
+import { InMemoryWorkspace } from "@monai/workspace-memory";
 import { InMemoryWorkspace } from "@monai/workspace-memory";
 import { describe, expect, it } from "vitest";
 
@@ -132,6 +133,97 @@ describe("P4 tool chain", () => {
     expect(rec.ok).toBe(true);
     expect((await persistence.getToolCall(unknown.toolCallId))?.status).toBe("succeeded");
     expect(pack.synthetic.effectCount("synthetic://demo/resource")).toBe(1);
+  });
+
+  it("batch workspace.read: two paths, both succeed then one step.completed", async () => {
+    const workspace = new InMemoryWorkspace({
+      "/readme.md": "# readme",
+      "/notes/search-me.md": "# notes",
+    });
+    const batchModel: ModelPort = {
+      completeStructured: async () => ({
+        calls: [
+          { name: "workspace.read", arguments: { path: "/readme.md" } },
+          { name: "workspace.read", arguments: { path: "/notes/search-me.md" } },
+        ],
+      }),
+    };
+    const { persistence, engine, tools, ownerId } = createPackTestFixtures({
+      workspace,
+      requireApprovalTools: [],
+      model: batchModel,
+    });
+
+    const running = await bootToRunning(engine, cmd, "r-ws-batch", "batch read", ownerId);
+    expect(running.ok).toBe(true);
+    if (!running.ok) return;
+
+    const turn = await engine.handle(
+      cmd({
+        commandType: "execute_turn",
+        commandId: "turn-ws-batch",
+        runId: "r-ws-batch",
+        expectedRevision: running.revision,
+        leaseEpoch: running.leaseEpoch,
+        actor: { principalId: ownerId },
+      }),
+    );
+    expect(turn.ok).toBe(true);
+    if (!turn.ok) return;
+    expect((await persistence.listToolCalls("r-ws-batch"))).toHaveLength(2);
+
+    expect(await tools.tick()).toBe(2);
+    const types = (await persistence.listEvents("r-ws-batch")).map((e) => e.eventType);
+    expect(types.filter((t) => t === "tool.succeeded")).toHaveLength(2);
+    expect(types.filter((t) => t === "state.reduced")).toHaveLength(2);
+    expect(types).toContain("step.completed");
+    expect((await persistence.listToolCalls("r-ws-batch")).every((t) => t.status === "succeeded")).toBe(
+      true,
+    );
+  });
+
+  it("batch echo: two prepared, step completes after both succeed", async () => {
+    const batchModel: ModelPort = {
+      completeStructured: async () => ({
+        calls: [
+          { name: "echo", arguments: { text: "a" } },
+          { name: "echo", arguments: { text: "b" } },
+        ],
+      }),
+    };
+    const { persistence, engine, tools, ownerId } = createPackTestFixtures({
+      requireApprovalTools: [],
+      model: batchModel,
+    });
+
+    const running = await bootToRunning(engine, cmd, "r-batch", "batch echo", ownerId);
+    expect(running.ok).toBe(true);
+    if (!running.ok) return;
+
+    const turn = await engine.handle(
+      cmd({
+        commandType: "execute_turn",
+        commandId: "turn-batch",
+        runId: "r-batch",
+        expectedRevision: running.revision,
+        leaseEpoch: running.leaseEpoch,
+        actor: { principalId: ownerId },
+      }),
+    );
+    expect(turn.ok).toBe(true);
+    if (!turn.ok) return;
+
+    const prepared = (await persistence.listToolCalls("r-batch")).filter(
+      (t) => t.status === "prepared",
+    );
+    expect(prepared).toHaveLength(2);
+    expect((await persistence.listOutbox()).filter((o) => o.message.messageType === "dispatch_tool")).toHaveLength(2);
+
+    expect(await tools.tick()).toBe(2);
+    const types = (await persistence.listEvents("r-batch")).map((e) => e.eventType);
+    expect(types.filter((t) => t === "tool.succeeded")).toHaveLength(2);
+    expect(types).toContain("step.completed");
+    expect(types.filter((t) => t === "step.completed")).toHaveLength(1);
   });
 
   it("same tool_call idempotency key is idempotent", async () => {

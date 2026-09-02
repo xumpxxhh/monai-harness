@@ -35,7 +35,7 @@ import {
   evaluateAcceptanceChecks,
   requiredAcceptanceChecksPassed,
 } from "../control/acceptance-checks.js";
-import { lookupToolContract, requiresIdempotencyKey } from "../execution/lookup-tool-contract.js";
+import { prepareToolCalls } from "../execution/prepare-tool-calls.js";
 import type { ExtensionRegistry } from "../extension/extension-registry.js";
 import { buildAgentSystemPrompt } from "../model/agent-system-prompt.js";
 import { buildModelFunctionCatalog } from "../model/function-catalog.js";
@@ -81,12 +81,38 @@ function eventBase(
   };
 }
 
-function inputHash(action: Action): string {
-  return `ih:${action.toolId}:${action.idempotencyKey ?? ""}:${stable(action.arguments)}`;
-}
-
 function stable(value: unknown): string {
   return typeof value === "string" ? value : JSON.stringify(value ?? null);
+}
+
+async function tryIdempotentPreparedRetry(
+  persistence: PersistencePort & Partial<IdempotencyPort>,
+  run: Run,
+  existingToolCalls: ToolCallRecord[],
+): Promise<HandleResult | null> {
+  const prepared = existingToolCalls.filter((call) => call.status === "prepared");
+  if (prepared.length === 0) {
+    return null;
+  }
+  if (!persistence.get) {
+    return null;
+  }
+  for (const call of prepared) {
+    if (!call.idempotencyKey) {
+      return null;
+    }
+    const existing = await persistence.get("tool_call", run.tenantId, call.idempotencyKey);
+    if (!existing) {
+      return null;
+    }
+  }
+  return {
+    ok: true,
+    run,
+    revision: run.revision,
+    leaseEpoch: run.leaseEpoch,
+    idempotent: true,
+  };
 }
 
 export type ExecuteTurnDeps = {
@@ -186,7 +212,29 @@ export async function handleExecuteTurn(
       call.status === "dispatched" ||
       call.status === "outcome_unknown",
   );
+  const hasDispatched = existingToolCalls.some((call) => call.status === "dispatched");
+  const hasPrepared = existingToolCalls.some((call) => call.status === "prepared");
   const functionCatalog = buildModelFunctionCatalog({ toolAllowlist });
+
+  const idempotentRetry = await tryIdempotentPreparedRetry(
+    deps.persistence,
+    run,
+    existingToolCalls,
+  );
+  if (idempotentRetry) {
+    return idempotentRetry;
+  }
+
+  if (hasDispatched || hasPrepared) {
+    return {
+      ok: true,
+      run,
+      revision: run.revision,
+      leaseEpoch: run.leaseEpoch,
+    };
+  }
+
+  // outcome_unknown alone: allow model so prepare can reject blind retries.
 
   // 1. Budget check before calling model (design 03 §4.3 / §5.1)
   const budgetCheck = checkRunBudget(run, state);
@@ -324,9 +372,26 @@ export async function handleExecuteTurn(
         },
       };
 
+      deps.previewHub?.publish({
+        type: "model_input",
+        runId: run.runId,
+        stepId,
+        modelCallId,
+        input: modelInput,
+      });
+
       if (typeof deps.model.completeStructuredStream === "function") {
         for await (const chunk of deps.model.completeStructuredStream(modelInput)) {
-          if (chunk.kind === "delta") {
+          if (chunk.kind === "request") {
+            deps.previewHub?.publish({
+              type: "model_request",
+              runId: run.runId,
+              stepId,
+              modelCallId,
+              url: chunk.url,
+              body: chunk.body,
+            });
+          } else if (chunk.kind === "delta") {
             deps.previewHub?.publish({
               type: "delta",
               runId: run.runId,
@@ -793,6 +858,8 @@ async function commitTurn(
         policyVersion: policy.policyVersion,
         reason: policy.reason,
         inputSummary: policy.inputSummary,
+        actionDecision: policy.actionDecision,
+        callResults: policy.callResults,
       },
     }),
   ];
@@ -1051,8 +1118,11 @@ async function commitTurn(
 
     if (action.type === "tool.call") {
       events.push(...args.preToolEvents);
-      const toolId = action.toolId;
-      if (!toolId) {
+      const allowedIndices =
+        policy.allowedCallIndices ??
+        (action.calls?.map((_, index) => index) ?? (action.toolId ? [0] : []));
+
+      if (allowedIndices.length === 0) {
         events.push(
           eventBase(run, {
             eventId: `evt-step-fail-${stepId}`,
@@ -1060,180 +1130,46 @@ async function commitTurn(
             expectedRevision: rev,
             correlationId,
             stepId,
-            payload: { reason: "tool.call missing toolId" },
+            payload: { reason: "no allowed tool invocations in batch" },
           }),
         );
       } else {
-        const contract = lookupToolContract(toolId, deps.registry);
-        if (!contract) {
-          events.push(
-            eventBase(run, {
-              eventId: `evt-step-fail-${stepId}`,
-              eventType: "step.failed",
-              expectedRevision: rev,
-              correlationId,
-              stepId,
-              payload: { reason: `unknown tool contract: ${toolId}` },
-            }),
-          );
-        } else if (requiresIdempotencyKey(contract) && !action.idempotencyKey) {
-          events.push(
-            eventBase(run, {
-              eventId: `evt-step-fail-${stepId}`,
-              eventType: "step.failed",
-              expectedRevision: rev,
-              correlationId,
-              stepId,
-              payload: { reason: "idempotencyKey required for side-effect tool" },
-            }),
-          );
-        } else {
-          const existingCalls = await deps.persistence.listToolCalls(run.runId);
-          const unknown = existingCalls.find(
-            (t) => t.toolId === toolId && t.status === "outcome_unknown",
-          );
-          if (unknown && unknown.idempotencyKey !== action.idempotencyKey) {
-            return {
-              ok: false,
-              code: "validation",
-              message:
-                "cannot blind-retry outcome_unknown with a new idempotency key; use reconcile_tool",
-            };
-          }
+        const prepared = await prepareToolCalls({
+          run,
+          stepId,
+          action,
+          correlationId,
+          expectedRevision: rev,
+          callIndices: allowedIndices,
+          persistence: deps.persistence,
+          registry: deps.registry,
+          eventBase,
+        });
 
-          const hash = inputHash(action);
-          if (action.idempotencyKey && deps.persistence.get) {
-            const existing = await deps.persistence.get(
-              "tool_call",
-              run.tenantId,
-              action.idempotencyKey,
-            );
-            if (existing) {
-              if (existing.requestHash !== hash) {
-                return {
-                  ok: false,
-                  code: "conflict",
-                  message: "tool_call idempotency requestHash mismatch",
-                };
-              }
-              const saved = await deps.persistence.getRun(run.runId);
-              if (!saved) {
-                return { ok: false, code: "fatal", message: "run missing" };
-              }
-              return {
-                ok: true,
-                run: saved,
-                revision: saved.revision,
-                leaseEpoch: saved.leaseEpoch,
-                idempotent: true,
-              };
-            }
-          }
-
-          const now = new Date().toISOString();
-          const toolCallId = `tc-${run.runId}-${action.actionId}`;
-          const postPrepareRevision = rev + 1;
-          const toolCall: ToolCallRecord = {
-            schemaVersion: CONTRACTS_SCHEMA_VERSION,
-            toolCallId,
-            tenantId: run.tenantId,
-            sessionId: run.sessionId,
-            runId: run.runId,
-            stepId,
-            actionId: action.actionId,
-            toolId,
-            toolVersion: "0.1.0",
-            executionManifestRef: run.executionManifestRef,
-            inputHash: hash,
-            arguments: action.arguments,
-            resourceScope: action.resourceScope,
-            idempotencyKey: action.idempotencyKey,
-            idempotencyScope: contract.idempotencyScope,
-            deliverySemantics: contract.deliverySemantics,
-            sideEffectProfile: contract.sideEffectProfile,
-            status: "prepared",
-            attempt: 1,
-            preparedAt: now,
-            dispatchLeaseEpoch: run.leaseEpoch,
-            revision: 0,
-            reconcileSupported: contract.reconcileSupported,
+        if (!prepared.ok) {
+          return {
+            ok: false,
+            code: prepared.code,
+            message: prepared.message,
           };
-
-          toolCalls = [toolCall];
-          events.push(
-            eventBase(run, {
-              eventId: `evt-tool-prep-${toolCallId}`,
-              eventType: "tool.call_prepared",
-              expectedRevision: rev,
-              correlationId,
-              stepId,
-              toolCallId,
-              payload: { toolId, idempotencyKey: action.idempotencyKey },
-            }),
-          );
-
-          if (action.idempotencyKey) {
-            idempotency = [
-              {
-                schemaVersion: CONTRACTS_SCHEMA_VERSION,
-                idempotencyRecordId: `idem-tc-${toolCallId}`,
-                namespace: "tool_call",
-                tenantId: run.tenantId,
-                key: action.idempotencyKey,
-                dedupeKey: action.idempotencyKey,
-                requestHash: hash,
-                ownerRef: {
-                  ownerType: "tool_call",
-                  runId: run.runId,
-                  stepId,
-                  toolCallId,
-                },
-                resultRef: {
-                  resultType: "tool_result",
-                  runId: run.runId,
-                  toolCallId,
-                },
-                status: "completed",
-                revision: 0,
-                createdAt: now,
-                updatedAt: now,
-                expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
-                completedAt: now,
-              },
-            ];
+        }
+        if (prepared.toolCalls.length === 0) {
+          const saved = await deps.persistence.getRun(run.runId);
+          if (!saved) {
+            return { ok: false, code: "fatal", message: "run missing" };
           }
-
-          outbox = [
-            {
-              schemaVersion: CONTRACTS_SCHEMA_VERSION,
-              outboxRecordId: `ob-dispatch-${toolCallId}`,
-              message: {
-                messageType: "dispatch_tool",
-                tenantId: run.tenantId,
-                aggregateRef: {
-                  aggregateType: "tool_call",
-                  aggregateId: toolCallId,
-                  revision: postPrepareRevision,
-                },
-                dedupeKey: `dispatch_tool:${toolCallId}`,
-                payloadHash: `dispatch_tool:${toolCallId}`,
-                availableAt: now,
-                payload: {
-                  runId: run.runId,
-                  toolCallId,
-                  revision: postPrepareRevision,
-                  leaseEpoch: run.leaseEpoch,
-                  tenantId: run.tenantId,
-                },
-              },
-              status: "pending",
-              publishAttempts: 0,
-              revision: 0,
-              createdAt: now,
-              updatedAt: now,
-              expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
-            },
-          ];
+          return {
+            ok: true,
+            run: saved,
+            revision: saved.revision,
+            leaseEpoch: saved.leaseEpoch,
+            idempotent: true,
+          };
+        } else {
+          toolCalls = prepared.toolCalls;
+          outbox = prepared.outbox;
+          idempotency = prepared.idempotency.length > 0 ? prepared.idempotency : undefined;
+          events.push(...prepared.events);
         }
       }
     } else if (action.type === "noop") {

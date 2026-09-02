@@ -107,12 +107,19 @@ export type ModelStreamDone = {
   result: ModelDecision;
 };
 
-export type ModelStreamChunk = ModelStreamDelta | ModelStreamDone;
+/** Wire request about to be sent to the model provider (no secrets). */
+export type ModelStreamRequest = {
+  kind: "request";
+  url: string;
+  body: unknown;
+};
+
+export type ModelStreamChunk = ModelStreamDelta | ModelStreamDone | ModelStreamRequest;
 
 /**
  * ModelPort — completion outside any open UoW (EDR-003).
  * Returns a vendor-neutral ModelDecision (or, for eval stubs, an Action-shaped object).
- * Optional streaming yields user-facing deltas only; execution waits for `done`.
+ * Optional streaming may yield `request` then user-facing deltas; execution waits for `done`.
  */
 export type ModelPort = {
   completeStructured(input: ModelCompleteInput): Promise<unknown>;

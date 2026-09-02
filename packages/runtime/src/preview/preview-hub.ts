@@ -1,6 +1,21 @@
-import type { ModelPreviewChannel } from "@monai/ports";
+import type { ModelCompleteInput, ModelPreviewChannel } from "@monai/ports";
 
 export type ModelPreviewEvent =
+  | {
+      type: "model_input";
+      runId: string;
+      stepId: string;
+      modelCallId: string;
+      input: ModelCompleteInput;
+    }
+  | {
+      type: "model_request";
+      runId: string;
+      stepId: string;
+      modelCallId: string;
+      url: string;
+      body: unknown;
+    }
   | {
       type: "preview_start";
       runId: string;

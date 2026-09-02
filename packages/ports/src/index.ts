@@ -23,6 +23,7 @@ export type {
   ModelStreamChunk,
   ModelStreamDelta,
   ModelStreamDone,
+  ModelStreamRequest,
   ObjectStorePort,
   QueueEnqueueInput,
   QueueMessage,
