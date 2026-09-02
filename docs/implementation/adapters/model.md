@@ -27,7 +27,7 @@
 
 ## 3. 验收清单
 
-- [x] stub 可驱动主路径（echo / deny-me / approve-me / finish / noop / workspace-read / workspace-search / artifact / acceptance→finish）
+- [x] stub 可驱动主路径（echo / deny-me / approve-me / finish / noop / workspace-read / workspace-search / workspace-write / artifact / acceptance→finish）
 - [x] 失败/超时映射为结构化错误供 Engine 计量 attempt（M1d）
 - [x] 真实供应商适配：`@monai/model-openai` 按 `resolvedTarget` 调 API；返回 `ModelDecision`（不再吐 Action JSON）
 - [x] 调用边界经 SecretPort 取凭证；usage 回传供 Event（M1f）

@@ -16,4 +16,12 @@ describe("buildAgentSystemPrompt", () => {
     const prompt = buildAgentSystemPrompt({ toolAllowlist: ["workspace.read"] });
     expect(prompt).not.toContain("Knowledge base");
   });
+
+  it("includes workspace.write rules when allowlisted", () => {
+    const prompt = buildAgentSystemPrompt({
+      toolAllowlist: ["workspace.read", "workspace.write"],
+    });
+    expect(prompt).toContain("workspace.write");
+    expect(prompt).toContain("path and content are required");
+  });
 });

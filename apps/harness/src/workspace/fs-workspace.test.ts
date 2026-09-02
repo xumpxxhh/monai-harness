@@ -40,6 +40,10 @@ describe("FsWorkspace", () => {
     await ws.write("/1.txt", "111");
     const created = (await ws.read("/1.txt")) as { content: string };
     expect(created.content).toBe("111");
+
+    await ws.write("/notes/out.md", "nested");
+    const nested = (await ws.read("/notes/out.md")) as { content: string };
+    expect(nested.content).toBe("nested");
   });
 
   it("rejects path escape", async () => {

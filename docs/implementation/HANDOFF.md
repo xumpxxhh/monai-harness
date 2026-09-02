@@ -1,12 +1,13 @@
 # HANDOFF — 实现交接
 
-> 最后更新：2026-09-02（**RAG `knowledge.search` Tool 已实装**）
+> 最后更新：2026-09-02（**`workspace.write` Pack Tool 已接入**）
 
 ## 当前状态（一句话）
 
-**P0–P9、M1、M2 已完成；RAG HTTP 已以 Pack Tool `knowledge.search` 接入（EDR-016，模型按需检索）。**
+**P0–P9、M1、M2 已完成；RAG `knowledge.search`（EDR-016）与 `workspace.write`（write_low）均已作为 Pack Tool 接入。**
+- `workspace.write`：默认 allowlist；路径防逃逸；`path` + `content` 必填；经 prepared/dispatch
 - 配置 `KNOWLEDGE_BASE_URL` 时 harness 注入 `@monai/knowledge-http` 并将 Tool 加入 allowlist
-- 未配置时 Eval / 默认装配行为不变（114 stub 仍绿）
+- 未配置 RAG 时 Eval / 默认装配行为不变（114 stub 仍绿）
 - **KnowledgePort / Context `knowledge` section 仍缺口** — 不得宣称 design 08 阶段 A 关闭
 
 ## 下一步
@@ -30,6 +31,7 @@ pnpm --filter @monai/knowledge-http test
 pnpm --filter @monai/runtime test
 pnpm --filter @monai/secret-env test
 pnpm --filter @monai/model-openai test
+pnpm --filter @monai/delivery test
 pnpm --filter @monai/observability test     # 114 Eval（stub）
 pnpm --filter harness test
 ```
@@ -38,6 +40,8 @@ pnpm --filter harness test
 
 | 用途 | 路径 |
 | --- | --- |
+| workspace.write | `packages/packs/workspace-generic/src/manifest.ts` |
+| Session 0021 | `docs/implementation/sessions/0021-workspace-write-tool.md` |
 | RAG 接入文档 | `docs/rag/agent-integration.md` |
 | Session 0020 | `docs/implementation/sessions/0020-knowledge-search-tool.md` |
 | HTTP 客户端 | `packages/adapters/knowledge-http/src/knowledge-client.ts` |

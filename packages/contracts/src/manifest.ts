@@ -49,6 +49,18 @@ export const packToolDefinitionSchema = strictObject({
   toolId: z.string().min(1),
   version: z.string().min(1),
   effectContract: toolEffectContractSchema,
+  /** Model-facing description. Pack is the source of truth; Core must not hardcode tool docs. */
+  description: z.string().min(1).optional(),
+  /** JSON Schema object for function-calling arguments. */
+  parameters: z.unknown().optional(),
+  /** One-line arg hint for Context tools section. */
+  argHint: z.string().optional(),
+  /** Extra system-prompt rules when this tool is allowlisted. */
+  systemPrompt: z.string().optional(),
+  /** When false, registered but omitted from default allowlist (opt-in at wiring). Default true. */
+  defaultEnabled: z.boolean().optional(),
+  /** Policy require_approval when allowlisted. */
+  requireApproval: z.boolean().optional(),
   inputSchemaVersion: z.string().optional(),
   outputSchemaVersion: z.string().optional(),
   digest: z.string().optional(),

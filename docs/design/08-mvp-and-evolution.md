@@ -71,6 +71,7 @@ MVP Tool 集合：
 workspace.list
 workspace.read
 workspace.search
+workspace.write
 artifact.write_markdown
 artifact.validate
 synthetic.write_high
@@ -78,6 +79,7 @@ synthetic.write_high.reconcile
 ```
 
 - Workspace Tool 只能访问授权路径根。路径规范化必须覆盖 `.`、`..`、符号链接、连接点、大小写、Unicode 和设备路径；输出受单条、总大小和敏感信息限制。
+- `workspace.write` 为 `write_low`：只写授权 Workspace 根下的 UTF-8 文件，`path` 与 `content` 必填，经 prepared-before-dispatch；不得写 `/` 自身。
 - `artifact.write_markdown` 只写受控 Artifact Store 或授权 Workspace 根，使用稳定幂等键并返回不可变 `artifactId/ref/hash`。
 - 每个 Tool 都有版本化输入/输出 Schema、风险级、超时、权限和 ToolEffectContract。
 - `sideEffectProfile != none` 的调用必须先按 01 §5.3 原子提交 ToolCallRecord `prepared`、`namespace=tool_call` 的 IdempotencyRecord、`tool.call_prepared` 与派发 OutboxRecord，再携带同一 `toolCallId`、`idempotencyKey` 和 `dispatchLeaseEpoch` 派发。

@@ -1,7 +1,8 @@
 import { CONTRACTS_SCHEMA_VERSION } from "@monai/contracts";
 import type { HarnessCommand, ModelPort } from "@monai/ports";
 import { StubModelPort } from "@monai/model-stub";
-import { InMemoryWorkspace } from "@monai/workspace-memory";
+import { workspaceGenericToolHandlers } from "@monai/pack-workspace-generic";
+import type { ExecutionContext } from "@monai/pack-sdk";
 import { InMemoryWorkspace } from "@monai/workspace-memory";
 import { describe, expect, it } from "vitest";
 
@@ -77,6 +78,38 @@ describe("P4 tool chain", () => {
     await tools.tick();
     const state = await persistence.getState("r-ws");
     expect(state?.facts[0]?.summary).toContain("read");
+  });
+
+  it("workspace.write via prepared/dispatch", async () => {
+    const workspace = new InMemoryWorkspace({ "/readme.md": "hello workspace" });
+    const { persistence, engine, tools, ownerId } = createPackTestFixtures({
+      workspace,
+      requireApprovalTools: [],
+    });
+
+    const running = await bootToRunning(engine, cmd, "r-ws-write", "please workspace-write", ownerId);
+    expect(running.ok).toBe(true);
+    if (!running.ok) return;
+
+    const turn = await engine.handle(
+      cmd({
+        commandType: "execute_turn",
+        commandId: "turn-ws-write",
+        runId: "r-ws-write",
+        expectedRevision: running.revision,
+        leaseEpoch: running.leaseEpoch,
+        actor: { principalId: ownerId },
+      }),
+    );
+    expect(turn.ok).toBe(true);
+    await tools.tick();
+    const types = (await persistence.listEvents("r-ws-write")).map((e) => e.eventType);
+    expect(types).toContain("tool.call_prepared");
+    expect(types).toContain("tool.succeeded");
+    const state = await persistence.getState("r-ws-write");
+    expect(state?.facts[0]?.summary).toContain("wrote");
+    const written = (await workspace.read("/notes/out.md")) as { content: string };
+    expect(written.content).toBe("written by stub");
   });
 
   it("synthetic timeout → unknown → reconcile; blocks blind new-key retry", async () => {
@@ -271,5 +304,67 @@ describe("P4 tool chain", () => {
     if (!t2.ok) return;
     expect(t2.idempotent).toBe(true);
     expect((await persistence.listToolCalls("r-idem")).length).toBe(1);
+  });
+});
+
+describe("workspace.write handler", () => {
+  function writeInput(
+    args: Record<string, unknown>,
+    workspace?: InMemoryWorkspace,
+  ) {
+    return {
+      toolId: "workspace.write",
+      arguments: args,
+      executionContext: {
+        tenantId: "t1",
+        sessionId: "s1",
+        runId: "r1",
+        executionManifestRef: "m1",
+        effectivePermissions: [],
+        ports: workspace ? { workspace } : {},
+      } as ExecutionContext,
+      toolCallId: "tc-write",
+    };
+  }
+
+  it("writes a file and returns path + chars", async () => {
+    const workspace = new InMemoryWorkspace();
+    const result = await workspaceGenericToolHandlers["workspace.write"]!(
+      writeInput({ path: "/notes/out.md", content: "hello" }, workspace),
+    );
+    expect(result.ok).toBe(true);
+    expect(result.data).toMatchObject({ path: "/notes/out.md", summary: "wrote /notes/out.md" });
+    const written = (await workspace.read("/notes/out.md")) as { content: string };
+    expect(written.content).toBe("hello");
+  });
+
+  it("rejects missing path or content", async () => {
+    const workspace = new InMemoryWorkspace();
+    const missingPath = await workspaceGenericToolHandlers["workspace.write"]!(
+      writeInput({ content: "x" }, workspace),
+    );
+    expect(missingPath.ok).toBe(false);
+    expect(missingPath.error).toMatch(/path is required/);
+
+    const missingContent = await workspaceGenericToolHandlers["workspace.write"]!(
+      writeInput({ path: "/a.md" }, workspace),
+    );
+    expect(missingContent.ok).toBe(false);
+    expect(missingContent.error).toMatch(/content is required/);
+  });
+
+  it("rejects path escape and root path", async () => {
+    const workspace = new InMemoryWorkspace();
+    await expect(
+      workspaceGenericToolHandlers["workspace.write"]!(
+        writeInput({ path: "/../secret", content: "x" }, workspace),
+      ),
+    ).rejects.toThrow(/path escape/);
+
+    const root = await workspaceGenericToolHandlers["workspace.write"]!(
+      writeInput({ path: "/", content: "x" }, workspace),
+    );
+    expect(root.ok).toBe(false);
+    expect(root.error).toMatch(/file path/);
   });
 });

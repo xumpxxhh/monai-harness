@@ -34,6 +34,15 @@ describe("buildModelFunctionCatalog", () => {
     expect(catalog.domainTools.every((d) => d.kind === "domain")).toBe(true);
   });
 
+  it("requires path and content for workspace.write", () => {
+    const catalog = buildModelFunctionCatalog({
+      toolAllowlist: ["workspace.write"],
+    });
+    const def = catalog.domainTools[0];
+    expect(def?.name).toBe("workspace.write");
+    expect(def?.parameters).toMatchObject({ required: ["path", "content"] });
+  });
+
   it("includes spawn_child only when enabled", () => {
     const off = buildModelFunctionCatalog({ toolAllowlist: [] });
     expect(off.controlFunctions.some((d) => d.name === "spawn_child")).toBe(false);
@@ -269,6 +278,16 @@ describe("hydrateModelAction", () => {
       arguments: { markdown: "# hi" },
     }) as { calls?: Array<{ idempotencyKey?: string }> };
     expect(hydrated.calls?.[0]?.idempotencyKey).toContain("artifact.write_markdown");
+  });
+
+  it("derives idempotencyKey for workspace.write", () => {
+    const hydrated = hydrateModelAction({
+      type: "tool.call",
+      toolId: "workspace.write",
+      arguments: { path: "/notes/out.md", content: "hi" },
+    }) as { calls?: Array<{ toolId?: string; idempotencyKey?: string }> };
+    expect(hydrated.calls?.[0]?.toolId).toBe("workspace.write");
+    expect(hydrated.calls?.[0]?.idempotencyKey).toContain("workspace.write");
   });
 
   it("does not invent idempotencyKey for read tools", () => {

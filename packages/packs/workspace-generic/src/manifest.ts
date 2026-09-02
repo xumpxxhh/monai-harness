@@ -121,6 +121,35 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
     const hits = await ws.search(query);
     return { ok: true, data: { query, hits, summary: `search ${query}` } };
   },
+  "workspace.write": async (input) => {
+    const ws = workspacePort(input.executionContext);
+    if (!ws) return { ok: false, error: "workspace not configured" };
+    const args = input.arguments as Record<string, unknown>;
+    const path = String(args.path ?? "").trim();
+    if (!path) {
+      return { ok: false, error: "path is required" };
+    }
+    const virtual = path.replace(/\\/g, "/");
+    if (virtual === "/") {
+      return { ok: false, error: "workspace.write requires a file path, not /" };
+    }
+    rejectPathEscape(path);
+    if (args.content === undefined || args.content === null) {
+      return { ok: false, error: "content is required" };
+    }
+    const content = capOutput(
+      typeof args.content === "string" ? args.content : JSON.stringify(args.content),
+    );
+    await ws.write(path, content);
+    return {
+      ok: true,
+      data: {
+        path,
+        chars: content.length,
+        summary: `wrote ${path}`,
+      },
+    };
+  },
   [KNOWLEDGE_SEARCH_TOOL_ID]: async (input) => {
     const client = knowledgeSearchPort(input.executionContext);
     if (!client) {
@@ -325,6 +354,15 @@ export const WORKSPACE_GENERIC_MANIFEST = {
       },
     },
     {
+      toolId: "workspace.write",
+      version: "0.1.0",
+      effectContract: {
+        ...baseContract,
+        sideEffectProfile: "write_low" as const,
+        reconcileSupported: false,
+      },
+    },
+    {
       toolId: KNOWLEDGE_SEARCH_TOOL_ID,
       version: "0.1.0",
       effectContract: {
@@ -397,6 +435,7 @@ export const WORKSPACE_GENERIC_TOOL_ALLOWLIST = [
   "workspace.list",
   "workspace.read",
   "workspace.search",
+  "workspace.write",
   "artifact.write_markdown",
   "artifact.validate",
   "synthetic.write_high",

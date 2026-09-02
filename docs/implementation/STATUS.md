@@ -1,7 +1,7 @@
 # 实现状态看板
 
 > 与各 [packages/](./packages/) / [adapters/](./adapters/) 进展页同步。不一致时以包页为准。  
-> 最后同步：2026-09-02（**M2 Agent Loop 增强已完成**；M1 done）
+> 最后同步：2026-09-02（**`workspace.write` 已接入**；M3 RAG Tool done；KnowledgePort 仍后置）
 
 ## 1. 阶段
 
@@ -32,7 +32,7 @@
 | delivery | `done`（M2c） | [delivery.md](./packages/delivery.md) — 多 ToolCall 派发 |
 | api | `done`（P8c） | [api.md](./packages/api.md) |
 | pack-sdk | `done`（P9a） | [pack-sdk.md](./packages/pack-sdk.md) |
-| packs/workspace-generic | `done`（P9a） | [workspace-generic.md](./packages/workspace-generic.md) |
+| packs/workspace-generic | `done`（P9a + workspace.write） | [workspace-generic.md](./packages/workspace-generic.md) |
 | governance | `done`（P9c） | [governance.md](./packages/governance.md) |
 | observability | `done`（M1g） | [observability.md](./packages/observability.md) — Token/cost + Context 指标 |
 | apps/harness | `done`（M2e） | [apps-harness.md](./packages/apps-harness.md) — Session Demo / FsWorkspace |
@@ -94,4 +94,6 @@
 - 阶段：[PHASES.md](./PHASES.md)（P9 done；M1 + M2 done）
 - M1 计划：[sessions/0018-real-model-cluster-plan.md](./sessions/0018-real-model-cluster-plan.md)
 - M2 归档：[sessions/0019-post-m1-agent-loop.md](./sessions/0019-post-m1-agent-loop.md)
+- M3 RAG Tool：[sessions/0020-knowledge-search-tool.md](./sessions/0020-knowledge-search-tool.md)
+- workspace.write：[sessions/0021-workspace-write-tool.md](./sessions/0021-workspace-write-tool.md)
 - 工程 EDR：[../engineering/00-implementation-baseline.md](../engineering/00-implementation-baseline.md)

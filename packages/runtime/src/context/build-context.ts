@@ -70,6 +70,7 @@ const TOOL_ARG_HINTS: Record<string, string> = {
   "workspace.list": 'args: {"path":"/"} (default "/")',
   "workspace.read": 'args: {"path":"/file.md"} required',
   "workspace.search": 'args: {"query":"..."} required',
+  "workspace.write": 'args: {"path":"/file.md","content":"..."} required',
   "knowledge.search": 'args: {"query":"..."} required; optional collection_ids[], top_k',
   "artifact.write_markdown": 'args: {"markdown":"..."} required',
   "artifact.validate": 'args: {"artifactId":"art-..."} or {"ref":"artifact://..."}',

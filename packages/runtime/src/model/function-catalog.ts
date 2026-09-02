@@ -77,10 +77,15 @@ const DOMAIN_TOOL_DEFS: Record<string, Pick<ModelFunctionDef, "description" | "p
     },
   },
   "workspace.write": {
-    description: "Write a workspace file (low side-effect).",
+    description:
+      "Write or overwrite a UTF-8 file in the authorized workspace. Path must be absolute under / (e.g. /notes/out.md).",
     parameters: {
       type: "object",
-      properties: { path: { type: "string" }, content: { type: "string" } },
+      properties: {
+        path: { type: "string", description: "Absolute workspace path starting with /" },
+        content: { type: "string", description: "File contents" },
+      },
+      required: ["path", "content"],
       additionalProperties: true,
     },
   },

@@ -5,17 +5,17 @@
 | 项 | 值 |
 | --- | --- |
 | 计划路径 | `packages/packs/workspace-generic/` |
-| 状态 | `not_started` |
+| 状态 | `done`（P9a + workspace.write） |
 | 首触阶段 | P3–P5 |
 | 上游 | [design/08](../../design/08-mvp-and-evolution.md)、[engineering/04 §9](../../engineering/04-ports-extensions-and-security.md) |
-| 最后更新 | 2026-08-27 |
+| 最后更新 | 2026-09-02 |
 
 ## 1. 范围
 
 MVP Tool：
 
 ```text
-workspace.list | workspace.read | workspace.search
+workspace.list | workspace.read | workspace.search | workspace.write
 artifact.write_markdown | artifact.validate
 synthetic.write_high | synthetic.write_high.reconcile
 ```
@@ -52,4 +52,5 @@ synthetic.write_high | synthetic.write_high.reconcile
 
 | 日期 | 说明 |
 | --- | --- |
+| 2026-09-02 | `workspace.write` handler + Manifest + 默认 allowlist |
 | 2026-08-27 | 创建进展页 |

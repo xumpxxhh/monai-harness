@@ -10,6 +10,7 @@ export type StubModelOptions = {
    * - `finish` → finish
    * - `acceptance` + state.lastFactId → content-only (Engine fact-gates to finish)
    * - `workspace-search` → workspace.search
+   * - `workspace-write` → workspace.write
    * - `knowledge-search` → knowledge.search
    * - `workspace-read` → workspace.read
    * - `artifact` → artifact.write_markdown
@@ -98,6 +99,17 @@ export class StubModelPort implements ModelPort {
     if (goal.includes("workspace-search")) {
       return decision({
         calls: [{ name: "workspace.search", arguments: { query: "workspace" } }],
+      });
+    }
+
+    if (goal.includes("workspace-write")) {
+      return decision({
+        calls: [
+          {
+            name: "workspace.write",
+            arguments: { path: "/notes/out.md", content: "written by stub" },
+          },
+        ],
       });
     }
 

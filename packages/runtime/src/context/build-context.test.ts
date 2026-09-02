@@ -37,6 +37,8 @@ describe("buildContext", () => {
     const toolsSection = result.sections.find((s) => s.kind === "tools");
     expect(toolsSection?.text).toContain("workspace.read");
     expect(toolsSection?.text).toContain('args: {"path":"/file.md"}');
+    expect(toolsSection?.text).toContain("workspace.write");
+    expect(toolsSection?.text).toContain('args: {"path":"/file.md","content":"..."}');
   });
 
   it("formats workspace.list facts in recent_events for the model", () => {

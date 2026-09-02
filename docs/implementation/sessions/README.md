@@ -33,3 +33,4 @@
 | 0018 | [0018-real-model-cluster-plan.md](./0018-real-model-cluster-plan.md) | 2026-08-28 | M1：真实模型簇计划（对齐 design；Knowledge 后置） |
 | 0019 | [0019-post-m1-agent-loop.md](./0019-post-m1-agent-loop.md) | 2026-09-02 | M2：function calling + 并行工具 + Dialogue Context + Session Demo |
 | 0020 | [0020-knowledge-search-tool.md](./0020-knowledge-search-tool.md) | 2026-09-02 | M3：RAG `knowledge.search` Tool（EDR-016）；KnowledgePort 仍缺口 |
+| 0021 | [0021-workspace-write-tool.md](./0021-workspace-write-tool.md) | 2026-09-02 | `workspace.write` Pack Tool（write_low） |

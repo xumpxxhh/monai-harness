@@ -163,6 +163,7 @@ Adapter 不得实现领域状态机，不得在回调里直接 `revision++`。
 workspace.list
 workspace.read
 workspace.search
+workspace.write
 artifact.write_markdown
 artifact.validate
 synthetic.write_high

@@ -18,6 +18,16 @@ export function buildAgentSystemPrompt(options?: {
     "If you still need information not in prior messages, call the domain tool(s) you need or ask_user.",
   ];
 
+  if (options?.toolAllowlist?.includes("workspace.write")) {
+    lines.push(
+      "",
+      "Workspace write (workspace.write):",
+      "1. Write UTF-8 text to an absolute path under / (e.g. /notes/out.md). path and content are required.",
+      "2. Do not use .. or paths outside the authorized workspace root.",
+      "3. Overwriting an existing file is allowed; do not write to / itself.",
+    );
+  }
+
   if (options?.toolAllowlist?.includes("knowledge.search")) {
     lines.push(
       "",
