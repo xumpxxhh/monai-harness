@@ -5,10 +5,10 @@
 | 项 | 值 |
 | --- | --- |
 | 计划路径 | `packages/contracts/` |
-| 状态 | `in_progress`（P5；**M1a ContextBuildRecord / usage**） |
-| 首触阶段 | P0–P1；M1a 模型 Event 载荷 |
-| 上游 | [design/01](../../design/01-domain-model.md)、[design/05 §4.2 ContextBuildRecord](../../design/05-context-and-data.md#42-contextbuildrecord)、[engineering/01](../../engineering/01-repository-and-modules.md) |
-| 最后更新 | 2026-08-28 |
+| 状态 | `done`（M2a） |
+| 首触阶段 | P0–P1；M1a 模型 Event 载荷；M2a Dialogue / Action.calls[] |
+| 上游 | [design/01](../../design/01-domain-model.md)、[design/05 §3.1.1 Dialogue 投影](../../design/05-context-and-data.md#311-dialogue-投影与-modelview实现)、[engineering/01](../../engineering/01-repository-and-modules.md) |
+| 最后更新 | 2026-09-02 |
 
 ## 1. 范围
 
@@ -43,6 +43,13 @@
 - [x] `model.called` / `model.responded` 载荷：`modelCallId`、usage、priceTableVersion
 - [x] 价表版本引用（`STATIC_PRICE_TABLE` 冻结；费用 unknown 可单列）
 
+### M2（完成 — [0019](../sessions/0019-post-m1-agent-loop.md)）
+
+- [x] `Action.calls[]` 批次形状（`tool.call` N≥1；顶层 `toolId` 仅 N=1 兼容）
+- [x] `DialogueTurn` / `ModelMessage` / `ModelMessageToolCall`（`dialogue.ts`）
+- [x] `ContextCompressionRecord` / `contextProjectionPolicy`（摘要与 recent/history 窗口策略）
+- [x] `context.summary_created` Event type 常量
+
 ## 4. 依赖
 
 | 依赖 | 说明 |
@@ -59,6 +66,7 @@
 
 | 日期 | 说明 |
 | --- | --- |
+| 2026-09-02 | M2a：`Action.calls[]`、`dialogue.ts`（DialogueTurn / ModelMessage / ContextCompressionRecord） |
 | 2026-08-28 | M1a 实装完成：ContextBuildRecord、Manifest modelPolicy、Event usage / priceTable |
 | 2026-08-28 | M1a 计划：ContextBuildRecord、Manifest modelPolicy、Event usage；见 0018 |
 | 2026-08-27 | `AcceptanceCheck` / selector 类型 |

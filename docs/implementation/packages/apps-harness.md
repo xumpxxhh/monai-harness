@@ -5,10 +5,10 @@
 | 项 | 值 |
 | --- | --- |
 | 计划路径 | `apps/harness/` |
-| 状态 | `done`（P8–P9d）；**M1h 装配待做** |
-| 首触阶段 | P0（空壳）起贯穿；M1h Secret + Model 装配 |
+| 状态 | `done`（M2e） |
+| 首触阶段 | P0（空壳）起贯穿；M1h Secret + Model；M2e Session Demo |
 | 上游 | [engineering/00 §4](../../engineering/00-implementation-baseline.md)、[engineering/02](../../engineering/02-runtime-composition.md)、EDR-002/014 |
-| 最后更新 | 2026-08-28（M1 计划归档） |
+| 最后更新 | 2026-09-02 |
 
 ## 1. 范围
 
@@ -29,7 +29,7 @@ load config (.env)
 → graceful shutdown
 ```
 
-- 环境变量（`.env.example`）：`DATABASE_URL`、`PERSISTENCE_DRIVER`（`memory`|`postgres`）、`PORT`、`HARNESS_ROLES` / `HARNESS_ROLE_*`、EDR-014 feature flags
+- 环境变量（`.env.example`）：`DATABASE_URL`、`PERSISTENCE_DRIVER`（`memory`|`postgres`）、`PORT`、`MODEL_DRIVER`、`HARNESS_WORKSPACE_DIR`、`CORS_ORIGIN`、`HARNESS_ROLES` / `HARNESS_ROLE_*`、EDR-014 feature flags
 - delivery 循环：Outbox claim → Queue → `queue_run` → `acquire_lease` → `execute_turn`；补偿扫描（`CompensationScanner`）
 
 ## 2. 非目标
@@ -57,6 +57,14 @@ load config (.env)
 - [x] Eval / Golden 114 **仍** `StubModelPort`（07 门禁）
 - [x] 密钥经 SecretPort lease；不进 bootstrap 日志 / Event
 
+### M2（完成 — [0019](../sessions/0019-post-m1-agent-loop.md)）
+
+- [x] `demo`：单 Run 交互 CLI（`demo.ts` + `demo-shared`；Preview / ask_user / approval）
+- [x] `demo:session`：多轮 Session CLI（`demo-session.ts`；同 sessionId，每消息新 Run）
+- [x] `session-transcript` / `SessionDemoObserver` / `DemoRunObserver`；归档 `temp/demo-sessions/<sessionId>/`
+- [x] `FsWorkspace`：磁盘工作区（`HARNESS_WORKSPACE_DIR`；默认 `apps/harness/workspace`）
+- [x] web 控制台集成：`CORS_ORIGIN` + `apps/web` `RunConsoleContext`（serve 模式）
+
 **P8b 退出**：PG 上 CreateRun → running → 至少一轮 `execute_turn` 端到端 — **已验证**。
 
 ## 4. 依赖
@@ -72,6 +80,8 @@ load config (.env)
 
 | 日期 | 说明 |
 | --- | --- |
+| 2026-09-02 | M2e：`demo-session` / `SessionDemoObserver` / `FsWorkspace` / `HARNESS_WORKSPACE_DIR` |
+| 2026-09-01 | M2e：`demo-shared` 重构；function calling demo 路径；web `RunConsoleContext` |
 | 2026-08-31 | 模块化分层重构：按 config/bootstrap/server/workers/cli 分层拆解 index 与平铺文件 |
 | 2026-08-28 | M1h 实装完成：SecretPort + OpenAiModelPort DI 装配；Eval 仍 stub |
 | 2026-08-28 | M1h 计划：Secret + Model 装配；Eval 仍 stub；见 0018 |

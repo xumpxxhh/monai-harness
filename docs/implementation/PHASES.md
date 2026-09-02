@@ -1,4 +1,4 @@
-# 实现阶段路线（P0–P9 + 可选 M1）
+# 实现阶段路线（P0–P9 + M1 + M2）
 
 对齐 [engineering/05 §6](../engineering/05-testing-and-evolution.md#6-建议实现顺序仅规划)，并增加 **P0 建仓**。每阶段退出必须带上对应测试层，禁止「假闭环」。P9 主链完成后，**M1** 为可选切片（不新开 P10）。
 
@@ -17,8 +17,9 @@
 | P8 | HTTP API + PostgreSQL Persistence | `done` | persistence-postgres、api(http/sse)、apps/harness(bootstrap) |
 | P9 | 阶段 A 收口（Pack / Eval / 治理·指标） | `done` | packs/workspace-generic、runtime/extension、observability/eval、governance |
 | M1 | 真实模型簇（可选） | `done` | contracts、runtime、model/secret adapters、observability、harness |
+| M2 | Agent Loop 增强 | `done` | contracts、runtime、delivery、model adapters、harness demo |
 
-阶段依赖：`P0 → … → P9` 主链已完成。P9 收口 [design/08 阶段 A](../design/08-mvp-and-evolution.md#阶段-a--mvp-契约闭环) 的 Pack/Eval/治理面，**不**自动关闭阶段 A（Token/cost 基线可能仍缺）。治理/观测不得提前获得 Run 写权。**M1** 计划见 [sessions/0018](sessions/0018-real-model-cluster-plan.md)；Knowledge 检索后置。
+阶段依赖：`P0 → … → P9` 主链已完成。P9 收口 [design/08 阶段 A](../design/08-mvp-and-evolution.md#阶段-a--mvp-契约闭环) 的 Pack/Eval/治理面，**不**自动关闭阶段 A（Token/cost 基线可能仍缺）。治理/观测不得提前获得 Run 写权。**M1** 计划见 [sessions/0018](sessions/0018-real-model-cluster-plan.md)；**M2** 见 [sessions/0019](sessions/0019-post-m1-agent-loop.md)；Knowledge 检索后置。
 
 ## P0 — Monorepo 骨架
 
@@ -259,6 +260,32 @@ M1h  harness 装配；Eval / Golden 仍 StubModelPort
 
 **非目标**：KnowledgePort 实装；Memory 进 Context；用真实模型跑 Eval；ConfirmationGrant；DAG/spawn_child/sandbox.exec；宣称阶段 A 仅因接供应商而关闭。
 
+## M2 — Agent Loop 增强
+
+**目标**：对齐已修订的 design 01/03/05 与 engineering 04，完成模型决策 → 批次工具 → 对话 Context → 可演示的 Session 闭环。
+
+**计划**：[sessions/0019-post-m1-agent-loop.md](sessions/0019-post-m1-agent-loop.md)
+
+**实现切片**（M2a–M2e）：
+
+```text
+M2a  contracts：Action.calls[]；DialogueTurn / ModelMessage / ContextCompressionRecord
+M2b  runtime：function-catalog → ModelDecision → map-decision / hydrate-action
+M2c  runtime：evaluate-policy 按条；prepare-tool-calls 扇出；project-approval；Step 闭合
+M2d  runtime：build-model-context（projectDialogue → compress → projectModelMessages）
+M2e  harness：demo-session / SessionDemoObserver / FsWorkspace；pnpm demo:session
+```
+
+**退出条件**：
+
+- [x] ModelPort 返回 `ModelDecision`，Engine 映射为 Action（控制 XOR 领域批次）
+- [x] 单 Action 可 prepared N 条 ToolCall；Policy 按条判定；Step 等兄弟终态
+- [x] Context Builder 产出 `ModelMessage[]`；超阈值写 `context.summary_created`
+- [x] Session CLI 多轮（同 sessionId，每消息新 Run）归档到 `temp/demo-sessions/<sessionId>/`
+- [x] Eval 114 仍 stub 绿；密钥仍只经 SecretPort
+
+**非目标**：KnowledgePort 实装；Memory 进 Context；ConfirmationGrant；`atomic` / `dependencies` 依赖图执行。
+
 ## 阶段与测试层映射
 
 | 阶段 | 最低测试层 |
@@ -275,5 +302,6 @@ M1h  harness 装配；Eval / Golden 仍 StubModelPort
 | P9b-sec | L3 安全 8×1 零容忍 |
 | P9d | L0 角色解析 + L1-on-PG CreateRun 循环 |
 | M1 | L0 BudgetGuard/Builder + L1 真实模型端到端（Eval 仍 stub） |
+| M2 | L0 投影/决策/并行 prepared 单测 + L1 工具链 + harness session demo |
 
 详见 [engineering/05](../engineering/05-testing-and-evolution.md)。

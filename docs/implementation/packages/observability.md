@@ -5,10 +5,10 @@
 | 项 | 值 |
 | --- | --- |
 | 计划路径 | `packages/observability/` |
-| 状态 | `in_progress`（P7–P9c done；**M1g Token/cost 待做**） |
+| 状态 | `done`（M1g） |
 | 首触阶段 | P7；M1g usage/价表指标 |
 | 上游 | [design/07 §4.2 Token/cost](../../design/07-observability-and-evaluation.md)、[engineering/05](../../engineering/05-testing-and-evolution.md)、EDR-013/015 |
-| 最后更新 | 2026-08-28 |
+| 最后更新 | 2026-09-02 |
 
 ## 1. 范围
 
@@ -52,6 +52,7 @@
 
 - 无独立 observability 消费循环（SSE 在 api；Eval 在 harness 启动）
 - Eval 114 不得改用真实模型洗绿（07：Golden 用固定 Tool 桩）
+- `publish-model-context` 属 runtime preview，非本包指标层变更
 
 ## 6. 最近变更
 

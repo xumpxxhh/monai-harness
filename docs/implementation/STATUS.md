@@ -1,7 +1,7 @@
 # 实现状态看板
 
 > 与各 [packages/](./packages/) / [adapters/](./adapters/) 进展页同步。不一致时以包页为准。  
-> 最后同步：2026-08-28（**M1 真实模型簇已完成**；P9 done）
+> 最后同步：2026-09-02（**M2 Agent Loop 增强已完成**；M1 done）
 
 ## 1. 阶段
 
@@ -18,22 +18,23 @@
 | [P8](./PHASES.md#p8--http--postgresql) | `done` | PG L2 + harness bootstrap + Hono HTTP/SSE |
 | [P9](./PHASES.md#p9--阶段-a-收口) | `done` | P9a–P9d 完成 |
 | [M1](./PHASES.md#m1--真实模型簇可选) | `done` | M1a–M1h 实装完成；Knowledge 后置 |
+| [M2](./PHASES.md#m2--agent-loop-增强) | `done` | function calling + 并行工具 + Dialogue Context + Session Demo |
 
 ## 2. 包状态
 
 | 单元 | 状态 | 进展页 |
 | --- | --- | --- |
 | tooling / 仓库根 | `done`（P0） | [tooling.md](./packages/tooling.md) |
-| contracts | `done`（M1a） | [contracts.md](./packages/contracts.md) — ContextBuildRecord / usage / priceTable |
-| ports | `done`（M1e） | [ports.md](./packages/ports.md) — SecretPort lease / ModelPort 签名 |
-| runtime | `done`（M1b–M1d） | [runtime.md](./packages/runtime.md) — BudgetGuard / Builder / Policy |
-| delivery | `done`（P9d） | [delivery.md](./packages/delivery.md) |
+| contracts | `done`（M2a） | [contracts.md](./packages/contracts.md) — Action.calls[] / DialogueTurn |
+| ports | `done`（M1e + M2b） | [ports.md](./packages/ports.md) — ModelDecision / SecretPort |
+| runtime | `done`（M2） | [runtime.md](./packages/runtime.md) — 决策环 / 并行工具 / Context 投影 |
+| delivery | `done`（M2c） | [delivery.md](./packages/delivery.md) — 多 ToolCall 派发 |
 | api | `done`（P8c） | [api.md](./packages/api.md) |
 | pack-sdk | `done`（P9a） | [pack-sdk.md](./packages/pack-sdk.md) |
 | packs/workspace-generic | `done`（P9a） | [workspace-generic.md](./packages/workspace-generic.md) |
 | governance | `done`（P9c） | [governance.md](./packages/governance.md) |
 | observability | `done`（M1g） | [observability.md](./packages/observability.md) — Token/cost + Context 指标 |
-| apps/harness | `done`（M1h） | [apps-harness.md](./packages/apps-harness.md) — DI 装配 |
+| apps/harness | `done`（M2e） | [apps-harness.md](./packages/apps-harness.md) — Session Demo / FsWorkspace |
 
 ## 3. Adapter 状态
 
@@ -42,8 +43,8 @@
 | persistence | `done`（P8a L2 + P9d L1-on-PG） | [persistence.md](./adapters/persistence.md) |
 | queue | `in_progress`（memory） | [queue.md](./adapters/queue.md) |
 | lease | `in_progress`（memory） | [lease.md](./adapters/lease.md) |
-| model | `done`（stub + openai；M1f） | [model.md](./adapters/model.md) |
-| workspace | `done`（memory；P9a 路径防逃逸） | [workspace.md](./adapters/workspace.md) |
+| model | `done`（stub + openai；M2b function calling） | [model.md](./adapters/model.md) |
+| workspace | `done`（memory + harness FsWorkspace） | [workspace.md](./adapters/workspace.md) |
 | objectstore | `not_started` | [objectstore.md](./adapters/objectstore.md) |
 | knowledge | `not_started` | [knowledge.md](./adapters/knowledge.md) — M1 后置 |
 | secret | `done`（`@monai/secret-env`；M1e） | [secret.md](./adapters/secret.md) |
@@ -54,7 +55,7 @@
 
 | 项 | 级别 | 说明 |
 | --- | --- | --- |
-| Eval 完整矩阵 | 信息 | 114/114 绿（stub）；M1 未影响 Eval 门禁 |
+| Eval 完整矩阵 | 信息 | 114/114 绿（stub）；M2 未影响 Eval 门禁 |
 | Knowledge 缺口 | 信息 | KnowledgePort 真实检索后置切片 |
 | ConfirmationGrant | 信息 | P5 未做 confirm_once |
 | EDR-010 | 低 | Deferred |
@@ -71,21 +72,24 @@
 | 2026-08-27 | — | CommitPlan → ports | |
 | 2026-08-27 | — | LeasePort.bind | |
 | 2026-08-28 | M1 | Accepted | Context Builder + BudgetGuard + SecretPort + OpenAiModelPort |
+| 2026-09-02 | M2 | Accepted | function calling + Action.calls[] + Dialogue Context + Session Demo |
 
 ## 6. 测试 readiness
 
 | 层 | 状态 | 备注 |
 | --- | --- | --- |
-| L0 纯函数 | `done`（M1b/c） | BudgetGuard 4/4，Context Builder 3/3，SecretPort 3/3 |
-| L1 InMemory | `done`（M1d/f） | execute-turn fallback 6/6，OpenAiModelPort 2/2 |
+| L0 纯函数 | `done`（M1b/c + M2） | BudgetGuard、Context Builder、Dialogue 投影、prepare-tool-calls、map-decision |
+| L1 InMemory | `done`（M1d/f + M2c） | execute-turn 并行工具、OpenAiModelPort function calling |
 | L1-on-PG | `done`（P9d） | CreateRun→running 循环 3/3 |
 | L2 真实单库 | `done`（P8a） | Docker `postgres:16`；§2.3 全场景 12/12 |
 | L3 Eval / Golden | `done`（P9b-sec） | Golden 30 + 控制面 76 + 安全 8 = 114 绿 |
 | L0 governance | `done`（P9c） | GovernanceEvent store + Pack 注册 3/3 |
+| M2 harness demo | `done` | `demo:session` 多轮 CLI；`FsWorkspace` 磁盘工作区 |
 
 ## 7. 快捷链接
 
 - 交接：[HANDOFF.md](./HANDOFF.md)
-- 阶段：[PHASES.md](./PHASES.md)（P9 done；M1 done）
+- 阶段：[PHASES.md](./PHASES.md)（P9 done；M1 + M2 done）
 - M1 计划：[sessions/0018-real-model-cluster-plan.md](./sessions/0018-real-model-cluster-plan.md)
+- M2 归档：[sessions/0019-post-m1-agent-loop.md](./sessions/0019-post-m1-agent-loop.md)
 - 工程 EDR：[../engineering/00-implementation-baseline.md](../engineering/00-implementation-baseline.md)

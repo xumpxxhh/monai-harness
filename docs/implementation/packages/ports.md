@@ -5,15 +5,16 @@
 | 项 | 值 |
 | --- | --- |
 | 计划路径 | `packages/ports/` |
-| 状态 | `in_progress`（P6；**M1 ModelPort / SecretPort 接线**） |
-| 首触阶段 | P0–P1；M1 SecretPort |
+| 状态 | `done`（M1e + M2b 签名） |
+| 首触阶段 | P0–P1；M1 SecretPort；M2 ModelDecision |
 | 上游 | [engineering/02](../../engineering/02-runtime-composition.md)、[engineering/04](../../engineering/04-ports-extensions-and-security.md)、[design/02 §7](../../design/02-core-architecture.md#7-端口清单) |
-| 最后更新 | 2026-08-28 |
+| 最后更新 | 2026-09-02 |
 
 ## 1. 范围
 
 - PersistencePort / OutboxPort / QueuePort / LeasePort / ModelPort / … 接口
 - **CommitPlan / CommitResult / HarnessCommand**（锁定在本包）
+- `ModelDecision` / `ModelFunctionCall` / `ModelCompleteInput`（function calling 中立形状）
 - 无具体客户端、无副作用实现
 
 ## 2. 非目标
@@ -29,11 +30,11 @@
 - [x] SandboxPort 接口存在且标明 MVP 不挂载执行
 - [x] Persistence getStateSnapshot（P6 recovery）
 
-### M1（计划 — [0018](../sessions/0018-real-model-cluster-plan.md)）
+### M1（完成 — [0018](../sessions/0018-real-model-cluster-plan.md)）
 
-- [ ] `ModelPort.completeStructured` 收 canonical `controlFunctions`/`domainTools`，返回 `ModelDecision`
-- [ ] `SecretPort` 接口 + lease 形状（M1e）；ExecutionContext 接线
-- [ ] harness bootstrap 注入 SecretPort → Model adapter
+- [x] `ModelPort.completeStructured` 收 canonical `controlFunctions`/`domainTools`，返回 `ModelDecision`
+- [x] `SecretPort` 接口 + lease 形状（M1e）；ExecutionContext 接线
+- [x] harness bootstrap 注入 SecretPort → Model adapter
 
 ## 4. 依赖
 
@@ -45,13 +46,14 @@
 ## 5. 缺口与风险
 
 - ApprovalPort 仍为 stub（决定经 Engine `approval_decision` 命令）
-- **SecretPort 未实现**；ModelPort 当前无凭证注入路径
-- Engine 调用 ModelPort 时未传 modelPolicy（runtime M1d）
+- MemoryPort 接口预留；MVP 默认 `DisabledMemoryPort` 不检索
 
 ## 6. 最近变更
 
 | 日期 | 说明 |
 | --- | --- |
+| 2026-09-01 | M2b：`ModelPort.completeStructured` 改为 function calling 签名；`ModelDecision` / `ModelCompleteInput.messages` |
+| 2026-08-28 | M1e 实装完成：SecretPort lease + ModelPort modelPolicy 必传 |
 | 2026-08-28 | M1：ModelPort modelPolicy + SecretPort lease 接线备注；见 0018 |
 | 2026-08-27 | P6：`PersistencePort.getStateSnapshot` |
 | 2026-08-27 | P5：CommitPlan 审批/检查点类型；Persistence getApproval/Checkpoint/Continuation |

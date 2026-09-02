@@ -1,23 +1,21 @@
 # HANDOFF — 实现交接
 
-> 最后更新：2026-08-28（**M1 真实模型簇已实装完成**）
+> 最后更新：2026-09-02（**M2 Agent Loop 增强已实装完成**）
 
 ## 当前状态（一句话）
 
-**P0–P9 及 M1（真实模型簇）均已完成。**
-- Context Builder（design 05 优先级与预算裁剪 + ContextBuildRecord 持久化）
-- BudgetGuard（step / token / cost / wall 校验，超额不调模型）
-- Model Policy 循环与 fallback / attempt 追踪
-- SecretPort 与 `@monai/secret-env` 租约隔离
-- 真实 OpenAI 兼容 Adapter `@monai/model-openai`
-- Observability Token/cost 与 Context overflow 指标重算
-- Eval 114 用例全绿。Knowledge 检索后置。
+**P0–P9、M1（真实模型簇）及 M2（Agent Loop 增强）均已完成。**
+- Function calling：`ModelDecision` → Action 映射（控制 XOR 领域批次）
+- 并行工具：`Action.calls[]`、Policy 按条判定、`prepare-tool-calls` 扇出、Step 闭合
+- Dialogue Context：Event → DialogueTurn → ModelMessage[]；超阈值 `context.summary_created`
+- Session Demo：`pnpm demo:session` 多轮 CLI；`FsWorkspace` 磁盘工作区
+- Eval 114 用例全绿（stub）。Knowledge 检索后置。
 
 ## 下一步
 
 1. **Knowledge 检索切片**（design 08 §2.6：KnowledgePort 真实检索接入与 Context selections）
 2. **ConfirmationGrant / confirm_once**（P5 增强）
-3. **真实单机 / Docker 联调与真实模型 End-to-End 演示**
+3. **真实单机 / Docker 联调与真实模型 End-to-End 演示加固**
 
 ## 禁区
 
@@ -40,10 +38,16 @@ pnpm --filter harness test
 
 | 用途 | 路径 |
 | --- | --- |
+| M2 总结 | `docs/implementation/sessions/0019-post-m1-agent-loop.md` |
 | M1 总结 | `docs/implementation/sessions/0018-real-model-cluster-plan.md` |
+| Function catalog / 决策映射 | `packages/runtime/src/model/function-catalog.ts`、`map-decision.ts` |
+| 并行 prepared | `packages/runtime/src/execution/prepare-tool-calls.ts` |
+| Context ModelView | `packages/runtime/src/context/build-model-context.ts` |
 | Context Builder | `packages/runtime/src/context/build-context.ts` |
 | BudgetGuard | `packages/runtime/src/control/budget-guard.ts` |
 | execute_turn 模型调用 | `packages/runtime/src/engine/execute-turn.ts` |
+| Session CLI | `apps/harness/src/cli/demo-session.ts` |
+| 磁盘 Workspace | `apps/harness/src/workspace/fs-workspace.ts` |
 | SecretPort (Env) | `packages/adapters/secret-env/src/index.ts` |
 | OpenAI ModelPort | `packages/adapters/model-openai/src/index.ts` |
 | 模型与 Context 指标 | `packages/observability/src/metrics/compute-model-metrics.ts` |
