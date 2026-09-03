@@ -25,4 +25,11 @@ describe("InMemoryWorkspace path escape", () => {
     expect(read.path).toBe("/notes/out.md");
     expect(read.content).toBe("hello");
   });
+
+  it("deletes a file and rejects root", async () => {
+    const ws = new InMemoryWorkspace({ "/notes/out.md": "bye" });
+    await ws.delete("/notes/out.md");
+    await expect(ws.read("/notes/out.md")).rejects.toThrow(/not found/);
+    await expect(ws.delete("/")).rejects.toThrow(/file path/);
+  });
 });

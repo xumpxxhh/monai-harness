@@ -22,7 +22,7 @@
 | `IdempotencyPort` | 条件创建/查询；可并入 Persistence UoW |
 | `ModelPort` | `completeStructured(context, controlFunctions, domainTools, modelPolicy)` → 厂商中立 `ModelDecision`；adapter 翻译 tool-call 线格式 |
 | `KnowledgePort` | 按 sourceId/version/权限/预算返回带 provenance 片段 |
-| `WorkspacePort` | list/read/write/search；写仅受控 Tool |
+| `WorkspacePort` | list/read/write/delete/search；写/删仅受控 Tool |
 | `ObjectStorePort` | put/get/signedRef；内容哈希与租户隔离 |
 | `SandboxPort` | 接口保留；**MVP 不挂载可执行实现** |
 | `SecretPort` | 短时凭证注入；值不进 Context/Event/State |
@@ -164,6 +164,7 @@ workspace.list
 workspace.read
 workspace.search
 workspace.write
+workspace.delete
 artifact.write_markdown
 artifact.validate
 synthetic.write_high

@@ -160,6 +160,8 @@ export type WorkspacePort = {
   list(path: string): Promise<unknown[]>;
   read(path: string): Promise<unknown>;
   write(path: string, content: unknown): Promise<void>;
+  /** Delete a file under the authorized workspace root. Must reject `/` and directories. */
+  delete(path: string): Promise<void>;
   search(query: string): Promise<unknown[]>;
 };
 

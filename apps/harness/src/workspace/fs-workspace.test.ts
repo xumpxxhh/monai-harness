@@ -50,4 +50,11 @@ describe("FsWorkspace", () => {
     const ws = await makeWorkspace({ "readme.md": "hello" });
     await expect(ws.read("/../secret")).rejects.toThrow(/rejects \.\./);
   });
+
+  it("deletes a file", async () => {
+    const ws = await makeWorkspace({ "readme.md": "hello" });
+    await ws.delete("/readme.md");
+    await expect(ws.read("/readme.md")).rejects.toThrow();
+    await expect(ws.delete("/")).rejects.toThrow(/file path/);
+  });
 });

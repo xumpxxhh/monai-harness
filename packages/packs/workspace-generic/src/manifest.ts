@@ -152,6 +152,35 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
       },
     };
   },
+  "workspace.delete": async (input) => {
+    const ws = workspacePort(input.executionContext);
+    if (!ws) return { ok: false, error: "workspace not configured" };
+    const args = input.arguments as Record<string, unknown>;
+    const path = String(args.path ?? "").trim();
+    if (!path) {
+      return { ok: false, error: "path is required" };
+    }
+    const virtual = path.replace(/\\/g, "/");
+    if (virtual === "/") {
+      return { ok: false, error: "workspace.delete requires a file path, not /" };
+    }
+    rejectPathEscape(path);
+    try {
+      await ws.delete(path);
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+    return {
+      ok: true,
+      data: {
+        path,
+        summary: `deleted ${path}`,
+      },
+    };
+  },
   [KNOWLEDGE_SEARCH_TOOL_ID]: async (input) => {
     const client = knowledgeSearchPort(input.executionContext);
     if (!client) {
@@ -398,6 +427,33 @@ export const WORKSPACE_GENERIC_MANIFEST = {
         "1. Write UTF-8 text to an absolute path under / (e.g. /notes/out.md). path and content are required.",
         "2. Do not use .. or paths outside the authorized workspace root.",
         "3. Overwriting an existing file is allowed; do not write to / itself.",
+      ].join("\n"),
+      effectContract: {
+        ...baseContract,
+        sideEffectProfile: "write_low" as const,
+        reconcileSupported: false,
+      },
+    },
+    {
+      toolId: "workspace.delete",
+      version: "0.1.0",
+      requireApproval: true,
+      description:
+        "Delete a UTF-8 file in the authorized workspace. Path must be absolute under / (e.g. /notes/out.md). Requires approval.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "Absolute workspace file path starting with /" },
+        },
+        required: ["path"],
+        additionalProperties: true,
+      },
+      argHint: 'args: {"path":"/file.md"} required; requires approval',
+      systemPrompt: [
+        "Workspace delete (workspace.delete):",
+        "1. Delete a single file at an absolute path under / (e.g. /notes/out.md). path is required.",
+        "2. Do not delete / itself or directories; do not use .. or paths outside the authorized workspace root.",
+        "3. This tool requires human approval before execution.",
       ].join("\n"),
       effectContract: {
         ...baseContract,

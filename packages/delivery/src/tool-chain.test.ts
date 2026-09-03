@@ -1,7 +1,7 @@
 import { CONTRACTS_SCHEMA_VERSION } from "@monai/contracts";
 import type { HarnessCommand, ModelPort } from "@monai/ports";
 import { StubModelPort } from "@monai/model-stub";
-import { workspaceGenericToolHandlers } from "@monai/pack-workspace-generic";
+import { workspaceGenericToolHandlers, WORKSPACE_GENERIC_REQUIRE_APPROVAL } from "@monai/pack-workspace-generic";
 import type { ExecutionContext } from "@monai/pack-sdk";
 import { InMemoryWorkspace } from "@monai/workspace-memory";
 import { describe, expect, it } from "vitest";
@@ -366,5 +366,59 @@ describe("workspace.write handler", () => {
     );
     expect(root.ok).toBe(false);
     expect(root.error).toMatch(/file path/);
+  });
+});
+
+describe("workspace.delete handler", () => {
+  function deleteInput(
+    args: Record<string, unknown>,
+    workspace?: InMemoryWorkspace,
+  ) {
+    return {
+      toolId: "workspace.delete",
+      arguments: args,
+      executionContext: {
+        tenantId: "t1",
+        sessionId: "s1",
+        runId: "r1",
+        executionManifestRef: "m1",
+        effectivePermissions: [],
+        ports: workspace ? { workspace } : {},
+      } as ExecutionContext,
+      toolCallId: "tc-delete",
+    };
+  }
+
+  it("deletes a file and is on the require-approval list", async () => {
+    expect(WORKSPACE_GENERIC_REQUIRE_APPROVAL).toContain("workspace.delete");
+
+    const workspace = new InMemoryWorkspace({ "/notes/out.md": "bye" });
+    const result = await workspaceGenericToolHandlers["workspace.delete"]!(
+      deleteInput({ path: "/notes/out.md" }, workspace),
+    );
+    expect(result.ok).toBe(true);
+    expect(result.data).toMatchObject({ path: "/notes/out.md", summary: "deleted /notes/out.md" });
+    await expect(workspace.read("/notes/out.md")).rejects.toThrow(/not found/);
+  });
+
+  it("rejects missing path, root, and missing file", async () => {
+    const workspace = new InMemoryWorkspace({ "/a.md": "x" });
+    const missingPath = await workspaceGenericToolHandlers["workspace.delete"]!(
+      deleteInput({}, workspace),
+    );
+    expect(missingPath.ok).toBe(false);
+    expect(missingPath.error).toMatch(/path is required/);
+
+    const root = await workspaceGenericToolHandlers["workspace.delete"]!(
+      deleteInput({ path: "/" }, workspace),
+    );
+    expect(root.ok).toBe(false);
+    expect(root.error).toMatch(/file path/);
+
+    const missing = await workspaceGenericToolHandlers["workspace.delete"]!(
+      deleteInput({ path: "/missing.md" }, workspace),
+    );
+    expect(missing.ok).toBe(false);
+    expect(missing.error).toMatch(/not found/);
   });
 });
