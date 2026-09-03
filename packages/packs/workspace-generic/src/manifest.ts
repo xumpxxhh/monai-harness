@@ -1,15 +1,17 @@
-import { CONTRACTS_SCHEMA_VERSION } from "@monai/contracts";
+import { CONTRACTS_SCHEMA_VERSION, type PackManifest } from "@monai/contracts";
 import type { WorkspacePort } from "@monai/ports";
+import {
+  packDefaultAllowlist,
+  packRequireApprovalTools,
+  type ExecutionContext,
+  type PackHookRegistration,
+  type ToolHandler,
+  type ToolHandlerInput,
+} from "@monai/pack-sdk";
 import {
   IsolatedSyntheticSink,
   SyntheticTimeoutError,
 } from "@monai/synthetic-sink";
-import type {
-  ExecutionContext,
-  PackHookRegistration,
-  ToolHandler,
-  ToolHandlerInput,
-} from "@monai/pack-sdk";
 
 const MAX_OUTPUT_CHARS = 512_000;
 
@@ -329,6 +331,13 @@ export const WORKSPACE_GENERIC_MANIFEST = {
     {
       toolId: "workspace.list",
       version: "0.1.0",
+      description: 'List workspace entries under a path (default "/").',
+      parameters: {
+        type: "object",
+        properties: { path: { type: "string" } },
+        additionalProperties: true,
+      },
+      argHint: 'args: {"path":"/"} (default "/")',
       effectContract: {
         ...baseContract,
         sideEffectProfile: "read" as const,
@@ -338,6 +347,14 @@ export const WORKSPACE_GENERIC_MANIFEST = {
     {
       toolId: "workspace.read",
       version: "0.1.0",
+      description: "Read a workspace file by path.",
+      parameters: {
+        type: "object",
+        properties: { path: { type: "string" } },
+        required: ["path"],
+        additionalProperties: true,
+      },
+      argHint: 'args: {"path":"/file.md"} required',
       effectContract: {
         ...baseContract,
         sideEffectProfile: "read" as const,
@@ -347,6 +364,14 @@ export const WORKSPACE_GENERIC_MANIFEST = {
     {
       toolId: "workspace.search",
       version: "0.1.0",
+      description: "Search workspace files for a query string.",
+      parameters: {
+        type: "object",
+        properties: { query: { type: "string" } },
+        required: ["query"],
+        additionalProperties: true,
+      },
+      argHint: 'args: {"query":"..."} required',
       effectContract: {
         ...baseContract,
         sideEffectProfile: "read" as const,
@@ -356,6 +381,24 @@ export const WORKSPACE_GENERIC_MANIFEST = {
     {
       toolId: "workspace.write",
       version: "0.1.0",
+      description:
+        "Write or overwrite a UTF-8 file in the authorized workspace. Path must be absolute under / (e.g. /notes/out.md).",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "Absolute workspace path starting with /" },
+          content: { type: "string", description: "File contents" },
+        },
+        required: ["path", "content"],
+        additionalProperties: true,
+      },
+      argHint: 'args: {"path":"/file.md","content":"..."} required',
+      systemPrompt: [
+        "Workspace write (workspace.write):",
+        "1. Write UTF-8 text to an absolute path under / (e.g. /notes/out.md). path and content are required.",
+        "2. Do not use .. or paths outside the authorized workspace root.",
+        "3. Overwriting an existing file is allowed; do not write to / itself.",
+      ].join("\n"),
       effectContract: {
         ...baseContract,
         sideEffectProfile: "write_low" as const,
@@ -365,6 +408,40 @@ export const WORKSPACE_GENERIC_MANIFEST = {
     {
       toolId: KNOWLEDGE_SEARCH_TOOL_ID,
       version: "0.1.0",
+      defaultEnabled: false,
+      description:
+        "Search enterprise knowledge bases for document snippets. Returns full content and sourceId for citations. When grounding.empty is true, do not invent facts.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "Natural-language search query; be specific",
+          },
+          collection_ids: {
+            type: "array",
+            items: { type: "string" },
+            description: "Optional knowledge base ids (kb-…). Pass when the domain is known.",
+          },
+          top_k: {
+            type: "integer",
+            minimum: 1,
+            maximum: 20,
+            description: "Optional max hits (default 8)",
+          },
+        },
+        required: ["query"],
+        additionalProperties: true,
+      },
+      argHint: 'args: {"query":"..."} required; optional collection_ids[], top_k',
+      systemPrompt: [
+        "Knowledge base (knowledge.search):",
+        "1. Before answering factual questions that need external docs, call knowledge.search with a specific query.",
+        "2. Answer only from hits[].content; do not invent information not present in hits.",
+        "3. Cite sourceId or title in your answer, e.g. [intro.md].",
+        "4. If grounding.empty is true, say no relevant knowledge was found; do not guess.",
+        "5. When you know which knowledge base applies, pass collection_ids to improve accuracy.",
+      ].join("\n"),
       effectContract: {
         ...knowledgeContract,
         sideEffectProfile: "read" as const,
@@ -374,6 +451,14 @@ export const WORKSPACE_GENERIC_MANIFEST = {
     {
       toolId: "artifact.write_markdown",
       version: "0.1.0",
+      description: "Write a markdown artifact.",
+      parameters: {
+        type: "object",
+        properties: { markdown: { type: "string" } },
+        required: ["markdown"],
+        additionalProperties: true,
+      },
+      argHint: 'args: {"markdown":"..."} required',
       effectContract: {
         ...baseContract,
         sideEffectProfile: "write_low" as const,
@@ -383,6 +468,13 @@ export const WORKSPACE_GENERIC_MANIFEST = {
     {
       toolId: "artifact.validate",
       version: "0.1.0",
+      description: "Validate an artifact by artifactId or ref.",
+      parameters: {
+        type: "object",
+        properties: { artifactId: { type: "string" }, ref: { type: "string" } },
+        additionalProperties: true,
+      },
+      argHint: 'args: {"artifactId":"art-..."} or {"ref":"artifact://..."}',
       effectContract: {
         ...baseContract,
         sideEffectProfile: "read" as const,
@@ -392,6 +484,17 @@ export const WORKSPACE_GENERIC_MANIFEST = {
     {
       toolId: "synthetic.write_high",
       version: "0.1.0",
+      requireApproval: true,
+      description: "High side-effect synthetic write (requires approval in MVP).",
+      parameters: {
+        type: "object",
+        properties: {
+          resourceKey: { type: "string" },
+          payload: { type: "object" },
+        },
+        additionalProperties: true,
+      },
+      argHint: 'args: {"resourceKey":"...","payload":{...}} + idempotency',
       effectContract: {
         ...baseContract,
         sideEffectProfile: "write_high" as const,
@@ -428,25 +531,20 @@ export const WORKSPACE_GENERIC_MANIFEST = {
     },
   ],
   digest: "sha256:workspace-generic-0.1.0",
-};
+} as const satisfies PackManifest;
 
+/** Default allowlist: echo (Core stub) + Pack tools with defaultEnabled !== false. */
 export const WORKSPACE_GENERIC_TOOL_ALLOWLIST = [
   "echo",
-  "workspace.list",
-  "workspace.read",
-  "workspace.search",
-  "workspace.write",
-  "artifact.write_markdown",
-  "artifact.validate",
-  "synthetic.write_high",
+  ...packDefaultAllowlist(WORKSPACE_GENERIC_MANIFEST.tools),
 ] as const;
 
 /** Appended at wiring time when RAG client is configured (EDR-016). */
 export const KNOWLEDGE_SEARCH_ALLOWLIST_ENTRY = KNOWLEDGE_SEARCH_TOOL_ID;
 
-export const WORKSPACE_GENERIC_REQUIRE_APPROVAL = [
-  "synthetic.write_high",
-] as const;
+export const WORKSPACE_GENERIC_REQUIRE_APPROVAL = packRequireApprovalTools(
+  WORKSPACE_GENERIC_MANIFEST.tools,
+) as readonly string[];
 
 const noopObservation = { data: { pack: "workspace-generic", observed: true } };
 

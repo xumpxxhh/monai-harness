@@ -172,6 +172,23 @@ synthetic.write_high.reconcile
 
 另含：固定规则 Knowledge、required acceptanceChecks 用 Validator、最小 Policy、五个 Hook 点的最小实现（可为 no-op 但可观测）。
 
+### 9.1 加工具作者清单（Pack SSOT）
+
+新增默认启用的 Pack Tool **只改 Pack 包**（`handler` + `manifest.tools[]` 一条声明），填齐：
+
+| 字段 | 用途 |
+| --- | --- |
+| `effectContract` | 副作用 / 幂等 / 超时 |
+| `description` + `parameters` | 模型 function catalog |
+| `argHint` | Context tools 区一行提示 |
+| `systemPrompt`（可选） | 拼进 Agent system prompt |
+| `defaultEnabled: false` | 可选：opt-in（如 RAG） |
+| `requireApproval: true` | 可选：进审批名单 |
+
+**禁止**在 `packages/runtime` 再硬编码该 `toolId` 的 catalog / hints / prompt / `TOOL_CATALOG`。
+Core 仅保留控制函数与非 Pack 桩（`echo` / `risky.write`）。
+allowlist 由 `packDefaultAllowlist(manifest.tools)` + wiring 派生（见 `@monai/pack-sdk`）。
+
 文档研究 / 工单 Pack 仅作协议样例，**不** 作为 MVP 必装包。
 
 ## 10. 一致性检查

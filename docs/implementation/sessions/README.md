@@ -34,3 +34,4 @@
 | 0019 | [0019-post-m1-agent-loop.md](./0019-post-m1-agent-loop.md) | 2026-09-02 | M2：function calling + 并行工具 + Dialogue Context + Session Demo |
 | 0020 | [0020-knowledge-search-tool.md](./0020-knowledge-search-tool.md) | 2026-09-02 | M3：RAG `knowledge.search` Tool（EDR-016）；KnowledgePort 仍缺口 |
 | 0021 | [0021-workspace-write-tool.md](./0021-workspace-write-tool.md) | 2026-09-02 | `workspace.write` Pack Tool（write_low） |
+| 0022 | [0022-pack-tool-ssot.md](./0022-pack-tool-ssot.md) | 2026-09-02 | Pack Tool SSOT：模型面元数据只在 Manifest |

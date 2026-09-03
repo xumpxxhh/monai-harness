@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { CONTRACTS_SCHEMA_VERSION } from "@monai/contracts";
+
 import { buildAgentSystemPrompt } from "./agent-system-prompt.js";
 import { hydrateModelAction } from "./hydrate-action.js";
 import {
@@ -34,13 +36,75 @@ describe("buildModelFunctionCatalog", () => {
     expect(catalog.domainTools.every((d) => d.kind === "domain")).toBe(true);
   });
 
-  it("requires path and content for workspace.write", () => {
+  it("requires path and content for workspace.write from Pack toolDefs", () => {
     const catalog = buildModelFunctionCatalog({
       toolAllowlist: ["workspace.write"],
+      toolDefs: [
+        {
+          toolId: "workspace.write",
+          version: "0.1.0",
+          description: "Write a workspace file",
+          parameters: {
+            type: "object",
+            properties: { path: { type: "string" }, content: { type: "string" } },
+            required: ["path", "content"],
+            additionalProperties: true,
+          },
+          effectContract: {
+            schemaVersion: "0.1.0",
+            sideEffectProfile: "write_low",
+            deliverySemantics: "at_most_once",
+            idempotencyScope: "run",
+            reconcileSupported: false,
+            timeoutMs: 5_000,
+          },
+        },
+      ],
     });
     const def = catalog.domainTools[0];
     expect(def?.name).toBe("workspace.write");
     expect(def?.parameters).toMatchObject({ required: ["path", "content"] });
+  });
+
+  it("builds catalog for Pack-only tool without Core DOMAIN_TOOL_DEFS", () => {
+    const catalog = buildModelFunctionCatalog({
+      toolAllowlist: ["demo.pack_only"],
+      toolDefs: [
+        {
+          toolId: "demo.pack_only",
+          version: "0.1.0",
+          description: "Pack-owned demo tool",
+          parameters: {
+            type: "object",
+            properties: { q: { type: "string" } },
+            required: ["q"],
+            additionalProperties: false,
+          },
+          argHint: 'args: {"q":"..."}',
+          effectContract: {
+            schemaVersion: "0.1.0",
+            sideEffectProfile: "read",
+            deliverySemantics: "at_most_once",
+            idempotencyScope: "run",
+            reconcileSupported: false,
+            timeoutMs: 5_000,
+          },
+        },
+      ],
+    });
+    expect(catalog.domainTools).toEqual([
+      {
+        name: "demo.pack_only",
+        kind: "domain",
+        description: "Pack-owned demo tool",
+        parameters: {
+          type: "object",
+          properties: { q: { type: "string" } },
+          required: ["q"],
+          additionalProperties: false,
+        },
+      },
+    ]);
   });
 
   it("includes spawn_child only when enabled", () => {
@@ -272,20 +336,48 @@ describe("hydrateModelAction", () => {
   });
 
   it("derives idempotencyKey for write tools when missing", () => {
-    const hydrated = hydrateModelAction({
-      type: "tool.call",
-      toolId: "artifact.write_markdown",
-      arguments: { markdown: "# hi" },
-    }) as { calls?: Array<{ idempotencyKey?: string }> };
+    const writeLowLookup = (toolId: string) =>
+      toolId === "artifact.write_markdown"
+        ? {
+            schemaVersion: CONTRACTS_SCHEMA_VERSION,
+            sideEffectProfile: "write_low" as const,
+            deliverySemantics: "at_most_once" as const,
+            idempotencyScope: "run" as const,
+            reconcileSupported: false,
+            timeoutMs: 5_000,
+          }
+        : undefined;
+    const hydrated = hydrateModelAction(
+      {
+        type: "tool.call",
+        toolId: "artifact.write_markdown",
+        arguments: { markdown: "# hi" },
+      },
+      writeLowLookup,
+    ) as { calls?: Array<{ idempotencyKey?: string }> };
     expect(hydrated.calls?.[0]?.idempotencyKey).toContain("artifact.write_markdown");
   });
 
-  it("derives idempotencyKey for workspace.write", () => {
-    const hydrated = hydrateModelAction({
-      type: "tool.call",
-      toolId: "workspace.write",
-      arguments: { path: "/notes/out.md", content: "hi" },
-    }) as { calls?: Array<{ toolId?: string; idempotencyKey?: string }> };
+  it("derives idempotencyKey for workspace.write via Pack contract lookup", () => {
+    const writeLowLookup = (toolId: string) =>
+      toolId === "workspace.write"
+        ? {
+            schemaVersion: CONTRACTS_SCHEMA_VERSION,
+            sideEffectProfile: "write_low" as const,
+            deliverySemantics: "at_most_once" as const,
+            idempotencyScope: "run" as const,
+            reconcileSupported: false,
+            timeoutMs: 5_000,
+          }
+        : undefined;
+    const hydrated = hydrateModelAction(
+      {
+        type: "tool.call",
+        toolId: "workspace.write",
+        arguments: { path: "/notes/out.md", content: "hi" },
+      },
+      writeLowLookup,
+    ) as { calls?: Array<{ toolId?: string; idempotencyKey?: string }> };
     expect(hydrated.calls?.[0]?.toolId).toBe("workspace.write");
     expect(hydrated.calls?.[0]?.idempotencyKey).toContain("workspace.write");
   });

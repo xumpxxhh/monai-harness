@@ -23,6 +23,50 @@ describe("buildContext", () => {
       stepId: "step-1",
       state,
       toolAllowlist: ["workspace.read", "workspace.write"],
+      manifest: {
+        schemaVersion: "0.1.0",
+        manifestId: "man-test",
+        createdAt: new Date().toISOString(),
+        eventOrderingVersion: "1",
+        agentDefinition: {
+          agentDefinitionId: "agent-default",
+          version: "1.0.0",
+          digest: "d",
+        },
+        packVersions: [{ packId: "pack-test", version: "1.0.0", digest: "d" }],
+        tools: [
+          {
+            toolId: "workspace.read",
+            version: "0.1.0",
+            argHint: 'args: {"path":"/file.md"} required',
+            effectContract: {
+              schemaVersion: "0.1.0",
+              sideEffectProfile: "read",
+              deliverySemantics: "at_most_once",
+              idempotencyScope: "run",
+              reconcileSupported: false,
+            },
+          },
+          {
+            toolId: "workspace.write",
+            version: "0.1.0",
+            argHint: 'args: {"path":"/file.md","content":"..."} required',
+            effectContract: {
+              schemaVersion: "0.1.0",
+              sideEffectProfile: "write_low",
+              deliverySemantics: "at_most_once",
+              idempotencyScope: "run",
+              reconcileSupported: false,
+            },
+          },
+        ],
+        strategy: { type: "light", version: "1.0.0" },
+        toolAllowlist: ["workspace.read", "workspace.write"],
+        requireApprovalTools: [],
+        acceptanceChecks: [],
+        coreContractVersion: "0.1.0",
+        hash: "h",
+      },
     });
 
     expect(result.overflow).toBe(false);

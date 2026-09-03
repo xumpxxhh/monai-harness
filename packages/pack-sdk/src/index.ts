@@ -1,10 +1,26 @@
-import type { PackManifest } from "@monai/contracts";
+import type { PackManifest, PackToolDefinition } from "@monai/contracts";
 
 /**
  * Pack-facing hook / tool handler types.
  *
  * Packs MUST NOT receive Persistence, Engine, Approval append, or arbitrary Secret clients.
  */
+
+/** Tool ids with `defaultEnabled !== false` (opt-in tools omitted). */
+export function packDefaultAllowlist(
+  tools: readonly PackToolDefinition[],
+): string[] {
+  return tools
+    .filter((tool) => tool.defaultEnabled !== false)
+    .map((tool) => tool.toolId);
+}
+
+/** Tool ids that require approval when allowlisted. */
+export function packRequireApprovalTools(
+  tools: readonly PackToolDefinition[],
+): string[] {
+  return tools.filter((tool) => tool.requireApproval === true).map((tool) => tool.toolId);
+}
 
 export const HOOK_POINTS = [
   "PreReasoning",

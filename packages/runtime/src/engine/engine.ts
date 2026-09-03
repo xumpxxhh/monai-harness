@@ -216,6 +216,7 @@ export class Engine {
         requireApprovalTools: resolved.requireApprovalTools,
         acceptanceChecks: resolved.acceptanceChecks,
         registry: this.registry,
+        manifest: resolved.manifest,
         modelPolicy: resolved.modelPolicy ?? this.modelPolicy,
         previewHub: this.previewHub,
       },

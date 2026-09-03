@@ -9,10 +9,12 @@ import {
   type Checkpoint,
   type Continuation,
   type EventCandidate,
+  type ExecutionManifest,
   type IdempotencyRecord,
   type ModelPolicy,
   type ModelUsage,
   type OutboxRecord,
+  type PackToolDefinition,
   type Run,
   type RunState,
   type ToolCallRecord,
@@ -37,6 +39,7 @@ import {
   requiredAcceptanceChecksPassed,
 } from "../control/acceptance-checks.js";
 import { prepareToolCalls } from "../execution/prepare-tool-calls.js";
+import { lookupToolContract } from "../execution/lookup-tool-contract.js";
 import type { ExtensionRegistry } from "../extension/extension-registry.js";
 import { buildAgentSystemPrompt } from "../model/agent-system-prompt.js";
 import { buildModelFunctionCatalog } from "../model/function-catalog.js";
@@ -125,6 +128,8 @@ export type ExecuteTurnDeps = {
   requireApprovalTools?: readonly string[];
   acceptanceChecks?: readonly AcceptanceCheck[];
   registry?: ExtensionRegistry;
+  /** Frozen ExecutionManifest — Pack tool defs for catalog / prompt / context. */
+  manifest?: ExecutionManifest;
   modelPolicy?: ModelPolicy;
   /** Optional in-process preview fan-out (token UX; not Event Log). */
   previewHub?: PreviewHub;
@@ -215,7 +220,11 @@ export async function handleExecuteTurn(
   );
   const hasDispatched = existingToolCalls.some((call) => call.status === "dispatched");
   const hasPrepared = existingToolCalls.some((call) => call.status === "prepared");
-  const functionCatalog = buildModelFunctionCatalog({ toolAllowlist });
+  const toolDefs: readonly PackToolDefinition[] =
+    deps.manifest?.tools ?? deps.registry?.listToolDefinitions() ?? [];
+  const contractLookup = (toolId: string) =>
+    lookupToolContract(toolId, deps.registry);
+  const functionCatalog = buildModelFunctionCatalog({ toolAllowlist, toolDefs });
 
   const idempotentRetry = await tryIdempotentPreparedRetry(
     deps.persistence,
@@ -276,13 +285,14 @@ export async function handleExecuteTurn(
     digest: "digest:model-policy:default",
   };
 
-  const systemPrompt = buildAgentSystemPrompt({ toolAllowlist });
+  const systemPrompt = buildAgentSystemPrompt({ toolAllowlist, toolDefs });
   const modelContextResult = await buildModelContext(
     {
       run,
       stepId,
       state,
       toolAllowlist,
+      manifest: deps.manifest,
       hookContributions: pre.merged.contextContributions,
       modelPolicy: resolvedModelPolicy,
       persistence: deps.persistence,
@@ -457,10 +467,14 @@ export async function handleExecuteTurn(
 
     let mapFailed: string | undefined;
     if (!callFailed) {
-      const resolved = resolveModelActionCandidate(modelResult, {
-        lastFactId: state.lastFactId,
-        hasUnresolvedTools,
-      });
+      const resolved = resolveModelActionCandidate(
+        modelResult,
+        {
+          lastFactId: state.lastFactId,
+          hasUnresolvedTools,
+        },
+        contractLookup,
+      );
       if (resolved.usage) {
         usage = resolved.usage;
       }

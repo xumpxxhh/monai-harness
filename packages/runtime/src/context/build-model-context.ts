@@ -2,6 +2,7 @@ import type {
   ContextCompressionRecord,
   ContextProjectionPolicy,
   EventCandidate,
+  ExecutionManifest,
   ModelMessage,
   ModelPolicy,
   Run,
@@ -24,6 +25,8 @@ export type BuildModelContextInput = {
   stepId: string;
   state: RunState;
   toolAllowlist: readonly string[];
+  /** Frozen ExecutionManifest — Pack tool argHints / effect profiles. */
+  manifest?: ExecutionManifest;
   hookContributions?: ContextContribution[];
   modelPolicy?: ModelPolicy;
   persistence: PersistencePort;
@@ -94,6 +97,7 @@ export async function buildModelContext(
     stepId: input.stepId,
     state: input.state,
     toolAllowlist: input.toolAllowlist,
+    manifest: input.manifest,
     hookContributions: input.hookContributions,
     modelPolicy: input.modelPolicy,
     projectionPolicy: policy,

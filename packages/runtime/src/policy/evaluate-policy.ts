@@ -211,16 +211,7 @@ export function evaluatePolicy(input: PolicyRuleInput): PolicyEvaluation {
   };
 }
 
-/** Default MVP allowlist for light loop demos. */
-export const DEFAULT_TOOL_ALLOWLIST = [
-  "echo",
-  "workspace.list",
-  "workspace.read",
-  "workspace.search",
-  "workspace.write",
-  "artifact.write_markdown",
-  "synthetic.write_high",
-  "risky.write",
-] as const;
+/** Fallback when no Pack / Manifest is wired (Core stubs only). */
+export const DEFAULT_TOOL_ALLOWLIST = ["echo", "risky.write"] as const;
 
-export const DEFAULT_REQUIRE_APPROVAL_TOOLS = ["risky.write", "synthetic.write_high"] as const;
+export const DEFAULT_REQUIRE_APPROVAL_TOOLS = ["risky.write"] as const;

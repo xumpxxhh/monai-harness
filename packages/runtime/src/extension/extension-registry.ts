@@ -3,6 +3,7 @@ import {
   packManifestSchema,
   type PackContributionRecord,
   type PackRegistrationResult,
+  type PackToolDefinition,
   type ToolEffectContract,
 } from "@monai/contracts";
 import type { PackContributionDefinition, ToolHandler } from "@monai/pack-sdk";
@@ -34,7 +35,7 @@ function stableDigest(value: unknown): string {
  */
 export class ExtensionRegistry {
   private readonly byPackKey = new Map<string, RegisteredPack>();
-  private readonly toolContracts = new Map<string, ToolEffectContract>();
+  private readonly toolDefinitions = new Map<string, PackToolDefinition>();
   private readonly toolHandlers = new Map<string, ToolHandler>();
   private readonly reconcileHandlers = new Map<string, ToolHandler>();
 
@@ -131,7 +132,7 @@ export class ExtensionRegistry {
         continue;
       }
 
-      if (this.toolContracts.has(tool.toolId)) {
+      if (this.toolDefinitions.has(tool.toolId)) {
         rejected = true;
         contributions.push({
           kind: "tool",
@@ -210,7 +211,7 @@ export class ExtensionRegistry {
     for (const tool of manifest.tools) {
       const record = contributions.find((c) => c.kind === "tool" && c.id === tool.toolId);
       if (record?.status !== "registered") continue;
-      this.toolContracts.set(tool.toolId, tool.effectContract);
+      this.toolDefinitions.set(tool.toolId, tool);
       const handler = input.contribution.tools![tool.toolId]!;
       this.toolHandlers.set(tool.toolId, handler);
       if (tool.toolId === "synthetic.write_high") {
@@ -224,8 +225,23 @@ export class ExtensionRegistry {
     return result;
   }
 
+  getToolDefinition(toolId: string): PackToolDefinition | undefined {
+    return this.toolDefinitions.get(toolId);
+  }
+
+  listToolDefinitions(): PackToolDefinition[] {
+    return [...this.toolDefinitions.values()].sort((a, b) => a.toolId.localeCompare(b.toolId));
+  }
+
+  /** Registered tools with defaultEnabled !== false (excludes opt-in tools). */
+  getDefaultAllowlist(): string[] {
+    return this.listToolDefinitions()
+      .filter((tool) => tool.defaultEnabled !== false)
+      .map((tool) => tool.toolId);
+  }
+
   lookupToolContract(toolId: string): ToolEffectContract | undefined {
-    return this.toolContracts.get(toolId);
+    return this.toolDefinitions.get(toolId)?.effectContract;
   }
 
   getToolHandler(toolId: string): ToolHandler | undefined {

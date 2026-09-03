@@ -1,6 +1,8 @@
-import type { Action, ToolCallInvocation } from "@monai/contracts";
+import type { Action, ToolCallInvocation, ToolEffectContract } from "@monai/contracts";
 
 import { lookupToolContract, requiresIdempotencyKey } from "../execution/lookup-tool-contract.js";
+
+export type ToolContractLookup = (toolId: string) => ToolEffectContract | undefined;
 
 function stable(value: unknown): string {
   if (value === null || typeof value !== "object") {
@@ -30,9 +32,12 @@ function dedupeInvocations(calls: ToolCallInvocation[]): ToolCallInvocation[] {
   return out;
 }
 
-function hydrateInvocationKeys(inv: ToolCallInvocation): ToolCallInvocation {
+function hydrateInvocationKeys(
+  inv: ToolCallInvocation,
+  lookup: ToolContractLookup,
+): ToolCallInvocation {
   const next = { ...inv };
-  const contract = lookupToolContract(next.toolId);
+  const contract = lookup(next.toolId);
   if (
     contract &&
     requiresIdempotencyKey(contract) &&
@@ -45,8 +50,12 @@ function hydrateInvocationKeys(inv: ToolCallInvocation): ToolCallInvocation {
 
 /**
  * Normalize tool.call to authoritative `calls[]` (N=1 legacy toolId lifted).
+ * Pass lookup when Pack Registry is available so write_low tools get idempotency keys.
  */
-export function normalizeToolCallAction(action: Action): Action {
+export function normalizeToolCallAction(
+  action: Action,
+  lookup: ToolContractLookup = lookupToolContract,
+): Action {
   if (action.type !== "tool.call") return action;
 
   let calls: ToolCallInvocation[] = [];
@@ -63,7 +72,7 @@ export function normalizeToolCallAction(action: Action): Action {
     ];
   }
 
-  calls = dedupeInvocations(calls.map(hydrateInvocationKeys));
+  calls = dedupeInvocations(calls.map((c) => hydrateInvocationKeys(c, lookup)));
 
   const first = calls[0];
   return {
@@ -76,8 +85,11 @@ export function normalizeToolCallAction(action: Action): Action {
   };
 }
 
-export function getToolCallInvocations(action: Action): ToolCallInvocation[] {
+export function getToolCallInvocations(
+  action: Action,
+  lookup?: ToolContractLookup,
+): ToolCallInvocation[] {
   if (action.type !== "tool.call") return [];
-  const normalized = normalizeToolCallAction(action);
+  const normalized = normalizeToolCallAction(action, lookup);
   return normalized.calls ?? [];
 }

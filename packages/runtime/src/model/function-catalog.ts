@@ -1,3 +1,4 @@
+import type { PackToolDefinition } from "@monai/contracts";
 import type { ModelFunctionDef } from "@monai/ports";
 
 export const CONTROL_FUNCTION_NAMES = ["ask_user", "finish", "noop", "spawn_child"] as const;
@@ -14,106 +15,14 @@ const EMPTY_OBJECT_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-const DOMAIN_TOOL_DEFS: Record<string, Pick<ModelFunctionDef, "description" | "parameters">> = {
+/** Core-only domain stubs (non-Pack). Pack tools come from toolDefs. */
+const CORE_DOMAIN_TOOL_DEFS: Record<string, Pick<ModelFunctionDef, "description" | "parameters">> = {
   echo: {
     description: "Echo text back as a fact. Use for simple passthrough.",
     parameters: {
       type: "object",
       properties: { text: { type: "string" } },
       required: ["text"],
-      additionalProperties: true,
-    },
-  },
-  "workspace.list": {
-    description: "List workspace entries under a path (default \"/\").",
-    parameters: {
-      type: "object",
-      properties: { path: { type: "string" } },
-      additionalProperties: true,
-    },
-  },
-  "workspace.read": {
-    description: "Read a workspace file by path.",
-    parameters: {
-      type: "object",
-      properties: { path: { type: "string" } },
-      required: ["path"],
-      additionalProperties: true,
-    },
-  },
-  "workspace.search": {
-    description: "Search workspace files for a query string.",
-    parameters: {
-      type: "object",
-      properties: { query: { type: "string" } },
-      required: ["query"],
-      additionalProperties: true,
-    },
-  },
-  "knowledge.search": {
-    description:
-      "Search enterprise knowledge bases for document snippets. Returns full content and sourceId for citations. When grounding.empty is true, do not invent facts.",
-    parameters: {
-      type: "object",
-      properties: {
-        query: {
-          type: "string",
-          description: "Natural-language search query; be specific",
-        },
-        collection_ids: {
-          type: "array",
-          items: { type: "string" },
-          description: "Optional knowledge base ids (kb-…). Pass when the domain is known.",
-        },
-        top_k: {
-          type: "integer",
-          minimum: 1,
-          maximum: 20,
-          description: "Optional max hits (default 8)",
-        },
-      },
-      required: ["query"],
-      additionalProperties: true,
-    },
-  },
-  "workspace.write": {
-    description:
-      "Write or overwrite a UTF-8 file in the authorized workspace. Path must be absolute under / (e.g. /notes/out.md).",
-    parameters: {
-      type: "object",
-      properties: {
-        path: { type: "string", description: "Absolute workspace path starting with /" },
-        content: { type: "string", description: "File contents" },
-      },
-      required: ["path", "content"],
-      additionalProperties: true,
-    },
-  },
-  "artifact.write_markdown": {
-    description: "Write a markdown artifact.",
-    parameters: {
-      type: "object",
-      properties: { markdown: { type: "string" } },
-      required: ["markdown"],
-      additionalProperties: true,
-    },
-  },
-  "artifact.validate": {
-    description: "Validate an artifact by artifactId or ref.",
-    parameters: {
-      type: "object",
-      properties: { artifactId: { type: "string" }, ref: { type: "string" } },
-      additionalProperties: true,
-    },
-  },
-  "synthetic.write_high": {
-    description: "High side-effect synthetic write (requires approval in MVP).",
-    parameters: {
-      type: "object",
-      properties: {
-        resourceKey: { type: "string" },
-        payload: { type: "object" },
-      },
       additionalProperties: true,
     },
   },
@@ -175,6 +84,8 @@ const SPAWN_CHILD_DEF: ModelFunctionDef = {
 
 export type BuildModelFunctionCatalogInput = {
   toolAllowlist: readonly string[];
+  /** Pack / Manifest tool definitions (source of truth for Pack tools). */
+  toolDefs?: readonly PackToolDefinition[];
   /** MVP default false (EDR-014 / spawn_child disabled). */
   includeSpawnChild?: boolean;
 };
@@ -186,6 +97,7 @@ export type ModelFunctionCatalog = {
 
 /**
  * Runtime-owned vendor-neutral catalog. Adapters translate these defs to provider tools.
+ * Pack tool description/parameters come from toolDefs; Core only hardcodes echo / risky.write.
  */
 export function buildModelFunctionCatalog(
   input: BuildModelFunctionCatalogInput,
@@ -199,16 +111,28 @@ export function buildModelFunctionCatalog(
     controlFunctions.push(SPAWN_CHILD_DEF);
   }
 
+  const defsById = new Map<string, PackToolDefinition>();
+  for (const def of input.toolDefs ?? []) {
+    defsById.set(def.toolId, def);
+  }
+
   const reserved = new Set<string>(CONTROL_FUNCTION_NAMES);
   const domainTools: ModelFunctionDef[] = [];
   for (const toolId of input.toolAllowlist) {
     if (reserved.has(toolId)) continue;
-    const known = DOMAIN_TOOL_DEFS[toolId];
+    const packDef = defsById.get(toolId);
+    const core = CORE_DOMAIN_TOOL_DEFS[toolId];
     domainTools.push({
       name: toolId,
       kind: "domain",
-      description: known?.description ?? `Domain tool ${toolId}.`,
-      parameters: known?.parameters ?? { type: "object", additionalProperties: true },
+      description:
+        (typeof packDef?.description === "string" && packDef.description) ||
+        core?.description ||
+        `Domain tool ${toolId}.`,
+      parameters:
+        packDef?.parameters ??
+        core?.parameters ??
+        { type: "object", additionalProperties: true },
     });
   }
 

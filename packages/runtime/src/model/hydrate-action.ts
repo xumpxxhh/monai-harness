@@ -2,13 +2,16 @@ import { randomUUID } from "node:crypto";
 
 import { CONTRACTS_SCHEMA_VERSION } from "@monai/contracts";
 
-import { normalizeToolCallAction } from "./normalize-action.js";
+import { normalizeToolCallAction, type ToolContractLookup } from "./normalize-action.js";
 
 /**
  * Hydrate model JSON into an Action candidate before schema validation.
  * Runtime owns schemaVersion / actionId / per-invocation idempotencyKey.
  */
-export function hydrateModelAction(raw: unknown): unknown {
+export function hydrateModelAction(
+  raw: unknown,
+  lookup?: ToolContractLookup,
+): unknown {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
 
   const obj = { ...(raw as Record<string, unknown>) };
@@ -45,7 +48,10 @@ export function hydrateModelAction(raw: unknown): unknown {
   }
 
   if (obj.type === "tool.call") {
-    return normalizeToolCallAction(obj as Parameters<typeof normalizeToolCallAction>[0]);
+    return normalizeToolCallAction(
+      obj as Parameters<typeof normalizeToolCallAction>[0],
+      lookup,
+    );
   }
 
   return obj;

@@ -28,13 +28,9 @@ export type BuildExecutionManifestInput = {
 function collectPackTools(registry: ExtensionRegistry, toolAllowlist: readonly string[]): PackToolDefinition[] {
   const tools: PackToolDefinition[] = [];
   for (const toolId of toolAllowlist) {
-    const contract = registry.lookupToolContract(toolId);
-    if (!contract) continue;
-    tools.push({
-      toolId,
-      version: "0.1.0",
-      effectContract: contract,
-    });
+    const def = registry.getToolDefinition(toolId);
+    if (!def) continue;
+    tools.push({ ...def });
   }
   return tools;
 }

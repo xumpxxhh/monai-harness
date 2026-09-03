@@ -1,9 +1,13 @@
+import type { PackToolDefinition } from "@monai/contracts";
+
 /**
  * Shared Agent decision prompt (Runtime-owned).
  * Models use function calling for the next step; Engine hydrates Action identity.
+ * Pack-specific rules come from PackToolDefinition.systemPrompt — Core must not hardcode tool ids.
  */
 export function buildAgentSystemPrompt(options?: {
   toolAllowlist?: readonly string[];
+  toolDefs?: readonly PackToolDefinition[];
 }): string {
   const lines = [
     "You are an agent working on the user's Goal.",
@@ -18,26 +22,12 @@ export function buildAgentSystemPrompt(options?: {
     "If you still need information not in prior messages, call the domain tool(s) you need or ask_user.",
   ];
 
-  if (options?.toolAllowlist?.includes("workspace.write")) {
-    lines.push(
-      "",
-      "Workspace write (workspace.write):",
-      "1. Write UTF-8 text to an absolute path under / (e.g. /notes/out.md). path and content are required.",
-      "2. Do not use .. or paths outside the authorized workspace root.",
-      "3. Overwriting an existing file is allowed; do not write to / itself.",
-    );
-  }
-
-  if (options?.toolAllowlist?.includes("knowledge.search")) {
-    lines.push(
-      "",
-      "Knowledge base (knowledge.search):",
-      "1. Before answering factual questions that need external docs, call knowledge.search with a specific query.",
-      "2. Answer only from hits[].content; do not invent information not present in hits.",
-      "3. Cite sourceId or title in your answer, e.g. [intro.md].",
-      "4. If grounding.empty is true, say no relevant knowledge was found; do not guess.",
-      "5. When you know which knowledge base applies, pass collection_ids to improve accuracy.",
-    );
+  const allow = new Set(options?.toolAllowlist ?? []);
+  for (const def of options?.toolDefs ?? []) {
+    if (!allow.has(def.toolId)) continue;
+    if (typeof def.systemPrompt === "string" && def.systemPrompt.trim()) {
+      lines.push("", def.systemPrompt.trim());
+    }
   }
 
   return lines.join("\n");

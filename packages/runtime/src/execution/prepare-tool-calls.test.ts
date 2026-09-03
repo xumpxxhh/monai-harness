@@ -2,6 +2,7 @@ import { CONTRACTS_SCHEMA_VERSION, type Action, type Run, type ToolCallRecord } 
 import { InMemoryPersistence } from "@monai/persistence-memory";
 import { describe, expect, it } from "vitest";
 
+import { wireTestWorkspacePack } from "../test-helpers/wire-workspace-pack.js";
 import { inspectActionBatchSiblings, prepareToolCalls } from "./prepare-tool-calls.js";
 
 const run: Run = {
@@ -76,6 +77,7 @@ describe("prepareToolCalls", () => {
 
   it("blocks blind retry when outcome_unknown exists for the tool", async () => {
     const persistence = new InMemoryPersistence();
+    const { registry } = wireTestWorkspacePack();
     const unknown: ToolCallRecord = {
       schemaVersion: CONTRACTS_SCHEMA_VERSION,
       toolCallId: "tc-unknown",
@@ -131,6 +133,7 @@ describe("prepareToolCalls", () => {
       expectedRevision: 3,
       callIndices: [0],
       persistence,
+      registry,
       eventBase: eventBase(),
     });
 

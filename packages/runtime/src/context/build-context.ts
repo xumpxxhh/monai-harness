@@ -65,16 +65,8 @@ function sha256(content: string): string {
   return crypto.createHash("sha256").update(content, "utf8").digest("hex");
 }
 
-/** Static one-line arg hints for known MVP tools (Pack schemas stay unchanged this slice). */
-const TOOL_ARG_HINTS: Record<string, string> = {
-  "workspace.list": 'args: {"path":"/"} (default "/")',
-  "workspace.read": 'args: {"path":"/file.md"} required',
-  "workspace.search": 'args: {"query":"..."} required',
-  "workspace.write": 'args: {"path":"/file.md","content":"..."} required',
-  "knowledge.search": 'args: {"query":"..."} required; optional collection_ids[], top_k',
-  "artifact.write_markdown": 'args: {"markdown":"..."} required',
-  "artifact.validate": 'args: {"artifactId":"art-..."} or {"ref":"artifact://..."}',
-  "synthetic.write_high": 'args: {"resourceKey":"...","payload":{...}} + idempotency',
+/** Core stub arg hint only; Pack tools use PackToolDefinition.argHint via manifest.tools. */
+const CORE_TOOL_ARG_HINTS: Record<string, string> = {
   echo: 'args: {"text":"..."}',
 };
 
@@ -83,13 +75,17 @@ function formatToolsSection(
   manifest?: ExecutionManifest,
 ): string {
   const effectById = new Map<string, string>();
+  const hintById = new Map<string, string>();
   for (const tool of manifest?.tools ?? []) {
     effectById.set(tool.toolId, tool.effectContract.sideEffectProfile);
+    if (typeof tool.argHint === "string" && tool.argHint.trim()) {
+      hintById.set(tool.toolId, tool.argHint.trim());
+    }
   }
 
   const lines = toolAllowlist.map((toolId) => {
     const effect = effectById.get(toolId);
-    const hint = TOOL_ARG_HINTS[toolId];
+    const hint = hintById.get(toolId) ?? CORE_TOOL_ARG_HINTS[toolId];
     const parts = [toolId];
     if (effect) parts.push(`effect=${effect}`);
     if (hint) parts.push(hint);

@@ -3,6 +3,7 @@ import type { ModelDecision, ModelFunctionCall } from "@monai/ports";
 
 import { hydrateModelAction } from "./hydrate-action.js";
 import { isControlFunctionName } from "./function-catalog.js";
+import type { ToolContractLookup } from "./normalize-action.js";
 
 export type MapDecisionContext = {
   lastFactId?: string;
@@ -189,6 +190,7 @@ function envelopeMeta(value: unknown): Pick<ModelDecision, "usage" | "reasoning"
 export function resolveModelActionCandidate(
   modelResult: unknown,
   ctx: MapDecisionContext,
+  lookup?: ToolContractLookup,
 ): ResolveModelActionResult {
   const meta = envelopeMeta(modelResult);
   if (!modelResult || typeof modelResult !== "object") {
@@ -199,7 +201,7 @@ export function resolveModelActionCandidate(
   const inner = rec.rawAction !== undefined ? rec.rawAction : modelResult;
 
   if (isActionShaped(inner)) {
-    return { ok: true, candidate: hydrateModelAction(inner), ...meta };
+    return { ok: true, candidate: hydrateModelAction(inner, lookup), ...meta };
   }
 
   const decision = asModelDecision(modelResult) ?? asModelDecision(inner);
@@ -213,7 +215,7 @@ export function resolveModelActionCandidate(
   }
   return {
     ok: true,
-    candidate: hydrateModelAction(mapped.action),
+    candidate: hydrateModelAction(mapped.action, lookup),
     ...meta,
     content: decision.content ?? meta.content,
   };
