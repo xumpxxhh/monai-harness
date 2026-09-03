@@ -2,6 +2,7 @@ import {
   CONTRACTS_SCHEMA_VERSION,
   createInitialRun,
   type AcceptanceCheck,
+  type ContextProjectionPolicy,
   type EventCandidate,
   type IdempotencyRecord,
   type ModelPolicy,
@@ -66,6 +67,8 @@ export type EngineDeps = {
   acceptanceChecks?: readonly AcceptanceCheck[];
   /** Model policy specification (target, fallback, maxRetries). */
   modelPolicy?: ModelPolicy;
+  /** Context projection / compression / section budget defaults. */
+  projectionPolicy?: ContextProjectionPolicy;
   /** Default lease TTL when acquire_lease succeeds. */
   leaseTtlMs?: number;
   /** Registered Pack contracts (P9a); falls back to TOOL_CATALOG when unset. */
@@ -128,6 +131,7 @@ export class Engine {
   private readonly registry: ExtensionRegistry | undefined;
   private readonly manifestStore: ExecutionManifestStorePort | undefined;
   private readonly modelPolicy: ModelPolicy | undefined;
+  private readonly projectionPolicy: ContextProjectionPolicy | undefined;
   private readonly previewHub: PreviewHub | undefined;
 
   constructor(deps: EngineDeps) {
@@ -142,6 +146,7 @@ export class Engine {
     this.registry = deps.registry;
     this.manifestStore = deps.manifestStore;
     this.modelPolicy = deps.modelPolicy;
+    this.projectionPolicy = deps.projectionPolicy;
     this.previewHub = deps.previewHub;
   }
 
@@ -218,6 +223,7 @@ export class Engine {
         registry: this.registry,
         manifest: resolved.manifest,
         modelPolicy: resolved.modelPolicy ?? this.modelPolicy,
+        projectionPolicy: this.projectionPolicy,
         previewHub: this.previewHub,
       },
       command,

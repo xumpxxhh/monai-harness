@@ -17,6 +17,7 @@ export {
   dialogueSourceRangeHash,
   estimateDialogueTokens,
   projectDialogueFromEvents,
+  DEFAULT_MAX_TOOL_CONTENT_CHARS,
 } from "./context/project-dialogue.js";
 export { projectModelMessages, assistantMessageFromAction } from "./context/project-messages.js";
 export { projectSessionDialogue } from "./context/project-session-dialogue.js";

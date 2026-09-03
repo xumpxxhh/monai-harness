@@ -8,6 +8,7 @@ import type {
   Run,
   RunState,
 } from "@monai/contracts";
+import { resolveContextProjectionPolicy } from "@monai/contracts";
 import type { ContextContribution } from "@monai/pack-sdk";
 import type { ModelPort, PersistencePort } from "@monai/ports";
 
@@ -18,7 +19,6 @@ import {
 } from "./compress-dialogue.js";
 import { projectModelMessages } from "./project-messages.js";
 import { projectSessionDialogue } from "./project-session-dialogue.js";
-import { DEFAULT_CONTEXT_PROJECTION_POLICY } from "@monai/contracts";
 
 export type BuildModelContextInput = {
   run: Run;
@@ -60,13 +60,14 @@ export async function buildModelContext(
   correlationId: string,
   expectedRevision: number,
 ): Promise<BuildModelContextResult> {
-  const policy = input.projectionPolicy ?? DEFAULT_CONTEXT_PROJECTION_POLICY;
+  const policy = resolveContextProjectionPolicy(input.projectionPolicy);
   const currentEvents = await input.persistence.listEvents(input.run.runId);
 
   const sessionDialogue = await projectSessionDialogue({
     currentRun: input.run,
     currentEvents,
     persistence: input.persistence,
+    maxToolContentChars: policy.maxToolContentChars,
   });
 
   const plan = planDialogueCompression({

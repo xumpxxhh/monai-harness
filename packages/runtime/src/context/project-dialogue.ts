@@ -9,18 +9,21 @@ import type {
   Run,
 } from "@monai/contracts";
 
+import { DEFAULT_CONTEXT_PROJECTION_POLICY } from "@monai/contracts";
+
 import { getToolCallInvocations } from "../model/normalize-action.js";
 
-const MAX_TOOL_CONTENT_CHARS = 8_000;
+export const DEFAULT_MAX_TOOL_CONTENT_CHARS =
+  DEFAULT_CONTEXT_PROJECTION_POLICY.maxToolContentChars ?? 8_000;
 
 function sha256(text: string): string {
   return crypto.createHash("sha256").update(text).digest("hex");
 }
 
-function capToolContent(data: unknown): string {
+function capToolContent(data: unknown, maxChars: number): string {
   const json = JSON.stringify(data ?? null);
-  if (json.length <= MAX_TOOL_CONTENT_CHARS) return json;
-  return `${json.slice(0, MAX_TOOL_CONTENT_CHARS)}…`;
+  if (json.length <= maxChars) return json;
+  return `${json.slice(0, maxChars)}…`;
 }
 
 function observationFromPayload(payload: unknown): Observation | undefined {
@@ -114,7 +117,9 @@ function assistantContent(action: Action | undefined, display?: string): string 
 export function projectDialogueFromEvents(input: {
   run: Run;
   events: readonly EventEnvelope[];
+  maxToolContentChars?: number;
 }): DialogueTurn[] {
+  const maxToolContentChars = input.maxToolContentChars ?? DEFAULT_MAX_TOOL_CONTENT_CHARS;
   const turns: DialogueTurn[] = [];
   const sorted = [...input.events].sort((a, b) => a.sequence - b.sequence);
 
@@ -205,7 +210,7 @@ export function projectDialogueFromEvents(input: {
           runId: input.run.runId,
           stepId: event.stepId,
           role: "tool",
-          content: capToolContent(observation.data),
+          content: capToolContent(observation.data, maxToolContentChars),
           toolCallId: event.toolCallId,
           toolName: observation.source.sourceId,
           sourceEventIds: [event.eventId],

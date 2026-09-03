@@ -1,6 +1,10 @@
 import { config as loadEnvFile } from "dotenv";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  resolveContextProjectionPolicy,
+  type ContextProjectionPolicy,
+} from "@monai/contracts";
 
 export type PersistenceDriver = "memory" | "postgres";
 
@@ -52,6 +56,8 @@ export type HarnessConfig = {
   knowledgeCollectionIds: readonly string[];
   knowledgeTopK?: number;
   knowledgeTimeoutMs: number;
+  /** Context projection / compression / section budget (env overrideable). */
+  contextProjectionPolicy: ContextProjectionPolicy;
 };
 
 /** `apps/harness` package root (works from `src/config/` and compiled `dist/config/`). */
@@ -70,6 +76,34 @@ function parseBool(raw: string | undefined, fallback: boolean): boolean {
   if (["1", "true", "yes", "on"].includes(v)) return true;
   if (["0", "false", "no", "off"].includes(v)) return false;
   return fallback;
+}
+
+/** Positive int from env; blank/invalid → fallback. */
+export function parsePositiveInt(raw: string | undefined, fallback: number): number {
+  if (raw === undefined || raw.trim() === "") return fallback;
+  const n = Number(raw.trim());
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) return fallback;
+  return n;
+}
+
+/**
+ * Context projection policy from env (`CONTEXT_*`).
+ * Unset keys keep `DEFAULT_CONTEXT_PROJECTION_POLICY`.
+ */
+export function parseContextProjectionPolicy(
+  env: NodeJS.Dict<string>,
+): ContextProjectionPolicy {
+  const d = resolveContextProjectionPolicy();
+  return resolveContextProjectionPolicy({
+    recentTurnCount: parsePositiveInt(env.CONTEXT_RECENT_TURN_COUNT, d.recentTurnCount),
+    recentTokenBudget: parsePositiveInt(env.CONTEXT_RECENT_TOKEN_BUDGET, d.recentTokenBudget),
+    compressThreshold: parsePositiveInt(env.CONTEXT_COMPRESS_THRESHOLD, d.compressThreshold),
+    maxTotalTokens: parsePositiveInt(env.CONTEXT_MAX_TOTAL_TOKENS, d.maxTotalTokens ?? 8192),
+    maxToolContentChars: parsePositiveInt(
+      env.CONTEXT_MAX_TOOL_CONTENT_CHARS,
+      d.maxToolContentChars ?? 8_000,
+    ),
+  });
 }
 
 export function allHarnessRolesEnabled(): HarnessRoles {
@@ -175,6 +209,8 @@ export function loadConfig(): HarnessConfig {
   const knowledgeTimeoutMs =
     Number(process.env.KNOWLEDGE_TIMEOUT_MS ?? "60000") || 60_000;
 
+  const contextProjectionPolicy = parseContextProjectionPolicy(process.env);
+
   return {
     persistenceDriver,
     modelDriver,
@@ -204,6 +240,7 @@ export function loadConfig(): HarnessConfig {
     knowledgeCollectionIds,
     knowledgeTopK: Number.isFinite(knowledgeTopK) ? knowledgeTopK : undefined,
     knowledgeTimeoutMs,
+    contextProjectionPolicy,
   };
 }
 

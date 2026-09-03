@@ -126,6 +126,7 @@ export async function bootstrap(config: HarnessConfig): Promise<HarnessRuntime> 
             digest: `digest:model-policy:${config.openaiModel}`,
           }
         : undefined,
+    projectionPolicy: config.contextProjectionPolicy,
     hooks: pack.hookRunner,
     registry: pack.registry,
     manifestStore,

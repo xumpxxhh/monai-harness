@@ -8,6 +8,7 @@ import {
   type ApprovalRecord,
   type Checkpoint,
   type Continuation,
+  type ContextProjectionPolicy,
   type EventCandidate,
   type ExecutionManifest,
   type IdempotencyRecord,
@@ -131,6 +132,8 @@ export type ExecuteTurnDeps = {
   /** Frozen ExecutionManifest — Pack tool defs for catalog / prompt / context. */
   manifest?: ExecutionManifest;
   modelPolicy?: ModelPolicy;
+  /** Dialogue projection / compression / section budget policy. */
+  projectionPolicy?: ContextProjectionPolicy;
   /** Optional in-process preview fan-out (token UX; not Event Log). */
   previewHub?: PreviewHub;
 };
@@ -298,6 +301,7 @@ export async function handleExecuteTurn(
       persistence: deps.persistence,
       model: deps.model,
       systemPrompt,
+      projectionPolicy: deps.projectionPolicy,
     },
     eventBase,
     correlationId,

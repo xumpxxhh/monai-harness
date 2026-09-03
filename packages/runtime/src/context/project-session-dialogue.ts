@@ -7,6 +7,7 @@ export type SessionDialogueInput = {
   currentRun: Run;
   currentEvents: readonly EventEnvelope[];
   persistence: PersistencePort;
+  maxToolContentChars?: number;
 };
 
 export type SessionDialogueResult = {
@@ -33,12 +34,20 @@ export async function projectSessionDialogue(
   const priorRunIds = priorRuns.map((run) => run.runId);
   const turns: DialogueTurn[] = [];
 
+  const maxToolContentChars = input.maxToolContentChars;
+
   for (const run of priorRuns) {
     const events = await input.persistence.listEvents(run.runId);
-    turns.push(...projectDialogueFromEvents({ run, events }));
+    turns.push(...projectDialogueFromEvents({ run, events, maxToolContentChars }));
   }
 
-  turns.push(...projectDialogueFromEvents({ run: input.currentRun, events: input.currentEvents }));
+  turns.push(
+    ...projectDialogueFromEvents({
+      run: input.currentRun,
+      events: input.currentEvents,
+      maxToolContentChars,
+    }),
+  );
 
   return { turns, priorRunIds };
 }

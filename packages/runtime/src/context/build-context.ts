@@ -197,6 +197,7 @@ export function buildContext(input: BuildContextInput): ContextBuildResult {
 
   const maxTotalTokens =
     input.budget?.maxTotalTokens ??
+    input.projectionPolicy?.maxTotalTokens ??
     (typeof (run.budgets as { maxTokens?: number } | undefined)?.maxTokens === "number"
       ? (run.budgets as { maxTokens?: number }).maxTokens!
       : 8192);

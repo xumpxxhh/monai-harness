@@ -182,6 +182,7 @@ export {
   contextMemoryContributionSchema,
   contextProjectionPolicySchema,
   DEFAULT_CONTEXT_PROJECTION_POLICY,
+  resolveContextProjectionPolicy,
   dialogueEventRangeSchema,
   dialogueTurnSchema,
   DIALOGUE_TURN_ROLES,
