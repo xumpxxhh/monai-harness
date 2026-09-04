@@ -1,3 +1,5 @@
+import crypto from "node:crypto";
+
 import {
   CONTRACTS_SCHEMA_VERSION,
   type Action,
@@ -12,14 +14,20 @@ import type { IdempotencyPort, PersistencePort } from "@monai/ports";
 
 import { lookupToolContract, requiresIdempotencyKey } from "./lookup-tool-contract.js";
 import type { ExtensionRegistry } from "../extension/extension-registry.js";
-import { getToolCallInvocations } from "../model/normalize-action.js";
+import { compactIdempotencyKey, getToolCallInvocations } from "../model/normalize-action.js";
 
 function stable(value: unknown): string {
   return typeof value === "string" ? value : JSON.stringify(value ?? null);
 }
 
+function sha256Hex(text: string): string {
+  return crypto.createHash("sha256").update(text, "utf8").digest("hex");
+}
+
+/** Compact hash suitable for DB columns / indexes (never embed full tool args). */
 export function invocationInputHash(inv: ToolCallInvocation): string {
-  return `ih:${inv.toolId}:${inv.idempotencyKey ?? ""}:${stable(inv.arguments)}`;
+  const digest = sha256Hex(`${inv.idempotencyKey ?? ""}:${stable(inv.arguments)}`);
+  return `ih:${inv.toolId}:${digest}`;
 }
 
 export type PrepareToolCallsInput = {
@@ -99,11 +107,16 @@ export async function prepareToolCalls(
       };
     }
 
+    const idempotencyKey = inv.idempotencyKey
+      ? compactIdempotencyKey(inv.idempotencyKey)
+      : undefined;
+    const invForHash: ToolCallInvocation = { ...inv, idempotencyKey };
+
     const unknown = existingCalls.find(
       (t) => t.toolId === inv.toolId && t.status === "outcome_unknown",
     );
     if (unknown) {
-      if (unknown.idempotencyKey !== inv.idempotencyKey) {
+      if (unknown.idempotencyKey !== idempotencyKey) {
         return {
           ok: false,
           code: "validation",
@@ -118,12 +131,12 @@ export async function prepareToolCalls(
       };
     }
 
-    const hash = invocationInputHash(inv);
-    if (inv.idempotencyKey && input.persistence.get) {
+    const hash = invocationInputHash(invForHash);
+    if (idempotencyKey && input.persistence.get) {
       const existing = await input.persistence.get(
         "tool_call",
         input.run.tenantId,
-        inv.idempotencyKey,
+        idempotencyKey,
       );
       if (existing) {
         if (existing.requestHash !== hash) {
@@ -152,7 +165,7 @@ export async function prepareToolCalls(
       inputHash: hash,
       arguments: inv.arguments,
       resourceScope: inv.resourceScope,
-      idempotencyKey: inv.idempotencyKey,
+      idempotencyKey,
       idempotencyScope: contract.idempotencyScope,
       deliverySemantics: contract.deliverySemantics,
       sideEffectProfile: contract.sideEffectProfile,
@@ -173,18 +186,18 @@ export async function prepareToolCalls(
         correlationId: input.correlationId,
         stepId: input.stepId,
         toolCallId,
-        payload: { toolId: inv.toolId, idempotencyKey: inv.idempotencyKey, callIndex },
+        payload: { toolId: inv.toolId, idempotencyKey, callIndex },
       }),
     );
 
-    if (inv.idempotencyKey) {
+    if (idempotencyKey) {
       idempotency.push({
         schemaVersion: CONTRACTS_SCHEMA_VERSION,
         idempotencyRecordId: `idem-tc-${toolCallId}`,
         namespace: "tool_call",
         tenantId: input.run.tenantId,
-        key: inv.idempotencyKey,
-        dedupeKey: inv.idempotencyKey,
+        key: idempotencyKey,
+        dedupeKey: idempotencyKey,
         requestHash: hash,
         ownerRef: {
           ownerType: "tool_call",

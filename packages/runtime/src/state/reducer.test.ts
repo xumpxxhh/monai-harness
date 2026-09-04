@@ -48,6 +48,16 @@ describe("validateObservationToFact + reduce", () => {
     expect(validated.accepted).toBe(false);
   });
 
+  it("rejects tool failure observation (ok:false) as fact", () => {
+    const validated = validateObservationToFact(
+      observation({ ok: false, error: "ENOENT", toolId: "workspace.read" }),
+      { authorizationDecisionRef: "tool:tc-1" },
+    );
+    expect(validated.accepted).toBe(false);
+    if (validated.accepted) return;
+    expect(validated.reason).toMatch(/failure observation/i);
+  });
+
   it("applies facts serially", () => {
     const v1 = validateObservationToFact(observation({ summary: "a" }), {
       authorizationDecisionRef: "p",

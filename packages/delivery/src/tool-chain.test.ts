@@ -80,6 +80,59 @@ describe("P4 tool chain", () => {
     expect(state?.facts[0]?.summary).toContain("read");
   });
 
+  it("workspace.read missing file → tool.failed then observation.recorded", async () => {
+    const workspace = new InMemoryWorkspace();
+    const { persistence, engine, tools, ownerId } = createPackTestFixtures({
+      workspace,
+      requireApprovalTools: [],
+    });
+
+    const running = await bootToRunning(engine, cmd, "r-ws-miss", "please workspace-read", ownerId);
+    expect(running.ok).toBe(true);
+    if (!running.ok) return;
+
+    const turn = await engine.handle(
+      cmd({
+        commandType: "execute_turn",
+        commandId: "turn-ws-miss",
+        runId: "r-ws-miss",
+        expectedRevision: running.revision,
+        leaseEpoch: running.leaseEpoch,
+        actor: { principalId: ownerId },
+      }),
+    );
+    expect(turn.ok).toBe(true);
+    await tools.tick();
+
+    const events = await persistence.listEvents("r-ws-miss");
+    const types = events.map((e) => e.eventType);
+    expect(types).toContain("tool.failed");
+    expect(types).toContain("observation.recorded");
+    expect(types).toContain("step.failed");
+
+    const failIdx = types.indexOf("tool.failed");
+    const obsIdx = types.indexOf("observation.recorded");
+    expect(obsIdx).toBeGreaterThan(failIdx);
+
+    const obsEvent = events.find((e) => e.eventType === "observation.recorded");
+    const observation = (obsEvent?.payload as { observation?: { data?: unknown } } | undefined)
+      ?.observation;
+    expect(observation?.data).toMatchObject({
+      ok: false,
+      toolId: "workspace.read",
+    });
+    expect(String((observation?.data as { error?: string } | undefined)?.error ?? "")).toMatch(
+      /not found/i,
+    );
+
+    const toolCall = (await persistence.listToolCalls("r-ws-miss"))[0];
+    expect(toolCall?.status).toBe("failed");
+    expect(toolCall?.resultObservationId).toMatch(/^obs-fail-/);
+
+    const state = await persistence.getState("r-ws-miss");
+    expect(state?.facts ?? []).toHaveLength(0);
+  });
+
   it("workspace.write via prepared/dispatch", async () => {
     const workspace = new InMemoryWorkspace({ "/readme.md": "hello workspace" });
     const { persistence, engine, tools, ownerId } = createPackTestFixtures({

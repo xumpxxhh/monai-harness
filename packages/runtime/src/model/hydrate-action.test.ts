@@ -382,6 +382,59 @@ describe("hydrateModelAction", () => {
     expect(hydrated.calls?.[0]?.idempotencyKey).toContain("workspace.write");
   });
 
+  it("derives compact hashed idempotencyKey for large workspace.write content", () => {
+    const writeLowLookup = (toolId: string) =>
+      toolId === "workspace.write"
+        ? {
+            schemaVersion: CONTRACTS_SCHEMA_VERSION,
+            sideEffectProfile: "write_low" as const,
+            deliverySemantics: "at_most_once" as const,
+            idempotencyScope: "run" as const,
+            reconcileSupported: false,
+            timeoutMs: 5_000,
+          }
+        : undefined;
+    const big = "高效 AI Coding".repeat(2000);
+    const hydrated = hydrateModelAction(
+      {
+        type: "tool.call",
+        toolId: "workspace.write",
+        arguments: { path: "/archive.md", content: big },
+      },
+      writeLowLookup,
+    ) as { calls?: Array<{ idempotencyKey?: string }> };
+    const key = hydrated.calls?.[0]?.idempotencyKey ?? "";
+    expect(key).toMatch(/^ik:workspace\.write:[a-f0-9]{64}$/);
+    expect(Buffer.byteLength(key, "utf8")).toBeLessThan(200);
+  });
+
+  it("compacts oversized caller-supplied idempotencyKey", () => {
+    const writeLowLookup = (toolId: string) =>
+      toolId === "workspace.write"
+        ? {
+            schemaVersion: CONTRACTS_SCHEMA_VERSION,
+            sideEffectProfile: "write_low" as const,
+            deliverySemantics: "at_most_once" as const,
+            idempotencyScope: "run" as const,
+            reconcileSupported: false,
+            timeoutMs: 5_000,
+          }
+        : undefined;
+    const hugeKey = `ik:workspace.write:${"x".repeat(4000)}`;
+    const hydrated = hydrateModelAction(
+      {
+        type: "tool.call",
+        toolId: "workspace.write",
+        arguments: { path: "/a.md", content: "hi" },
+        idempotencyKey: hugeKey,
+      },
+      writeLowLookup,
+    ) as { calls?: Array<{ idempotencyKey?: string }> };
+    const key = hydrated.calls?.[0]?.idempotencyKey ?? "";
+    expect(key.startsWith("ikh:")).toBe(true);
+    expect(Buffer.byteLength(key, "utf8")).toBeLessThan(100);
+  });
+
   it("does not invent idempotencyKey for read tools", () => {
     const hydrated = hydrateModelAction({
       type: "tool.call",

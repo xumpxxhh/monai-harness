@@ -7,6 +7,7 @@ import {
   hasDeliveryRole,
   parseContextProjectionPolicy,
   parseHarnessRoles,
+  parseOptionalPositiveInt,
   parsePositiveInt,
 } from "./env.js";
 
@@ -95,6 +96,19 @@ describe("parsePositiveInt", () => {
 
   it("parses positive integers", () => {
     expect(parsePositiveInt("24", 6)).toBe(24);
+  });
+});
+
+describe("parseOptionalPositiveInt", () => {
+  it("returns undefined for blank or invalid", () => {
+    expect(parseOptionalPositiveInt(undefined)).toBeUndefined();
+    expect(parseOptionalPositiveInt("")).toBeUndefined();
+    expect(parseOptionalPositiveInt("0")).toBeUndefined();
+    expect(parseOptionalPositiveInt("abc")).toBeUndefined();
+  });
+
+  it("parses OPENAI_MAX_TOKENS-style values", () => {
+    expect(parseOptionalPositiveInt("8192")).toBe(8192);
   });
 });
 

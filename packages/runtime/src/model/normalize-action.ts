@@ -1,3 +1,5 @@
+import crypto from "node:crypto";
+
 import type { Action, ToolCallInvocation, ToolEffectContract } from "@monai/contracts";
 
 import { lookupToolContract, requiresIdempotencyKey } from "../execution/lookup-tool-contract.js";
@@ -14,6 +16,23 @@ function stable(value: unknown): string {
   const record = value as Record<string, unknown>;
   const keys = Object.keys(record).sort();
   return `{${keys.map((key) => `${JSON.stringify(key)}:${stable(record[key])}`).join(",")}}`;
+}
+
+function sha256Hex(text: string): string {
+  return crypto.createHash("sha256").update(text, "utf8").digest("hex");
+}
+
+/**
+ * Postgres btree unique indexes reject oversized keys (~2704 bytes).
+ * Keep stored idempotency / dedupe keys compact.
+ */
+export function compactIdempotencyKey(raw: string): string {
+  if (Buffer.byteLength(raw, "utf8") <= 1024) return raw;
+  return `ikh:${sha256Hex(raw)}`;
+}
+
+function deriveIdempotencyKey(toolId: string, args: unknown): string {
+  return compactIdempotencyKey(`ik:${toolId}:${sha256Hex(stable(args))}`);
 }
 
 function invocationKey(inv: ToolCallInvocation): string {
@@ -43,7 +62,9 @@ function hydrateInvocationKeys(
     requiresIdempotencyKey(contract) &&
     (typeof next.idempotencyKey !== "string" || !next.idempotencyKey.trim())
   ) {
-    next.idempotencyKey = `ik:${next.toolId}:${stable(next.arguments)}`;
+    next.idempotencyKey = deriveIdempotencyKey(next.toolId, next.arguments);
+  } else if (typeof next.idempotencyKey === "string" && next.idempotencyKey.trim()) {
+    next.idempotencyKey = compactIdempotencyKey(next.idempotencyKey.trim());
   }
   return next;
 }

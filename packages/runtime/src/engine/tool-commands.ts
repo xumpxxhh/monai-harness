@@ -118,6 +118,36 @@ export type ReconcileToolPayload = {
   ok: boolean;
 };
 
+function buildToolFailureObservation(input: {
+  run: Pick<Run, "tenantId" | "sessionId" | "runId">;
+  toolCall: ToolCallRecord;
+  error: string;
+  now: string;
+}): Observation {
+  const observationId = `obs-fail-${input.toolCall.toolCallId}`;
+  return {
+    schemaVersion: CONTRACTS_SCHEMA_VERSION,
+    observationId,
+    tenantId: input.run.tenantId,
+    sessionId: input.run.sessionId,
+    runId: input.run.runId,
+    stepId: input.toolCall.stepId,
+    source: {
+      kind: "tool",
+      sourceId: input.toolCall.toolCallId,
+      version: input.toolCall.toolVersion,
+    },
+    observedAt: input.now,
+    data: {
+      ok: false,
+      error: input.error,
+      toolId: input.toolCall.toolId,
+    },
+    hash: `obs-hash-${observationId}`,
+    declaredSchemaRef: `tool.${input.toolCall.toolId}.error/0.1.0`,
+  };
+}
+
 /**
  * Commit tool.dispatched (accepted phase).
  */
@@ -304,11 +334,19 @@ export async function handleToolDispatchTerminal(
       }),
     );
   } else if (payload.phase === "failed") {
+    const error = payload.error ?? "tool failed";
+    const observation = buildToolFailureObservation({
+      run,
+      toolCall: nextTool,
+      error,
+      now,
+    });
     nextTool = {
       ...nextTool,
       status: "failed",
       completedAt: now,
-      error: payload.error ?? "tool failed",
+      error,
+      resultObservationId: observation.observationId,
       revision: nextTool.revision + 1,
     };
     events.push(
@@ -320,6 +358,15 @@ export async function handleToolDispatchTerminal(
         stepId: toolCall.stepId,
         toolCallId: toolCall.toolCallId,
         payload: { error: nextTool.error },
+      }),
+      eventBase(run, {
+        eventId: `evt-obs-${observation.observationId}`,
+        eventType: "observation.recorded",
+        expectedRevision: run.revision,
+        correlationId,
+        stepId: toolCall.stepId,
+        toolCallId: toolCall.toolCallId,
+        payload: { observationId: observation.observationId, observation },
       }),
     );
     await appendStepTerminalIfBatchReady(
@@ -518,11 +565,19 @@ export async function handleReconcileTool(
   let nextTool: ToolCallRecord;
 
   if (!payload.ok) {
+    const error = payload.error ?? "reconcile failed";
+    const observation = buildToolFailureObservation({
+      run,
+      toolCall,
+      error,
+      now,
+    });
     nextTool = {
       ...toolCall,
       status: "failed",
       completedAt: now,
-      error: payload.error ?? "reconcile failed",
+      error,
+      resultObservationId: observation.observationId,
       revision: toolCall.revision + 1,
     };
     events.push(
@@ -533,6 +588,16 @@ export async function handleReconcileTool(
         correlationId,
         stepId: toolCall.stepId,
         toolCallId: toolCall.toolCallId,
+        payload: { error },
+      }),
+      eventBase(run, {
+        eventId: `evt-obs-${observation.observationId}`,
+        eventType: "observation.recorded",
+        expectedRevision: run.revision,
+        correlationId,
+        stepId: toolCall.stepId,
+        toolCallId: toolCall.toolCallId,
+        payload: { observationId: observation.observationId, observation },
       }),
     );
     await appendStepTerminalIfBatchReady(

@@ -37,6 +37,8 @@ export type HarnessConfig = {
   openaiModel?: string;
   openaiResponseFormat: "json_object" | "none";
   openaiAuthHeader?: string;
+  /** Completion max_tokens; unset → adapter default (1024). */
+  openaiMaxTokens?: number;
   databaseUrl: string;
   port: number;
   /** demo = CreateRun→execute_turn then exit; serve = keep delivery loops */
@@ -83,6 +85,14 @@ export function parsePositiveInt(raw: string | undefined, fallback: number): num
   if (raw === undefined || raw.trim() === "") return fallback;
   const n = Number(raw.trim());
   if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) return fallback;
+  return n;
+}
+
+/** Positive int from env; blank/invalid → undefined. */
+export function parseOptionalPositiveInt(raw: string | undefined): number | undefined {
+  if (raw === undefined || raw.trim() === "") return undefined;
+  const n = Number(raw.trim());
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) return undefined;
   return n;
 }
 
@@ -210,6 +220,7 @@ export function loadConfig(): HarnessConfig {
     Number(process.env.KNOWLEDGE_TIMEOUT_MS ?? "60000") || 60_000;
 
   const contextProjectionPolicy = parseContextProjectionPolicy(process.env);
+  const openaiMaxTokens = parseOptionalPositiveInt(process.env.OPENAI_MAX_TOKENS);
 
   return {
     persistenceDriver,
@@ -224,6 +235,7 @@ export function loadConfig(): HarnessConfig {
     openaiAuthHeader:
       process.env.OPENAI_AUTH_HEADER?.trim() ||
       (process.env.OPENAI_API_KEY?.startsWith("ak_") ? "api-key" : undefined),
+    openaiMaxTokens,
     databaseUrl:
       process.env.DATABASE_URL?.trim() ||
       "postgres://monai:monai@127.0.0.1:54329/monai_harness",

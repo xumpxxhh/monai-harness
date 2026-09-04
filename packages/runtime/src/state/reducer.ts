@@ -23,6 +23,14 @@ export function validateObservationToFact(
   if (observation.data !== undefined && observation.dataRef !== undefined) {
     return { accepted: false, reason: "observation must not carry both data and dataRef" };
   }
+  if (
+    typeof observation.data === "object" &&
+    observation.data !== null &&
+    "ok" in observation.data &&
+    (observation.data as { ok: unknown }).ok === false
+  ) {
+    return { accepted: false, reason: "tool failure observation is not a fact" };
+  }
 
   const factType = opts.factType ?? `${observation.source.kind}.result`;
   const fact: FactEnvelope = {

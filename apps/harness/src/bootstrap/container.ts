@@ -124,6 +124,9 @@ export async function bootstrap(config: HarnessConfig): Promise<HarnessRuntime> 
             version: "1.0.0",
             resolvedTarget: config.openaiModel,
             digest: `digest:model-policy:${config.openaiModel}`,
+            ...(config.openaiMaxTokens !== undefined
+              ? { maxTokens: config.openaiMaxTokens }
+              : {}),
           }
         : undefined,
     projectionPolicy: config.contextProjectionPolicy,
