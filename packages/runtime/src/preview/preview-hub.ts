@@ -1,5 +1,7 @@
 import type { ModelCompleteInput, ModelMessage, ModelPreviewChannel } from "@monai/ports";
 
+import type { SystemPromptLayer } from "../model/assemble-system-message.js";
+
 export type ModelContextStatus = "committed" | "invalid" | "failed";
 
 export type ModelPreviewEvent =
@@ -9,6 +11,8 @@ export type ModelPreviewEvent =
       stepId: string;
       modelCallId: string;
       input: ModelCompleteInput;
+      /** Layered system prompt assembly (observability). */
+      systemPromptLayers?: readonly SystemPromptLayer[];
     }
   | {
       type: "model_context";

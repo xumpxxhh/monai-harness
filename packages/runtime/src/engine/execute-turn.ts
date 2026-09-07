@@ -288,7 +288,7 @@ export async function handleExecuteTurn(
     digest: "digest:model-policy:default",
   };
 
-  const systemPrompt = buildAgentSystemPrompt({ toolAllowlist, toolDefs });
+  const identityPrompt = buildAgentSystemPrompt();
   const modelContextResult = await buildModelContext(
     {
       run,
@@ -296,11 +296,12 @@ export async function handleExecuteTurn(
       state,
       toolAllowlist,
       manifest: deps.manifest,
+      toolDefs,
       hookContributions: pre.merged.contextContributions,
       modelPolicy: resolvedModelPolicy,
       persistence: deps.persistence,
       model: deps.model,
-      systemPrompt,
+      identity: identityPrompt,
       projectionPolicy: deps.projectionPolicy,
     },
     eventBase,
@@ -309,6 +310,8 @@ export async function handleExecuteTurn(
   );
   const buildResult = modelContextResult.buildResult;
   const modelMessages = modelContextResult.messages;
+  const systemPrompt = modelContextResult.systemPrompt;
+  const systemPromptLayers = modelContextResult.layers;
   const compressionEvents = modelContextResult.compressionEvents;
 
   if (buildResult.overflow) {
@@ -406,6 +409,7 @@ export async function handleExecuteTurn(
         stepId,
         modelCallId,
         input: modelInput,
+        systemPromptLayers,
       });
 
       if (typeof deps.model.completeStructuredStream === "function") {

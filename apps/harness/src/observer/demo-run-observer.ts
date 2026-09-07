@@ -242,6 +242,7 @@ export class DemoRunObserver {
               modelCallId: event.modelCallId,
               stepId: event.stepId,
               input: event.input,
+              systemPromptLayers: event.systemPromptLayers,
             },
             null,
             2,
@@ -258,6 +259,10 @@ export class DemoRunObserver {
               ? String((event.input.context as { contextHash: unknown }).contextHash)
               : undefined,
           systemPrompt: event.input.systemPrompt,
+          systemPromptLayers: event.systemPromptLayers?.map((layer) => ({
+            kind: layer.kind,
+            chars: layer.text.length,
+          })),
           controlFunctionCount: event.input.controlFunctions?.length ?? 0,
           domainToolCount: event.input.domainTools?.length ?? 0,
         });

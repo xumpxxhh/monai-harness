@@ -53,9 +53,9 @@ export const packToolDefinitionSchema = strictObject({
   description: z.string().min(1).optional(),
   /** JSON Schema object for function-calling arguments. */
   parameters: z.unknown().optional(),
-  /** One-line arg hint for Context tools section. */
+  /** One-line presence hint (snippet) for Context tools section — not a schema copy. */
   argHint: z.string().optional(),
-  /** Extra system-prompt rules when this tool is allowlisted. */
+  /** Selection guidelines when this tool is allowlisted (assembled into system guidelines layer). */
   systemPrompt: z.string().optional(),
   /** When false, registered but omitted from default allowlist (opt-in at wiring). Default true. */
   defaultEnabled: z.boolean().optional(),

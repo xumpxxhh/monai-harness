@@ -38,7 +38,7 @@ describe("buildContext", () => {
           {
             toolId: "workspace.read",
             version: "0.1.0",
-            argHint: 'args: {"path":"/file.md"} required',
+            argHint: "Read a workspace file",
             effectContract: {
               schemaVersion: "0.1.0",
               sideEffectProfile: "read",
@@ -50,7 +50,7 @@ describe("buildContext", () => {
           {
             toolId: "workspace.write",
             version: "0.1.0",
-            argHint: 'args: {"path":"/file.md","content":"..."} required',
+            argHint: "Create or overwrite a workspace file",
             effectContract: {
               schemaVersion: "0.1.0",
               sideEffectProfile: "write_low",
@@ -80,9 +80,14 @@ describe("buildContext", () => {
     ]);
     const toolsSection = result.sections.find((s) => s.kind === "tools");
     expect(toolsSection?.text).toContain("workspace.read");
-    expect(toolsSection?.text).toContain('args: {"path":"/file.md"}');
+    expect(toolsSection?.text).toContain("Read a workspace file");
     expect(toolsSection?.text).toContain("workspace.write");
-    expect(toolsSection?.text).toContain('args: {"path":"/file.md","content":"..."}');
+    expect(toolsSection?.text).toContain("Create or overwrite a workspace file");
+    const safety = result.sections.find((s) => s.kind === "safety_boundary");
+    expect(safety?.text).toContain("tenantId: tenant-test");
+    expect(safety?.text).toContain("sessionId: session-test");
+    expect(safety?.text).toContain("runId: run-ctx-test");
+    expect(safety?.text).toContain("toolAllowlistCount: 2");
   });
 
   it("formats workspace.list facts in recent_events for the model", () => {

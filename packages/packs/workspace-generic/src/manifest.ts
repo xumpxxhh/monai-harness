@@ -366,7 +366,7 @@ export const WORKSPACE_GENERIC_MANIFEST = {
         properties: { path: { type: "string" } },
         additionalProperties: true,
       },
-      argHint: 'args: {"path":"/"} (default "/")',
+      argHint: "List entries under a workspace path",
       effectContract: {
         ...baseContract,
         sideEffectProfile: "read" as const,
@@ -383,7 +383,7 @@ export const WORKSPACE_GENERIC_MANIFEST = {
         required: ["path"],
         additionalProperties: true,
       },
-      argHint: 'args: {"path":"/file.md"} required',
+      argHint: "Read a workspace file",
       effectContract: {
         ...baseContract,
         sideEffectProfile: "read" as const,
@@ -400,7 +400,7 @@ export const WORKSPACE_GENERIC_MANIFEST = {
         required: ["query"],
         additionalProperties: true,
       },
-      argHint: 'args: {"query":"..."} required',
+      argHint: "Search workspace file contents",
       effectContract: {
         ...baseContract,
         sideEffectProfile: "read" as const,
@@ -421,12 +421,11 @@ export const WORKSPACE_GENERIC_MANIFEST = {
         required: ["path", "content"],
         additionalProperties: true,
       },
-      argHint: 'args: {"path":"/file.md","content":"..."} required',
+      argHint: "Create or overwrite a workspace file",
       systemPrompt: [
         "Workspace write (workspace.write):",
-        "1. Write UTF-8 text to an absolute path under / (e.g. /notes/out.md). path and content are required.",
-        "2. Do not use .. or paths outside the authorized workspace root.",
-        "3. Overwriting an existing file is allowed; do not write to / itself.",
+        "Prefer workspace.write when persisting text the user asked to save.",
+        "Overwriting an existing file is intentional; do not invent paths outside the authorized workspace.",
       ].join("\n"),
       effectContract: {
         ...baseContract,
@@ -448,12 +447,11 @@ export const WORKSPACE_GENERIC_MANIFEST = {
         required: ["path"],
         additionalProperties: true,
       },
-      argHint: 'args: {"path":"/file.md"} required; requires approval',
+      argHint: "Delete a workspace file (requires approval)",
       systemPrompt: [
         "Workspace delete (workspace.delete):",
-        "1. Delete a single file at an absolute path under / (e.g. /notes/out.md). path is required.",
-        "2. Do not delete / itself or directories; do not use .. or paths outside the authorized workspace root.",
-        "3. This tool requires human approval before execution.",
+        "Use workspace.delete only when the user clearly wants a file removed.",
+        "Prefer confirming intent when the target path is ambiguous.",
       ].join("\n"),
       effectContract: {
         ...baseContract,
@@ -489,14 +487,13 @@ export const WORKSPACE_GENERIC_MANIFEST = {
         required: ["query"],
         additionalProperties: true,
       },
-      argHint: 'args: {"query":"..."} required; optional collection_ids[], top_k',
+      argHint: "Search enterprise knowledge bases",
       systemPrompt: [
         "Knowledge base (knowledge.search):",
-        "1. Before answering factual questions that need external docs, call knowledge.search with a specific query.",
-        "2. Answer only from hits[].content; do not invent information not present in hits.",
-        "3. Cite sourceId or title in your answer, e.g. [intro.md].",
-        "4. If grounding.empty is true, say no relevant knowledge was found; do not guess.",
-        "5. When you know which knowledge base applies, pass collection_ids to improve accuracy.",
+        "Before answering factual questions that need external docs, call knowledge.search with a specific query.",
+        "Answer only from hits[].content; do not invent information not present in hits.",
+        "Cite sourceId or title in your answer, e.g. [intro.md].",
+        "If grounding.empty is true, say no relevant knowledge was found; do not guess.",
       ].join("\n"),
       effectContract: {
         ...knowledgeContract,
@@ -514,7 +511,7 @@ export const WORKSPACE_GENERIC_MANIFEST = {
         required: ["markdown"],
         additionalProperties: true,
       },
-      argHint: 'args: {"markdown":"..."} required',
+      argHint: "Write a markdown artifact",
       effectContract: {
         ...baseContract,
         sideEffectProfile: "write_low" as const,
@@ -530,7 +527,7 @@ export const WORKSPACE_GENERIC_MANIFEST = {
         properties: { artifactId: { type: "string" }, ref: { type: "string" } },
         additionalProperties: true,
       },
-      argHint: 'args: {"artifactId":"art-..."} or {"ref":"artifact://..."}',
+      argHint: "Validate an artifact by id or ref",
       effectContract: {
         ...baseContract,
         sideEffectProfile: "read" as const,
@@ -550,7 +547,7 @@ export const WORKSPACE_GENERIC_MANIFEST = {
         },
         additionalProperties: true,
       },
-      argHint: 'args: {"resourceKey":"...","payload":{...}} + idempotency',
+      argHint: "High side-effect synthetic write (requires approval)",
       effectContract: {
         ...baseContract,
         sideEffectProfile: "write_high" as const,

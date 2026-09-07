@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { ExtensionRegistry } from "../extension/extension-registry.js";
 import { buildExecutionManifest } from "../manifest/build-manifest.js";
-import { buildAgentSystemPrompt } from "../model/agent-system-prompt.js";
+import { collectPackGuidelines } from "../model/assemble-system-message.js";
 import { buildModelFunctionCatalog } from "../model/function-catalog.js";
 import { buildContext } from "../context/build-context.js";
 
@@ -35,8 +35,8 @@ describe("Pack tool SSOT", () => {
               required: ["q"],
               additionalProperties: false,
             },
-            argHint: 'args: {"q":"..."} required',
-            systemPrompt: "Demo pack_only rules:\n1. Always pass q.",
+            argHint: "Pack-only demo tool",
+            systemPrompt: "Demo pack_only rules:\nPrefer this tool for demo queries.",
             effectContract: {
               schemaVersion: CONTRACTS_SCHEMA_VERSION,
               sideEffectProfile: "read",
@@ -78,9 +78,9 @@ describe("Pack tool SSOT", () => {
       },
     ]);
 
-    const prompt = buildAgentSystemPrompt({ toolAllowlist: allowlist, toolDefs });
-    expect(prompt).toContain("Demo pack_only rules");
-    expect(prompt).toContain("Always pass q");
+    const guidelines = collectPackGuidelines(allowlist, toolDefs);
+    expect(guidelines).toContain("Demo pack_only rules");
+    expect(guidelines).toContain("Prefer this tool for demo queries");
 
     const frozen = buildExecutionManifest({
       manifestId: "man-ssot",
@@ -92,7 +92,7 @@ describe("Pack tool SSOT", () => {
       registry,
       toolAllowlist: allowlist,
     });
-    expect(frozen.tools[0]?.argHint).toContain('{"q":"..."}');
+    expect(frozen.tools[0]?.argHint).toContain("Pack-only demo tool");
     expect(frozen.tools[0]?.description).toContain("SSOT");
 
     const run = createInitialRun({
@@ -115,6 +115,6 @@ describe("Pack tool SSOT", () => {
     });
     const toolsSection = ctx.sections.find((s) => s.kind === "tools");
     expect(toolsSection?.text).toContain(packOnlyToolId);
-    expect(toolsSection?.text).toContain('args: {"q":"..."}');
+    expect(toolsSection?.text).toContain("Pack-only demo tool");
   });
 });

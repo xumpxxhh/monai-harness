@@ -1,12 +1,13 @@
 # HANDOFF — 实现交接
 
-> 最后更新：2026-09-02（**Pack Tool SSOT**：模型面元数据只在 Pack Manifest）
+> 最后更新：2026-09-07（**System Prompt 分层**：safety → identity → tools → Pack guidelines）
 
 ## 当前状态（一句话）
 
 **P0–P9、M1、M2 已完成；RAG `knowledge.search` 与 `workspace.write` 已接入；Pack 为 Tool 扩展唯一来源。**
-- 加工具：只改 Pack `handler` + `tools[]`（description / parameters / argHint / systemPrompt / defaultEnabled / requireApproval）
-- Runtime 从 Registry / 冻结 Manifest 投影 catalog、prompt、context；`TOOL_CATALOG` 仅保留 `echo` / `risky.write`
+- 加工具：只改 Pack `handler` + `tools[]`（description / parameters / argHint=snippet / systemPrompt=guidelines / defaultEnabled / requireApproval）
+- Runtime 从 Registry / 冻结 Manifest 投影 catalog、分层 system prompt、context；`TOOL_CATALOG` 仅保留 `echo` / `risky.write`
+- System 组装顺序：`safety_boundary` → Core identity → `tools` → Pack guidelines → skills/knowledge/memory
 - **KnowledgePort / Context `knowledge` section 仍缺口** — 不得宣称 design 08 阶段 A 关闭
 
 ## 下一步
@@ -47,3 +48,4 @@ pnpm --filter harness test
 | RAG 接入文档 | `docs/rag/agent-integration.md` |
 | 装配 | `packages/delivery/src/pack-wiring.ts` |
 | Function catalog | `packages/runtime/src/model/function-catalog.ts`（只消费 toolDefs） |
+| System prompt 组装 | `packages/runtime/src/model/assemble-system-message.ts` |

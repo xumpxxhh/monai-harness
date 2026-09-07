@@ -5,6 +5,7 @@ import type {
   ExecutionManifest,
   ModelMessage,
   ModelPolicy,
+  PackToolDefinition,
   Run,
   RunState,
 } from "@monai/contracts";
@@ -12,6 +13,7 @@ import { resolveContextProjectionPolicy } from "@monai/contracts";
 import type { ContextContribution } from "@monai/pack-sdk";
 import type { ModelPort, PersistencePort } from "@monai/ports";
 
+import type { SystemPromptLayer } from "../model/assemble-system-message.js";
 import { buildContext, type ContextBuildResult } from "./build-context.js";
 import {
   ensureDialogueCompression,
@@ -27,11 +29,18 @@ export type BuildModelContextInput = {
   toolAllowlist: readonly string[];
   /** Frozen ExecutionManifest — Pack tool argHints / effect profiles. */
   manifest?: ExecutionManifest;
+  /** Pack tool defs for allowlist-gated guidelines (falls back to manifest.tools). */
+  toolDefs?: readonly PackToolDefinition[];
   hookContributions?: ContextContribution[];
   modelPolicy?: ModelPolicy;
   persistence: PersistencePort;
   model: ModelPort;
-  systemPrompt: string;
+  /** Core identity / turn protocol only. */
+  identity?: string;
+  /**
+   * @deprecated Prefer `identity`. Treated as Core identity when `identity` is omitted.
+   */
+  systemPrompt?: string;
   projectionPolicy?: ContextProjectionPolicy;
   memoryEnabled?: boolean;
 };
@@ -39,6 +48,9 @@ export type BuildModelContextInput = {
 export type BuildModelContextResult = {
   buildResult: ContextBuildResult;
   messages: ModelMessage[];
+  /** Final assembled system message (all layers). */
+  systemPrompt: string;
+  layers: SystemPromptLayer[];
   compression?: ContextCompressionRecord;
   compressionEvents: EventCandidate[];
   priorRunIds: string[];
@@ -113,9 +125,12 @@ export async function buildModelContext(
     memoryEnabled: input.memoryEnabled ?? false,
   });
 
+  const toolDefs = input.toolDefs ?? input.manifest?.tools;
   const projected = projectModelMessages({
-    systemPrompt: input.systemPrompt,
+    identity: input.identity ?? input.systemPrompt ?? "",
     sections: buildResult.sections,
+    toolAllowlist: input.toolAllowlist,
+    toolDefs,
     recentTurns: plan.recentTurns,
     compression: compressionResult.compression,
   });
@@ -150,6 +165,8 @@ export async function buildModelContext(
   return {
     buildResult,
     messages: projected.messages,
+    systemPrompt: projected.systemPrompt,
+    layers: projected.layers,
     compression: compressionResult.compression,
     compressionEvents,
     priorRunIds: sessionDialogue.priorRunIds,

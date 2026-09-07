@@ -65,9 +65,9 @@ function sha256(content: string): string {
   return crypto.createHash("sha256").update(content, "utf8").digest("hex");
 }
 
-/** Core stub arg hint only; Pack tools use PackToolDefinition.argHint via manifest.tools. */
+/** Core stub one-line presence hint; Pack tools use PackToolDefinition.argHint via manifest.tools. */
 const CORE_TOOL_ARG_HINTS: Record<string, string> = {
-  echo: 'args: {"text":"..."}',
+  echo: "Echo text as a fact",
 };
 
 function formatToolsSection(
@@ -205,8 +205,22 @@ export function buildContext(input: BuildContextInput): ContextBuildResult {
   const hardMaxTokens = input.budget?.hardMaxTokens ?? maxTotalTokens;
 
   // Assemble candidate sections by priority (design 05 §3.3)
-  // Priority 1: safety_boundary (never truncated)
-  const safetyText = `Safety Boundary: Tenant ${run.tenantId}. Respect sandbox isolation and tool allowlist.`;
+  // Priority 1: safety_boundary (never truncated) — verifiable runtime facts only
+  const modelTarget =
+    typeof input.modelPolicy?.resolvedTarget === "string" && input.modelPolicy.resolvedTarget
+      ? input.modelPolicy.resolvedTarget
+      : undefined;
+  const safetyLines = [
+    "Environment:",
+    `- tenantId: ${run.tenantId}`,
+    `- sessionId: ${run.sessionId}`,
+    `- runId: ${run.runId}`,
+    `- toolAllowlistCount: ${toolAllowlist.length} (see tools section for ids)`,
+  ];
+  if (modelTarget) {
+    safetyLines.push(`- modelTarget: ${modelTarget}`);
+  }
+  const safetyText = safetyLines.join("\n");
   const safetySection: ContextSection = {
     kind: "safety_boundary",
     text: safetyText,

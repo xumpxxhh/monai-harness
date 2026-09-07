@@ -22,6 +22,12 @@ export {
 export { projectModelMessages, assistantMessageFromAction } from "./context/project-messages.js";
 export { projectSessionDialogue } from "./context/project-session-dialogue.js";
 export {
+  assembleSystemMessage,
+  collectPackGuidelines,
+  type SystemPromptLayer,
+  type SystemPromptLayerKind,
+} from "./model/assemble-system-message.js";
+export {
   DEFAULT_REQUIRE_APPROVAL_TOOLS,
   DEFAULT_TOOL_ALLOWLIST,
   evaluatePolicy,

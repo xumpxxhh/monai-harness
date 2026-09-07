@@ -16,6 +16,8 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toContain("ask_user");
     expect(prompt).toContain("finish");
     expect(prompt).toContain("one or more function calls");
+    expect(prompt).not.toContain("spawn_child");
+    expect(prompt).not.toContain("workspace.read");
     expect(prompt).not.toContain("schemaVersion");
     expect(prompt).not.toContain("userMessage");
   });

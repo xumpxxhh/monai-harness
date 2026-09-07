@@ -180,9 +180,9 @@ synthetic.write_high.reconcile
 | 字段 | 用途 |
 | --- | --- |
 | `effectContract` | 副作用 / 幂等 / 超时 |
-| `description` + `parameters` | 模型 function catalog |
-| `argHint` | Context tools 区一行提示 |
-| `systemPrompt`（可选） | 拼进 Agent system prompt |
+| `description` + `parameters` | 模型 function catalog（schema） |
+| `argHint` | Context tools 区一行存在感（snippet），不要抄 JSON 必填项 |
+| `systemPrompt`（可选） | 选择策略（何时用 / 何时不用 / 如何引用结果）；由 allowlist 门控拼进 guidelines 层 |
 | `defaultEnabled: false` | 可选：opt-in（如 RAG） |
 | `requireApproval: true` | 可选：进审批名单 |
 

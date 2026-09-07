@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { ContextCompressionRecord, DialogueTurn } from "@monai/contracts";
+import { CONTRACTS_SCHEMA_VERSION, type DialogueTurn } from "@monai/contracts";
+import type { ContextCompressionRecord } from "@monai/contracts";
 
 import { projectModelMessages, assistantMessageFromAction } from "./project-messages.js";
 
@@ -36,7 +37,7 @@ describe("projectModelMessages", () => {
     },
   ];
 
-  it("builds multi-message wire format with history summary", () => {
+  it("builds multi-message wire format with layered system prompt", () => {
     const compression: ContextCompressionRecord = {
       compressionId: "cmp-1",
       summaryHash: "hash",
@@ -47,20 +48,58 @@ describe("projectModelMessages", () => {
     };
 
     const result = projectModelMessages({
-      systemPrompt: "You are an agent.",
+      identity: "You are an agent.",
       sections: [
         {
           kind: "safety_boundary",
-          text: "Tenant t1",
+          text: "Environment:\n- tenantId: t1",
           hash: "h1",
           tokenCount: 1,
+        },
+        {
+          kind: "tools",
+          text: "Available Tools:\n- echo | Echo text as a fact",
+          hash: "h2",
+          tokenCount: 1,
+        },
+      ],
+      toolAllowlist: ["demo.pack_only"],
+      toolDefs: [
+        {
+          toolId: "demo.pack_only",
+          version: "0.1.0",
+          systemPrompt: "Demo pack_only rules:\nPrefer this tool for demo queries.",
+          effectContract: {
+            schemaVersion: CONTRACTS_SCHEMA_VERSION,
+            sideEffectProfile: "read",
+            deliverySemantics: "at_most_once",
+            idempotencyScope: "run",
+            reconcileSupported: false,
+            timeoutMs: 5_000,
+          },
         },
       ],
       recentTurns,
       compression,
     });
 
-    expect(result.messages[0]?.role).toBe("system");
+    const system = result.messages[0];
+    expect(system?.role).toBe("system");
+    const systemText = system?.content ?? "";
+    const safetyIdx = systemText.indexOf("[safety_boundary]");
+    const identityIdx = systemText.indexOf("You are an agent.");
+    const toolsIdx = systemText.indexOf("[tools]");
+    const guideIdx = systemText.indexOf("Demo pack_only rules");
+    expect(safetyIdx).toBeGreaterThanOrEqual(0);
+    expect(identityIdx).toBeGreaterThan(safetyIdx);
+    expect(toolsIdx).toBeGreaterThan(identityIdx);
+    expect(guideIdx).toBeGreaterThan(toolsIdx);
+    expect(result.layers.map((l) => l.kind)).toEqual([
+      "safety",
+      "identity",
+      "catalog",
+      "guidelines",
+    ]);
     expect(result.messages.some((m) => m.content?.includes("history summary"))).toBe(true);
     expect(result.messages.filter((m) => m.role === "assistant")).toHaveLength(1);
     expect(result.messages.filter((m) => m.role === "tool")).toHaveLength(1);

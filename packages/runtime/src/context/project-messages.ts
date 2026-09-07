@@ -7,8 +7,13 @@ import type {
   DialogueTurn,
   ModelMessage,
   ModelMessageToolCall,
+  PackToolDefinition,
 } from "@monai/contracts";
 
+import {
+  assembleSystemMessage,
+  type SystemPromptLayer,
+} from "../model/assemble-system-message.js";
 import { getToolCallInvocations } from "../model/normalize-action.js";
 
 function sha256(text: string): string {
@@ -52,38 +57,44 @@ function dialogueTurnToMessage(turn: DialogueTurn): ModelMessage {
   };
 }
 
-function staticSectionsPrefix(sections: readonly ContextSection[]): string | undefined {
-  const staticKinds = new Set(["safety_boundary", "skills", "knowledge", "memory"]);
-  const blocks = sections
-    .filter((section) => staticKinds.has(section.kind) && section.text)
-    .map((section) => `[${section.kind}]\n${section.text}`);
-  if (blocks.length === 0) return undefined;
-  return blocks.join("\n\n");
-}
-
 export type ProjectModelMessagesInput = {
-  systemPrompt: string;
+  /** Core identity / turn protocol only (no Pack guidelines). */
+  identity?: string;
   sections: readonly ContextSection[];
+  toolAllowlist?: readonly string[];
+  toolDefs?: readonly PackToolDefinition[];
   recentTurns: readonly DialogueTurn[];
   compression?: ContextCompressionRecord;
+  /**
+   * @deprecated Prefer `identity`. When set without `identity`, treated as Core identity text.
+   */
+  systemPrompt?: string;
 };
 
 export type ProjectModelMessagesResult = {
   messages: ModelMessage[];
   messagesHash: string;
+  /** Final assembled system message (all layers). */
+  systemPrompt: string;
+  layers: SystemPromptLayer[];
 };
 
 /**
  * Assemble ModelMessage[] for adapter wire format.
+ * System message order: safety → identity → tools → Pack guidelines → skills/knowledge/memory.
  */
 export function projectModelMessages(input: ProjectModelMessagesInput): ProjectModelMessagesResult {
   const messages: ModelMessage[] = [];
 
-  const staticPrefix = staticSectionsPrefix(input.sections);
-  const systemContent = staticPrefix
-    ? `${input.systemPrompt}\n\n${staticPrefix}`
-    : input.systemPrompt;
-  messages.push({ role: "system", content: systemContent });
+  const identity = (input.identity ?? input.systemPrompt ?? "").trim();
+  const assembled = assembleSystemMessage({
+    identity,
+    sections: input.sections,
+    toolAllowlist: input.toolAllowlist,
+    toolDefs: input.toolDefs,
+  });
+
+  messages.push({ role: "system", content: assembled.text });
 
   if (input.compression?.summaryText) {
     messages.push({
@@ -97,7 +108,12 @@ export function projectModelMessages(input: ProjectModelMessagesInput): ProjectM
   }
 
   const messagesHash = sha256(JSON.stringify(messages));
-  return { messages, messagesHash };
+  return {
+    messages,
+    messagesHash,
+    systemPrompt: assembled.text,
+    layers: assembled.layers,
+  };
 }
 
 function controlCallName(action: Action): string | undefined {
