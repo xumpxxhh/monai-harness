@@ -68,6 +68,8 @@ contracts/ports；`@monai/persistence-memory`（参考）；`@monai/persistence-
 
 | 日期 | 说明 |
 | --- | --- |
+| 2026-09-07 | L2 scenarios 改用 `lease-postgres`；去掉测试对 lease-memory 依赖 |
+| 2026-09-07 | L1 套件改用 `queue-postgres` + `lease-postgres`（全 postgres CreateRun 3/3） |
 | 2026-08-28 | P9d：L1 CreateRun→running 循环在 PG 上全绿（双投递 + 补偿）；L2 recovery 补传 `manifestStore` |
 | 2026-08-27 | P8d：标记 persistence P8 范围 `done`（L1-on-PG 仍可选） |
 | 2026-08-27 | P8a 收尾：L2 recovery State hash + prepared-before-dispatch（12/12） |

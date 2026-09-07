@@ -7,6 +7,8 @@ import {
 } from "@monai/contracts";
 
 export type PersistenceDriver = "memory" | "postgres";
+export type QueueDriver = "memory" | "postgres";
+export type LeaseDriver = "memory" | "postgres";
 
 export const HARNESS_ROLE_IDS = [
   "api",
@@ -31,6 +33,8 @@ export type FeatureFlags = {
 
 export type HarnessConfig = {
   persistenceDriver: PersistenceDriver;
+  queueDriver: QueueDriver;
+  leaseDriver: LeaseDriver;
   modelDriver: "stub" | "openai";
   openaiApiKey?: string;
   openaiBaseUrl?: string;
@@ -53,6 +57,8 @@ export type HarnessConfig = {
   roles: HarnessRoles;
   /** Agent workspace root on disk (`/` maps here). */
   workspaceDir: string;
+  /** ObjectStore fs root (tenant partitions underneath). */
+  objectStoreDir: string;
   /** RAG HTTP base URL; empty = knowledge.search disabled (EDR-016). */
   knowledgeBaseUrl?: string;
   knowledgeCollectionIds: readonly string[];
@@ -70,6 +76,11 @@ export function harnessRootDir(): string {
 /** Default on-disk workspace: `apps/harness/workspace`. */
 export function defaultWorkspaceDir(): string {
   return resolve(harnessRootDir(), "workspace");
+}
+
+/** Default object store root: `apps/harness/object-store`. */
+export function defaultObjectStoreDir(): string {
+  return resolve(harnessRootDir(), "object-store");
 }
 
 function parseBool(raw: string | undefined, fallback: boolean): boolean {
@@ -94,6 +105,20 @@ export function parseOptionalPositiveInt(raw: string | undefined): number | unde
   const n = Number(raw.trim());
   if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) return undefined;
   return n;
+}
+
+/**
+ * Parse memory|postgres driver env (`QUEUE_DRIVER` / `LEASE_DRIVER` / …).
+ * Blank → memory; unknown → throw (fail closed).
+ */
+export function parseMemoryOrPostgresDriver(
+  raw: string | undefined,
+  envName: string,
+): "memory" | "postgres" {
+  const v = (raw ?? "memory").trim().toLowerCase();
+  if (v === "" || v === "memory") return "memory";
+  if (v === "postgres") return "postgres";
+  throw new Error(`[harness] ${envName} must be memory|postgres, got: ${JSON.stringify(raw)}`);
 }
 
 /**
@@ -186,6 +211,9 @@ export function loadConfig(): HarnessConfig {
   const persistenceDriver: PersistenceDriver =
     driverRaw === "postgres" ? "postgres" : "memory";
 
+  const queueDriver = parseMemoryOrPostgresDriver(process.env.QUEUE_DRIVER, "QUEUE_DRIVER");
+  const leaseDriver = parseMemoryOrPostgresDriver(process.env.LEASE_DRIVER, "LEASE_DRIVER");
+
   const modelDriverRaw = (process.env.MODEL_DRIVER ?? "stub").trim().toLowerCase();
   const modelDriver: "stub" | "openai" = modelDriverRaw === "openai" ? "openai" : "stub";
 
@@ -211,6 +239,10 @@ export function loadConfig(): HarnessConfig {
   const workspaceDir = workspaceDirRaw
     ? resolve(workspaceDirRaw)
     : defaultWorkspaceDir();
+  const objectStoreDirRaw = process.env.HARNESS_OBJECT_STORE_DIR?.trim();
+  const objectStoreDir = objectStoreDirRaw
+    ? resolve(objectStoreDirRaw)
+    : defaultObjectStoreDir();
 
   const knowledgeBaseUrl = process.env.KNOWLEDGE_BASE_URL?.trim() || undefined;
   const knowledgeCollectionIds = parseCommaSeparated(process.env.KNOWLEDGE_COLLECTION_IDS);
@@ -224,6 +256,8 @@ export function loadConfig(): HarnessConfig {
 
   return {
     persistenceDriver,
+    queueDriver,
+    leaseDriver,
     modelDriver,
     openaiApiKey: process.env.OPENAI_API_KEY,
     openaiBaseUrl: process.env.OPENAI_BASE_URL,
@@ -248,6 +282,7 @@ export function loadConfig(): HarnessConfig {
     autoExecuteTurn,
     roles,
     workspaceDir,
+    objectStoreDir,
     knowledgeBaseUrl,
     knowledgeCollectionIds,
     knowledgeTopK: Number.isFinite(knowledgeTopK) ? knowledgeTopK : undefined,

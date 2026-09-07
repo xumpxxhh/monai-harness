@@ -26,10 +26,10 @@
   },
   "devDependencies": {
     "@monai/delivery": "workspace:*",
-    "@monai/lease-memory": "workspace:*",
+    "@monai/lease-postgres": "workspace:*",
     "@monai/model-stub": "workspace:*",
     "@monai/pack-workspace-generic": "workspace:*",
-    "@monai/queue-memory": "workspace:*",
+    "@monai/queue-postgres": "workspace:*",
     "@monai/runtime": "workspace:*",
     "@monai/synthetic-sink": "workspace:*",
     "@types/node": "catalog:",

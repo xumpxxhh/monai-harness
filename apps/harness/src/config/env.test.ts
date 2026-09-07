@@ -7,9 +7,27 @@ import {
   hasDeliveryRole,
   parseContextProjectionPolicy,
   parseHarnessRoles,
+  parseMemoryOrPostgresDriver,
   parseOptionalPositiveInt,
   parsePositiveInt,
 } from "./env.js";
+
+describe("parseMemoryOrPostgresDriver", () => {
+  it("defaults blank to memory", () => {
+    expect(parseMemoryOrPostgresDriver(undefined, "QUEUE_DRIVER")).toBe("memory");
+    expect(parseMemoryOrPostgresDriver("  ", "QUEUE_DRIVER")).toBe("memory");
+    expect(parseMemoryOrPostgresDriver("Memory", "QUEUE_DRIVER")).toBe("memory");
+  });
+
+  it("accepts postgres", () => {
+    expect(parseMemoryOrPostgresDriver("postgres", "LEASE_DRIVER")).toBe("postgres");
+    expect(parseMemoryOrPostgresDriver("POSTGRES", "LEASE_DRIVER")).toBe("postgres");
+  });
+
+  it("rejects unknown drivers", () => {
+    expect(() => parseMemoryOrPostgresDriver("redis", "QUEUE_DRIVER")).toThrow(/QUEUE_DRIVER/);
+  });
+});
 
 describe("parseHarnessRoles", () => {
   it("defaults all roles on when unset", () => {

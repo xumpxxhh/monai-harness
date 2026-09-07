@@ -39,7 +39,7 @@ import {
   evaluateAcceptanceChecks,
   requiredAcceptanceChecksPassed,
 } from "../control/acceptance-checks.js";
-import { prepareToolCalls } from "../execution/prepare-tool-calls.js";
+import { prepareToolCalls, toolCallIdempotencyDedupeKey } from "../execution/prepare-tool-calls.js";
 import { lookupToolContract } from "../execution/lookup-tool-contract.js";
 import type { ExtensionRegistry } from "../extension/extension-registry.js";
 import { buildAgentSystemPrompt } from "../model/agent-system-prompt.js";
@@ -106,7 +106,12 @@ async function tryIdempotentPreparedRetry(
     if (!call.idempotencyKey) {
       return null;
     }
-    const existing = await persistence.get("tool_call", run.tenantId, call.idempotencyKey);
+    const dedupeKey = toolCallIdempotencyDedupeKey(
+      call.idempotencyScope,
+      run.runId,
+      call.idempotencyKey,
+    );
+    const existing = await persistence.get("tool_call", run.tenantId, dedupeKey);
     if (!existing) {
       return null;
     }

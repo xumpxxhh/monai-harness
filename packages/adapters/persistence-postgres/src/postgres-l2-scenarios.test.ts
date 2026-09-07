@@ -5,9 +5,9 @@ import {
   type OutboxRecord,
   type ToolCallRecord,
 } from "@monai/contracts";
-import { InMemoryLease } from "@monai/lease-memory";
+import { applyLeaseSchema, PostgresLease, truncateLeases } from "@monai/lease-postgres";
 import { StubModelPort } from "@monai/model-stub";
-import type { HarnessCommand } from "@monai/ports";
+import type { HarnessCommand, LeasePort } from "@monai/ports";
 import { wireWorkspaceGenericPack } from "@monai/delivery";
 import {
   computeStateHash,
@@ -26,7 +26,7 @@ import { startTestPostgres, type TestPgHandle } from "./postgres-persistence.tes
 
 function wirePgEngine(
   store: PostgresPersistence,
-  lease: InMemoryLease,
+  lease: LeasePort,
   options?: { requireApprovalTools?: readonly string[] },
 ) {
   const pack = wireWorkspaceGenericPack({ tenantId: "t1" });
@@ -167,6 +167,7 @@ describe("PostgresPersistence L2 scenarios (recovery + prepared)", () => {
     handle = await startTestPostgres();
     store = new PostgresPersistence(handle.pool);
     await store.applySchema();
+    await applyLeaseSchema(handle.pool);
   });
 
   afterAll(async () => {
@@ -175,10 +176,15 @@ describe("PostgresPersistence L2 scenarios (recovery + prepared)", () => {
 
   beforeEach(async () => {
     await truncateAll(handle.pool);
+    await truncateLeases(handle.pool);
   });
 
+  function buildLease(): PostgresLease {
+    return new PostgresLease(handle.pool);
+  }
+
   it("recovery: full replay State hash matches persisted state after tool chain", async () => {
-    const lease = new InMemoryLease();
+    const lease = buildLease();
     const { invoker, engine, manifestStore } = wirePgEngine(store, lease, { requireApprovalTools: [] });
     const ownerId = "worker-1";
 
@@ -220,7 +226,7 @@ describe("PostgresPersistence L2 scenarios (recovery + prepared)", () => {
   });
 
   it("recovery: checkpoint-accelerated replay hash matches full replay", async () => {
-    const lease = new InMemoryLease();
+    const lease = buildLease();
     const ownerId = "worker-1";
     const { engine, manifestStore } = wirePgEngine(store, lease);
 
@@ -271,7 +277,7 @@ describe("PostgresPersistence L2 scenarios (recovery + prepared)", () => {
   });
 
   it("prepared-before-dispatch: prepare UoW rollback leaves no ToolCall / Outbox / Idempotency", async () => {
-    const lease = new InMemoryLease();
+    const lease = buildLease();
     const ownerId = "worker-1";
     const { engine } = wirePgEngine(store, lease, { requireApprovalTools: [] });
 
@@ -372,7 +378,7 @@ describe("PostgresPersistence L2 scenarios (recovery + prepared)", () => {
   });
 
   it("prepared-before-dispatch: no prepared ToolCall → accept fails and sink stays at zero", async () => {
-    const lease = new InMemoryLease();
+    const lease = buildLease();
     const { pack, invoker, engine } = wirePgEngine(store, lease, { requireApprovalTools: [] });
     const sink = pack.synthetic;
     const ownerId = "worker-1";

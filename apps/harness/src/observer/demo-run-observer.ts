@@ -110,6 +110,8 @@ export class DemoRunObserver {
           harness: {
             mode: this.config.mode,
             persistenceDriver: this.config.persistenceDriver,
+            queueDriver: this.config.queueDriver,
+            leaseDriver: this.config.leaseDriver,
             modelDriver: this.config.modelDriver,
             openaiModel: this.config.openaiModel,
             workspaceDir: this.config.workspaceDir,

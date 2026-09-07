@@ -8,7 +8,7 @@
 | 状态 | `done`（M2e） |
 | 首触阶段 | P0（空壳）起贯穿；M1h Secret + Model；M2e Session Demo |
 | 上游 | [engineering/00 §4](../../engineering/00-implementation-baseline.md)、[engineering/02](../../engineering/02-runtime-composition.md)、EDR-002/014 |
-| 最后更新 | 2026-09-02 |
+| 最后更新 | 2026-09-07 |
 
 ## 1. 范围
 
@@ -22,14 +22,14 @@
 
 ```text
 load config (.env)
-→ build adapters (persistence-postgres | memory)
+→ build adapters (persistence / queue / lease：memory | postgres；sandbox-stub；objectstore-fs)
 → build Engine + delivery (dispatcher / scheduler / compensation scanner)
 → build api handlers
 → start loops + optional HTTP server (P8c)
 → graceful shutdown
 ```
 
-- 环境变量（`.env.example`）：`DATABASE_URL`、`PERSISTENCE_DRIVER`（`memory`|`postgres`）、`PORT`、`MODEL_DRIVER`、`HARNESS_WORKSPACE_DIR`、`CORS_ORIGIN`、`HARNESS_ROLES` / `HARNESS_ROLE_*`、EDR-014 feature flags
+- 环境变量（`.env.example`）：`DATABASE_URL`、`PERSISTENCE_DRIVER`、`QUEUE_DRIVER`、`LEASE_DRIVER`、`HARNESS_OBJECT_STORE_DIR`、`PORT`、`MODEL_DRIVER`、`HARNESS_WORKSPACE_DIR`、`CORS_ORIGIN`、`HARNESS_ROLES` / `HARNESS_ROLE_*`、EDR-014 feature flags
 - delivery 循环：Outbox claim → Queue → `queue_run` → `acquire_lease` → `execute_turn`；补偿扫描（`CompensationScanner`）
 
 ## 2. 非目标
@@ -43,12 +43,14 @@ load config (.env)
 - [x] P7：启动时跑 EvalHarness（Golden 6×5 + 审批/幂等子集）+ EventStream 演示
 - [x] bootstrap DI（adapters → runtime → delivery）— P8b（`config` / `bootstrap` / `loops` / `demo`）
 - [x] `PERSISTENCE_DRIVER=postgres|memory` — P8b
+- [x] `QUEUE_DRIVER` / `LEASE_DRIVER=memory|postgres` — 0024
+- [x] `RejectingSandbox` + `FsObjectStore` 装配 — 0024
 - [x] delivery 循环（Outbox → queue → execute_turn）— P8b（`DeliveryLoops`；demo 内 tick；`HARNESS_MODE=serve` 常驻）
 - [x] `.env.example`（`DATABASE_URL`、`PORT`、flags）— P8b
 - [x] HTTP server 启动 — P8c（`http-server.ts` + `createHttpApp`；`HARNESS_MODE=serve`）
 - [x] 角色可独立开关（便于测试）
 - [x] 仅通过构造注入 ports，runtime 无 infra import
-- [x] EDR-014 禁用项在装配层可验证（启动日志 + 非默认 warn）
+- [x] EDR-014 禁用项在装配层可验证（启动日志 + 非默认 warn + allowlist 断言）
 - [x] shutdown 不丢「已 commit 未 dispatch」的可恢复状态（demo/serve 先 stop loops 再 `persistence.close`）
 
 ### M1（完成 — [0018](../sessions/0018-real-model-cluster-plan.md)）
@@ -69,7 +71,7 @@ load config (.env)
 
 ## 4. 依赖
 
-几乎所有 packages/adapters（运行期）。已链接 contracts/ports/runtime/api/delivery/observability/pack-sdk/model-stub/model-openai/secret-env/persistence-memory/**persistence-postgres**/queue-memory/synthetic-sink。
+几乎所有 packages/adapters（运行期）。已链接 contracts/ports/runtime/api/delivery/observability/pack-sdk/model-stub/model-openai/secret-env/persistence-memory/**persistence-postgres**/queue-memory/**queue-postgres**/lease-memory/**lease-postgres**/**sandbox-stub**/**objectstore-fs**/synthetic-sink。
 
 ## 5. 缺口与风险
 
@@ -80,6 +82,9 @@ load config (.env)
 
 | 日期 | 说明 |
 | --- | --- |
+| 2026-09-07 | 撤回误加 objectstore-memory；artifact 仅 `FsObjectStore`（Eval 用 tmpdir） |
+| 2026-09-07 | artifact Tool 经 ObjectStorePort；harness `HARNESS_OBJECT_STORE_DIR` |
+| 2026-09-07 | `QUEUE_DRIVER` / `LEASE_DRIVER`；装配 `queue-postgres` / `lease-postgres`（0024） |
 | 2026-09-02 | M2e：`demo-session` / `SessionDemoObserver` / `FsWorkspace` / `HARNESS_WORKSPACE_DIR` |
 | 2026-09-01 | M2e：`demo-shared` 重构；function calling demo 路径；web `RunConsoleContext` |
 | 2026-08-31 | 模块化分层重构：按 config/bootstrap/server/workers/cli 分层拆解 index 与平铺文件 |

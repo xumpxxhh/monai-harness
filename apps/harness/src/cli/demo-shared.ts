@@ -45,6 +45,28 @@ export function createCliIo(): CliIo {
   };
 }
 
+/**
+ * Non-interactive CLI for smoke scripts. Answers session prompts from `messages`
+ * (ending with /exit). Approval prompts default to "y" unless `approvalAnswer` is set.
+ */
+export function createScriptedCliIo(
+  messages: readonly string[],
+  options: { approvalAnswer?: string } = {},
+): CliIo {
+  const queue = [...messages];
+  const approvalAnswer = options.approvalAnswer ?? "y";
+  return {
+    isTty: true,
+    question: async (prompt: string) => {
+      const isApproval = /approve\?/i.test(prompt);
+      const next = isApproval ? approvalAnswer : (queue.shift() ?? "/exit");
+      console.log(`${prompt}${next}`);
+      return next;
+    },
+    close: () => undefined,
+  };
+}
+
 export function attachPreviewPrinter(runtime: HarnessRuntime, runId: string): () => void {
   let reasoningOpen = false;
   let displayOpen = false;
@@ -542,7 +564,19 @@ export async function runAgentLoop(
           "reason" in lastFail.payload
             ? String((lastFail.payload as { reason?: unknown }).reason)
             : "step.failed";
-        console.log(`[demo] turn made no progress (${stagnantTurns}/${MAX_STAGNANT}): ${reason}`);
+        const remaining = MAX_STAGNANT - stagnantTurns;
+        const networkish = /network|fetch failed|ECONNREFUSED|ETIMEDOUT|ENOTFOUND/i.test(reason);
+        console.log(
+          `[demo] turn made no progress (${stagnantTurns}/${MAX_STAGNANT}): ${reason}` +
+            (remaining > 0
+              ? ` — abort after ${remaining} more stagnant turn(s)`
+              : ""),
+        );
+        if (networkish && remaining > 0) {
+          console.log(
+            "[demo] hint: model transport failed; check OPENAI_BASE_URL / API key / network (no infinite retry)",
+          );
+        }
         if (stagnantTurns >= MAX_STAGNANT) {
           console.log("[demo] aborting after repeated step failures");
           runOutcome = "aborted";
@@ -570,7 +604,9 @@ export async function runAgentLoop(
           runOutcome = "aborted";
           return await maybeFinish(runOutcome);
         }
-      } else if (run.revision > revBefore) {
+      } else if (run.revision > revBefore && progressed) {
+        // Only clear stagnation on real progress. step.failed still bumps revision,
+        // so resetting here would wipe the counter and retry forever (seen as 1/3 loop).
         stagnantTurns = 0;
       }
 

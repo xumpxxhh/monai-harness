@@ -12,3 +12,4 @@ coverage
 .DS_Store
 
 apps/harness/workspace/
+apps/harness/object-store/

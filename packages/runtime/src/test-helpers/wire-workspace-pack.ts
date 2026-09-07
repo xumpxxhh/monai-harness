@@ -1,3 +1,6 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { ToolCallRecord } from "@monai/contracts";
 import {
   createWorkspaceGenericPack,
@@ -5,7 +8,9 @@ import {
   WORKSPACE_GENERIC_TOOL_ALLOWLIST,
 } from "@monai/pack-workspace-generic";
 import type { ExecutionContext } from "@monai/pack-sdk";
-import type { WorkspacePort } from "@monai/ports";
+import type { ObjectStorePort, SandboxPort, WorkspacePort } from "@monai/ports";
+import { FsObjectStore } from "@monai/objectstore-fs";
+import { RejectingSandbox } from "@monai/sandbox-stub";
 import { IsolatedSyntheticSink } from "@monai/synthetic-sink";
 
 import { ExtensionRegistry } from "../extension/extension-registry.js";
@@ -16,6 +21,8 @@ import { ToolInvoker } from "../execution/tool-invoker.js";
 export type WireTestWorkspacePackOptions = {
   workspace?: WorkspacePort;
   tenantId?: string;
+  objectStore?: ObjectStorePort;
+  sandbox?: SandboxPort;
 };
 
 export type WireTestWorkspacePackResult = {
@@ -23,7 +30,8 @@ export type WireTestWorkspacePackResult = {
   invoker: ToolInvoker;
   hookRunner: HookRunner;
   synthetic: IsolatedSyntheticSink;
-  artifacts: Map<string, { markdown: string; hash: string }>;
+  objectStore: ObjectStorePort;
+  sandbox: SandboxPort;
   toolAllowlist: readonly string[];
   requireApprovalTools: readonly string[];
 };
@@ -36,7 +44,13 @@ export function wireTestWorkspacePack(
   const registry = new ExtensionRegistry();
   const hookRunner = new HookRunner();
   const synthetic = new IsolatedSyntheticSink();
-  const artifacts = new Map<string, { markdown: string; hash: string }>();
+  const objectStore =
+    options.objectStore ??
+    new FsObjectStore({
+      rootDir: mkdtempSync(join(tmpdir(), "monai-objectstore-")),
+      tenantId: tenantId.replace(/[/\\]/g, "_") || "t1",
+    });
+  const sandbox = options.sandbox ?? new RejectingSandbox();
   const contribution = createWorkspaceGenericPack();
 
   const registration = registry.register({ tenantId, contribution });
@@ -60,7 +74,8 @@ export function wireTestWorkspacePack(
     leaseEpoch: toolCall.dispatchLeaseEpoch,
     ports: {
       workspace: options.workspace,
-      objectStore: artifacts,
+      objectStore,
+      sandbox,
       telemetry: synthetic,
     },
   });
@@ -75,7 +90,8 @@ export function wireTestWorkspacePack(
     invoker,
     hookRunner,
     synthetic,
-    artifacts,
+    objectStore,
+    sandbox,
     toolAllowlist: WORKSPACE_GENERIC_TOOL_ALLOWLIST,
     requireApprovalTools: WORKSPACE_GENERIC_REQUIRE_APPROVAL,
   };

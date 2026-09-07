@@ -14,6 +14,7 @@ export function buildAgentSystemPrompt(options?: {
 
   return [
     "You are an agent working on the user's Goal.",
+    "Always respond in Chinese-simplified",
     "Each turn: write user-facing language in the message content.",
     "Domain tools: you may issue one or more function calls in the same turn (a batch).",
     `Control functions (${controls}) are not domain tools. Use at most one control function per turn, and never mix control with domain tools.`,

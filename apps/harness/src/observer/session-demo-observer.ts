@@ -62,6 +62,8 @@ export class SessionDemoObserver {
           harness: {
             mode: this.runtime.config.mode,
             persistenceDriver: this.runtime.config.persistenceDriver,
+            queueDriver: this.runtime.config.queueDriver,
+            leaseDriver: this.runtime.config.leaseDriver,
             modelDriver: this.runtime.config.modelDriver,
             openaiModel: this.runtime.config.openaiModel,
             workspaceDir: this.runtime.config.workspaceDir,

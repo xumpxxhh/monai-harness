@@ -30,6 +30,22 @@ export function invocationInputHash(inv: ToolCallInvocation): string {
   return `ih:${inv.toolId}:${digest}`;
 }
 
+/**
+ * Map logical tool idempotency keys onto persistence dedupe keys.
+ * `run` scope must include runId — otherwise Postgres/memory retain tenant-wide collisions
+ * when models reuse short keys across Session Runs (requestHash mismatch).
+ */
+export function toolCallIdempotencyDedupeKey(
+  scope: string | undefined,
+  runId: string,
+  key: string,
+): string {
+  if (scope === "run") {
+    return `run:${runId}:${key}`;
+  }
+  return key;
+}
+
 export type PrepareToolCallsInput = {
   run: Run;
   stepId: string;
@@ -111,6 +127,9 @@ export async function prepareToolCalls(
       ? compactIdempotencyKey(inv.idempotencyKey)
       : undefined;
     const invForHash: ToolCallInvocation = { ...inv, idempotencyKey };
+    const dedupeKey = idempotencyKey
+      ? toolCallIdempotencyDedupeKey(contract.idempotencyScope, input.run.runId, idempotencyKey)
+      : undefined;
 
     const unknown = existingCalls.find(
       (t) => t.toolId === inv.toolId && t.status === "outcome_unknown",
@@ -132,11 +151,11 @@ export async function prepareToolCalls(
     }
 
     const hash = invocationInputHash(invForHash);
-    if (idempotencyKey && input.persistence.get) {
+    if (dedupeKey && input.persistence.get) {
       const existing = await input.persistence.get(
         "tool_call",
         input.run.tenantId,
-        idempotencyKey,
+        dedupeKey,
       );
       if (existing) {
         if (existing.requestHash !== hash) {
@@ -190,14 +209,14 @@ export async function prepareToolCalls(
       }),
     );
 
-    if (idempotencyKey) {
+    if (idempotencyKey && dedupeKey) {
       idempotency.push({
         schemaVersion: CONTRACTS_SCHEMA_VERSION,
         idempotencyRecordId: `idem-tc-${toolCallId}`,
         namespace: "tool_call",
         tenantId: input.run.tenantId,
         key: idempotencyKey,
-        dedupeKey: idempotencyKey,
+        dedupeKey,
         requestHash: hash,
         ownerRef: {
           ownerType: "tool_call",

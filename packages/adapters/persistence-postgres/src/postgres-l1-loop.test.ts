@@ -4,10 +4,11 @@ import {
   OutboxDispatcher,
   Scheduler,
 } from "@monai/delivery";
-import { InMemoryLease } from "@monai/lease-memory";
+import { applyLeaseSchema, PostgresLease, truncateLeases } from "@monai/lease-postgres";
 import type { HarnessCommand } from "@monai/ports";
-import { InMemoryQueue } from "@monai/queue-memory";
+import { applyQueueSchema, PostgresQueue, truncateQueue } from "@monai/queue-postgres";
 import { Engine } from "@monai/runtime";
+import type pg from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { truncateAll } from "./apply-schema.js";
@@ -37,11 +38,21 @@ function createCmd(runId: string, commandId: string): HarnessCommand {
   };
 }
 
+async function countActiveQueueMessages(pool: pg.Pool): Promise<number> {
+  const result = await pool.query<{ n: number }>(
+    `SELECT count(*)::int AS n
+     FROM queue_messages
+     WHERE status IN ('ready', 'leased')`,
+  );
+  return result.rows[0]?.n ?? 0;
+}
+
 /**
- * L1 CreateRun→running loop on PostgreSQL (P9d).
- * Same scenarios as delivery `create-run-loop.test.ts` (memory).
+ * L1 CreateRun→running on full postgres adapters (persistence + queue + lease).
+ * Same scenarios as delivery `create-run-loop.test.ts` (memory) and prior P9d L1-on-PG
+ * (which still used in-memory queue/lease).
  */
-describe("PostgresPersistence L1 CreateRun loop", () => {
+describe("Postgres L1 CreateRun loop (persistence+queue+lease)", () => {
   let handle: TestPgHandle;
   let store: PostgresPersistence;
 
@@ -49,6 +60,8 @@ describe("PostgresPersistence L1 CreateRun loop", () => {
     handle = await startTestPostgres();
     store = new PostgresPersistence(handle.pool);
     await store.applySchema();
+    await applyQueueSchema(handle.pool);
+    await applyLeaseSchema(handle.pool);
   });
 
   afterAll(async () => {
@@ -57,11 +70,13 @@ describe("PostgresPersistence L1 CreateRun loop", () => {
 
   beforeEach(async () => {
     await truncateAll(handle.pool);
+    await truncateQueue(handle.pool);
+    await truncateLeases(handle.pool);
   });
 
   function buildHarness() {
-    const lease = new InMemoryLease();
-    const queue = new InMemoryQueue();
+    const lease = new PostgresLease(handle.pool);
+    const queue = new PostgresQueue(handle.pool);
     const engine = new Engine({ persistence: store, lease });
     const dispatcher = new OutboxDispatcher({ outbox: store, queue });
     const scheduler = new Scheduler({ queue, engine });
@@ -70,11 +85,11 @@ describe("PostgresPersistence L1 CreateRun loop", () => {
       queue,
       createdStaleMs: 0,
     });
-    return { engine, dispatcher, scheduler, compensation, queue };
+    return { engine, dispatcher, scheduler, compensation, queue, lease };
   }
 
   it("reaches running with created → queued → lease_acquired events", async () => {
-    const { engine, dispatcher, scheduler } = buildHarness();
+    const { engine, dispatcher, scheduler, lease } = buildHarness();
     const created = await engine.handle(createCmd("run-main", "cmd-main"));
     expect(created.ok).toBe(true);
     if (!created.ok) return;
@@ -86,6 +101,10 @@ describe("PostgresPersistence L1 CreateRun loop", () => {
     const run = await store.getRun("run-main");
     expect(run?.status).toBe("running");
     expect(run?.leaseEpoch).toBe(1);
+
+    const bound = await lease.get("run-main");
+    expect(bound?.leaseEpoch).toBe(1);
+    expect(bound?.ownerId).toBeTruthy();
 
     const types = (await store.listEvents("run-main")).map((e) => e.eventType);
     expect(types).toEqual(["run.created", "run.queued", "run.lease_acquired"]);
@@ -104,7 +123,7 @@ describe("PostgresPersistence L1 CreateRun loop", () => {
       dedupeKey: outbox.message.dedupeKey,
       payload: outbox.message.payload,
     });
-    expect(queue.size()).toBe(1);
+    expect(await countActiveQueueMessages(handle.pool)).toBe(1);
 
     await scheduler.tick();
     await scheduler.tick();
@@ -117,14 +136,14 @@ describe("PostgresPersistence L1 CreateRun loop", () => {
   });
 
   it("compensation rebuilds queue signal for unpublished outbox", async () => {
-    const { engine, dispatcher, scheduler, compensation, queue } = buildHarness();
+    const { engine, dispatcher, scheduler, compensation } = buildHarness();
     await engine.handle(createCmd("run-comp", "cmd-comp"));
 
     expect((await store.listOutbox())[0]?.status).toBe("pending");
-    expect(queue.size()).toBe(0);
+    expect(await countActiveQueueMessages(handle.pool)).toBe(0);
 
     await compensation.tick();
-    expect(queue.size()).toBe(1);
+    expect(await countActiveQueueMessages(handle.pool)).toBe(1);
 
     await dispatcher.tick();
     await scheduler.tick();

@@ -25,6 +25,7 @@
     "@monai/synthetic-sink": "workspace:*"
   },
   "devDependencies": {
+    "@types/node": "catalog:",
     "typescript": "catalog:"
   }
 }

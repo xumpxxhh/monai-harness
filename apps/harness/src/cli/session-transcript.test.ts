@@ -12,16 +12,13 @@ describe("buildSessionGoal", () => {
     expect(buildSessionGoal([], "列出工作区文件")).toBe("列出工作区文件");
   });
 
-  it("includes prior turns before the current user message", () => {
+  it("uses the current user message only (history projected from prior Run Events)", () => {
     const transcript = new SessionTranscript();
     transcript.addUser("列出工作区文件", "run-1");
     transcript.addAssistant("包含 notes 和 readme.md", "run-1");
 
     const goal = buildSessionGoal(transcript.getTurns(), "写入 summary.md");
-    expect(goal).toContain("Prior turns:");
-    expect(goal).toContain("User: 列出工作区文件");
-    expect(goal).toContain("Assistant: 包含 notes 和 readme.md");
-    expect(goal).toContain("Current user message: 写入 summary.md");
+    expect(goal).toBe("写入 summary.md");
   });
 });
 

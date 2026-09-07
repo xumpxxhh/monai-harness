@@ -1,5 +1,6 @@
+import { createHash } from "node:crypto";
 import { CONTRACTS_SCHEMA_VERSION, type PackManifest } from "@monai/contracts";
-import type { WorkspacePort } from "@monai/ports";
+import type { ObjectStorePort, WorkspacePort } from "@monai/ports";
 import {
   packDefaultAllowlist,
   packRequireApprovalTools,
@@ -51,16 +52,24 @@ function knowledgeSearchPort(ctx: ExecutionContext): KnowledgeSearchClientPort |
   return ctx.ports?.knowledge as KnowledgeSearchClientPort | undefined;
 }
 
-function artifactsStore(
-  ctx: ExecutionContext,
-): Map<string, { markdown: string; hash: string }> {
-  const store = ctx.ports?.objectStore as
-    | Map<string, { markdown: string; hash: string }>
-    | undefined;
-  if (!store) {
-    throw new Error("artifact store not configured");
+function objectStore(ctx: ExecutionContext): ObjectStorePort {
+  const store = ctx.ports?.objectStore as ObjectStorePort | undefined;
+  if (!store || typeof store.put !== "function" || typeof store.get !== "function") {
+    throw new Error("objectStore not configured");
   }
   return store;
+}
+
+function artifactObjectKey(artifactId: string): string {
+  const id = artifactId.replace(/\\/g, "/");
+  if (!id || id.includes("..") || id.includes("/") || id.includes("\0")) {
+    throw new Error(`invalid artifactId: ${artifactId}`);
+  }
+  return `artifacts/${id}.md`;
+}
+
+function contentSha256(body: Uint8Array): string {
+  return `sha256:${createHash("sha256").update(body).digest("hex")}`;
 }
 
 function syntheticSink(ctx: ExecutionContext): IsolatedSyntheticSink {
@@ -225,9 +234,15 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
     const args = input.arguments as Record<string, unknown>;
     const markdown = capOutput(String(args.markdown ?? args.content ?? ""));
     const artifactId = `art-${input.toolCallId}`;
-    const hash = `sha256:${input.idempotencyKey ?? input.toolCallId}`;
-    const store = artifactsStore(input.executionContext);
-    store.set(artifactId, { markdown, hash });
+    const body = new TextEncoder().encode(markdown);
+    const hash = contentSha256(body);
+    const key = artifactObjectKey(artifactId);
+    try {
+      await objectStore(input.executionContext).put(key, body, hash);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "artifact write failed";
+      return { ok: false, error: message };
+    }
     return {
       ok: true,
       data: {
@@ -249,13 +264,21 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
     if (!artifactId) {
       return { ok: false, error: "artifactId required" };
     }
-    const store = artifactsStore(input.executionContext);
-    const row = store.get(artifactId);
-    if (!row) {
+    let key: string;
+    try {
+      key = artifactObjectKey(artifactId);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "invalid artifactId";
+      return { ok: false, error: message };
+    }
+    const body = await objectStore(input.executionContext).get(key);
+    if (!body) {
       return { ok: false, error: `artifact not found: ${artifactId}` };
     }
+    const markdown = new TextDecoder().decode(body);
+    const hash = contentSha256(body);
     const minLength = Number(args.minLength ?? 1);
-    if (row.markdown.length < minLength) {
+    if (markdown.length < minLength) {
       return { ok: false, error: "artifact validation failed: too short" };
     }
     return {
@@ -263,10 +286,10 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
       data: {
         artifactId,
         valid: true,
-        hash: row.hash,
+        hash,
         summary: `validated ${artifactId}`,
       },
-      resultHash: row.hash,
+      resultHash: hash,
     };
   },
   "synthetic.write_high": async (input) => {

@@ -1,9 +1,13 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { ToolCallRecord } from "@monai/contracts";
 import { PackRegistrationService } from "@monai/governance";
 import { createWorkspaceGenericPack, KNOWLEDGE_SEARCH_ALLOWLIST_ENTRY, WORKSPACE_GENERIC_REQUIRE_APPROVAL, WORKSPACE_GENERIC_TOOL_ALLOWLIST } from "@monai/pack-workspace-generic";
-import type { GovernanceEventStorePort, WorkspacePort } from "@monai/ports";
+import type { GovernanceEventStorePort, ObjectStorePort, SandboxPort, WorkspacePort } from "@monai/ports";
 import type { KnowledgeSearchClient } from "@monai/knowledge-http";
 import type { ExecutionContext } from "@monai/pack-sdk";
+import { FsObjectStore } from "@monai/objectstore-fs";
 import {
   ExtensionRegistry,
   HookRunner,
@@ -11,6 +15,7 @@ import {
   buildToolInvokerFromRegistry,
   LEGACY_ECHO_HANDLER,
 } from "@monai/runtime";
+import { RejectingSandbox } from "@monai/sandbox-stub";
 import { IsolatedSyntheticSink } from "@monai/synthetic-sink";
 
 export type WireWorkspaceGenericOptions = {
@@ -20,6 +25,10 @@ export type WireWorkspaceGenericOptions = {
   knowledgeSearch?: KnowledgeSearchClient;
   /** When set, Pack registration is audited to GovernanceEvent (P9c). */
   governanceStore?: GovernanceEventStorePort;
+  /** Defaults to FsObjectStore under os.tmpdir (Eval/L1). Harness injects configured root. */
+  objectStore?: ObjectStorePort;
+  /** Defaults to RejectingSandbox (EDR-014). */
+  sandbox?: SandboxPort;
 };
 
 export type WireWorkspaceGenericResult = {
@@ -27,11 +36,20 @@ export type WireWorkspaceGenericResult = {
   invoker: ToolInvoker;
   hookRunner: HookRunner;
   synthetic: IsolatedSyntheticSink;
-  artifacts: Map<string, { markdown: string; hash: string }>;
+  objectStore: ObjectStorePort;
+  sandbox: SandboxPort;
   toolAllowlist: readonly string[];
   requireApprovalTools: readonly string[];
   packRegistration?: PackRegistrationService;
 };
+
+function defaultFsObjectStore(tenantId: string): FsObjectStore {
+  const safeTenant = tenantId.replace(/[/\\]/g, "_") || "t1";
+  return new FsObjectStore({
+    rootDir: mkdtempSync(join(tmpdir(), "monai-objectstore-")),
+    tenantId: safeTenant,
+  });
+}
 
 export function wireWorkspaceGenericPack(
   options: WireWorkspaceGenericOptions = {},
@@ -40,7 +58,8 @@ export function wireWorkspaceGenericPack(
   const registry = new ExtensionRegistry();
   const hookRunner = new HookRunner();
   const synthetic = new IsolatedSyntheticSink();
-  const artifacts = new Map<string, { markdown: string; hash: string }>();
+  const objectStore = options.objectStore ?? defaultFsObjectStore(tenantId);
+  const sandbox = options.sandbox ?? new RejectingSandbox();
   const contribution = createWorkspaceGenericPack();
 
   let packRegistration: PackRegistrationService | undefined;
@@ -73,7 +92,8 @@ export function wireWorkspaceGenericPack(
     leaseEpoch: toolCall.dispatchLeaseEpoch,
     ports: {
       workspace: options.workspace,
-      objectStore: artifacts,
+      objectStore,
+      sandbox,
       telemetry: synthetic,
       ...(options.knowledgeSearch ? { knowledge: options.knowledgeSearch } : {}),
     },
@@ -93,7 +113,8 @@ export function wireWorkspaceGenericPack(
     invoker,
     hookRunner,
     synthetic,
-    artifacts,
+    objectStore,
+    sandbox,
     toolAllowlist,
     requireApprovalTools: WORKSPACE_GENERIC_REQUIRE_APPROVAL,
     packRegistration,

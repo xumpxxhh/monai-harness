@@ -26,8 +26,10 @@
   "devDependencies": {
     "@monai/lease-memory": "workspace:*",
     "@monai/model-stub": "workspace:*",
+    "@monai/objectstore-fs": "workspace:*",
     "@monai/pack-workspace-generic": "workspace:*",
     "@monai/persistence-memory": "workspace:*",
+    "@monai/sandbox-stub": "workspace:*",
     "@monai/synthetic-sink": "workspace:*",
     "@monai/workspace-memory": "workspace:*",
     "typescript": "catalog:",

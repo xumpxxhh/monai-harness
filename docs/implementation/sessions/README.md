@@ -35,3 +35,5 @@
 | 0020 | [0020-knowledge-search-tool.md](./0020-knowledge-search-tool.md) | 2026-09-02 | M3：RAG `knowledge.search` Tool（EDR-016）；KnowledgePort 仍缺口 |
 | 0021 | [0021-workspace-write-tool.md](./0021-workspace-write-tool.md) | 2026-09-02 | `workspace.write` Pack Tool（write_low） |
 | 0022 | [0022-pack-tool-ssot.md](./0022-pack-tool-ssot.md) | 2026-09-02 | Pack Tool SSOT：模型面元数据只在 Manifest |
+| 0023 | [0023-real-model-e2e.md](./0023-real-model-e2e.md) | 2026-09-07 | 真模型 Session E2E 冒烟；KnowledgePort/confirm_once 延后 |
+| 0024 | [0024-replaceable-infra-adapters-plan.md](./0024-replaceable-infra-adapters-plan.md) | 2026-09-07 | 可替换 infra 收口：Queue/Lease/Sandbox/ObjectStore |

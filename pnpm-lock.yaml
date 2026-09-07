@@ -53,12 +53,18 @@ importers:
       '@monai/lease-memory':
         specifier: workspace:*
         version: link:../../packages/adapters/lease-memory
+      '@monai/lease-postgres':
+        specifier: workspace:*
+        version: link:../../packages/adapters/lease-postgres
       '@monai/model-openai':
         specifier: workspace:*
         version: link:../../packages/adapters/model-openai
       '@monai/model-stub':
         specifier: workspace:*
         version: link:../../packages/adapters/model-stub
+      '@monai/objectstore-fs':
+        specifier: workspace:*
+        version: link:../../packages/adapters/objectstore-fs
       '@monai/observability':
         specifier: workspace:*
         version: link:../../packages/observability
@@ -80,9 +86,15 @@ importers:
       '@monai/queue-memory':
         specifier: workspace:*
         version: link:../../packages/adapters/queue-memory
+      '@monai/queue-postgres':
+        specifier: workspace:*
+        version: link:../../packages/adapters/queue-postgres
       '@monai/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
+      '@monai/sandbox-stub':
+        specifier: workspace:*
+        version: link:../../packages/adapters/sandbox-stub
       '@monai/secret-env':
         specifier: workspace:*
         version: link:../../packages/adapters/secret-env
@@ -166,6 +178,28 @@ importers:
         specifier: ~5.9.3
         version: 5.9.3
 
+  packages/adapters/lease-postgres:
+    dependencies:
+      '@monai/ports':
+        specifier: workspace:*
+        version: link:../../ports
+      pg:
+        specifier: ^8.16.3
+        version: 8.23.0
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.20.1
+      '@types/pg':
+        specifier: ^8.15.5
+        version: 8.23.1
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 3.2.7(@types/node@22.20.1)
+
   packages/adapters/model-openai:
     dependencies:
       '@monai/contracts':
@@ -204,6 +238,22 @@ importers:
         specifier: ~5.9.3
         version: 5.9.3
 
+  packages/adapters/objectstore-fs:
+    dependencies:
+      '@monai/ports':
+        specifier: workspace:*
+        version: link:../../ports
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.20.1
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 3.2.7(@types/node@22.20.1)
+
   packages/adapters/persistence-memory:
     dependencies:
       '@monai/contracts':
@@ -241,18 +291,18 @@ importers:
       '@monai/delivery':
         specifier: workspace:*
         version: link:../../delivery
-      '@monai/lease-memory':
+      '@monai/lease-postgres':
         specifier: workspace:*
-        version: link:../lease-memory
+        version: link:../lease-postgres
       '@monai/model-stub':
         specifier: workspace:*
         version: link:../model-stub
       '@monai/pack-workspace-generic':
         specifier: workspace:*
         version: link:../../packs/workspace-generic
-      '@monai/queue-memory':
+      '@monai/queue-postgres':
         specifier: workspace:*
-        version: link:../queue-memory
+        version: link:../queue-postgres
       '@monai/runtime':
         specifier: workspace:*
         version: link:../../runtime
@@ -284,6 +334,44 @@ importers:
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
+
+  packages/adapters/queue-postgres:
+    dependencies:
+      '@monai/ports':
+        specifier: workspace:*
+        version: link:../../ports
+      pg:
+        specifier: ^8.16.3
+        version: 8.23.0
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.20.1
+      '@types/pg':
+        specifier: ^8.15.5
+        version: 8.23.1
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 3.2.7(@types/node@22.20.1)
+
+  packages/adapters/sandbox-stub:
+    dependencies:
+      '@monai/ports':
+        specifier: workspace:*
+        version: link:../../ports
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.20.1
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 3.2.7(@types/node@22.20.1)
 
   packages/adapters/secret-env:
     dependencies:
@@ -390,6 +478,9 @@ importers:
       '@monai/knowledge-http':
         specifier: workspace:*
         version: link:../adapters/knowledge-http
+      '@monai/objectstore-fs':
+        specifier: workspace:*
+        version: link:../adapters/objectstore-fs
       '@monai/pack-sdk':
         specifier: workspace:*
         version: link:../pack-sdk
@@ -402,6 +493,9 @@ importers:
       '@monai/runtime':
         specifier: workspace:*
         version: link:../runtime
+      '@monai/sandbox-stub':
+        specifier: workspace:*
+        version: link:../adapters/sandbox-stub
       '@monai/synthetic-sink':
         specifier: workspace:*
         version: link:../adapters/synthetic-sink
@@ -421,6 +515,9 @@ importers:
       '@monai/workspace-memory':
         specifier: workspace:*
         version: link:../adapters/workspace-memory
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.20.1
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
@@ -521,6 +618,9 @@ importers:
         specifier: workspace:*
         version: link:../../adapters/synthetic-sink
     devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.20.1
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
@@ -553,12 +653,18 @@ importers:
       '@monai/model-stub':
         specifier: workspace:*
         version: link:../adapters/model-stub
+      '@monai/objectstore-fs':
+        specifier: workspace:*
+        version: link:../adapters/objectstore-fs
       '@monai/pack-workspace-generic':
         specifier: workspace:*
         version: link:../packs/workspace-generic
       '@monai/persistence-memory':
         specifier: workspace:*
         version: link:../adapters/persistence-memory
+      '@monai/sandbox-stub':
+        specifier: workspace:*
+        version: link:../adapters/sandbox-stub
       '@monai/synthetic-sink':
         specifier: workspace:*
         version: link:../adapters/synthetic-sink

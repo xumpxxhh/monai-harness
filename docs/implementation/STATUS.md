@@ -1,7 +1,7 @@
 # 实现状态看板
 
 > 与各 [packages/](./packages/) / [adapters/](./adapters/) 进展页同步。不一致时以包页为准。  
-> 最后同步：2026-09-02（**`workspace.write` 已接入**；M3 RAG Tool done；KnowledgePort 仍后置）
+> 最后同步：2026-09-07（**artifact→FsObjectStore**；已撤回误加的 objectstore-memory；全 postgres L1/L2；0024 infra 收口）
 
 ## 1. 阶段
 
@@ -20,6 +20,7 @@
 | [M1](./PHASES.md#m1--真实模型簇可选) | `done` | M1a–M1h 实装完成；Knowledge 后置 |
 | [M2](./PHASES.md#m2--agent-loop-增强) | `done` | function calling + 并行工具 + Dialogue Context + Session Demo |
 | [M3](./PHASES.md#m3--rag-knowledge-search-tool) | `done` | EDR-016：`knowledge.search` RAG HTTP Tool；KnowledgePort 仍后置 |
+| [可替换 infra 适配器](./PHASES.md#可替换-infra-适配器queue--lease--objectstore--sandbox) | `done` | Queue/Lease/Sandbox/ObjectStore 已落地；Artifact Tool 联调后置；[0024](./sessions/0024-replaceable-infra-adapters-plan.md) |
 
 ## 2. 包状态
 
@@ -42,14 +43,14 @@
 | 单元 | 状态 | 进展页 |
 | --- | --- | --- |
 | persistence | `done`（P8a L2 + P9d L1-on-PG） | [persistence.md](./adapters/persistence.md) |
-| queue | `in_progress`（memory） | [queue.md](./adapters/queue.md) |
-| lease | `in_progress`（memory） | [lease.md](./adapters/lease.md) |
+| queue | `done`（memory + postgres） | [queue.md](./adapters/queue.md) |
+| lease | `done`（memory + postgres） | [lease.md](./adapters/lease.md) |
 | model | `done`（stub + openai；M2b function calling） | [model.md](./adapters/model.md) |
 | workspace | `done`（memory + harness FsWorkspace） | [workspace.md](./adapters/workspace.md) |
-| objectstore | `not_started` | [objectstore.md](./adapters/objectstore.md) |
+| objectstore | `done`（fs；artifact 已接） | [objectstore.md](./adapters/objectstore.md) |
 | knowledge | `in_progress`（RAG HTTP + Tool done；KnowledgePort 后置） | [knowledge.md](./adapters/knowledge.md) |
 | secret | `done`（`@monai/secret-env`；M1e） | [secret.md](./adapters/secret.md) |
-| sandbox-stub | `not_started` | [sandbox-stub.md](./adapters/sandbox-stub.md) |
+| sandbox-stub | `done` | [sandbox-stub.md](./adapters/sandbox-stub.md) |
 | synthetic-sink | `in_progress` | [synthetic-sink.md](./adapters/synthetic-sink.md) |
 
 ## 4. 阻塞与风险
@@ -82,8 +83,8 @@
 | --- | --- | --- |
 | L0 纯函数 | `done`（M1b/c + M2） | BudgetGuard、Context Builder、Dialogue 投影、prepare-tool-calls、map-decision |
 | L1 InMemory | `done`（M1d/f + M2c） | execute-turn 并行工具、OpenAiModelPort function calling |
-| L1-on-PG | `done`（P9d） | CreateRun→running 循环 3/3 |
-| L2 真实单库 | `done`（P8a） | Docker `postgres:16`；§2.3 全场景 12/12 |
+| L1-on-PG | `done`（全 postgres queue/lease） | CreateRun→running 3/3 |
+| L2 真实单库 | `done`（lease-postgres） | recovery + prepared 4/4；persistence 单测 8 |
 | L3 Eval / Golden | `done`（P9b-sec） | Golden 30 + 控制面 76 + 安全 8 = 114 绿 |
 | L0 governance | `done`（P9c） | GovernanceEvent store + Pack 注册 3/3 |
 | M2 harness demo | `done` | `demo:session` 多轮 CLI；`FsWorkspace` 磁盘工作区 |
@@ -91,9 +92,10 @@
 ## 7. 快捷链接
 
 - 交接：[HANDOFF.md](./HANDOFF.md)
-- 阶段：[PHASES.md](./PHASES.md)（P9 done；M1 + M2 done）
+- 阶段：[PHASES.md](./PHASES.md)（P9 / M1–M3 done；可替换 infra 计划见 0024）
 - M1 计划：[sessions/0018-real-model-cluster-plan.md](./sessions/0018-real-model-cluster-plan.md)
 - M2 归档：[sessions/0019-post-m1-agent-loop.md](./sessions/0019-post-m1-agent-loop.md)
 - M3 RAG Tool：[sessions/0020-knowledge-search-tool.md](./sessions/0020-knowledge-search-tool.md)
 - workspace.write：[sessions/0021-workspace-write-tool.md](./sessions/0021-workspace-write-tool.md)
+- 可替换 infra：[sessions/0024-replaceable-infra-adapters-plan.md](./sessions/0024-replaceable-infra-adapters-plan.md)
 - 工程 EDR：[../engineering/00-implementation-baseline.md](../engineering/00-implementation-baseline.md)

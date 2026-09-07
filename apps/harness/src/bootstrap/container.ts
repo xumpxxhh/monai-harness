@@ -9,8 +9,10 @@ import {
 import { InMemoryGovernanceEventStore } from "@monai/governance";
 import { HttpKnowledgeSearchClient } from "@monai/knowledge-http";
 import { InMemoryLease } from "@monai/lease-memory";
+import { createPostgresLease } from "@monai/lease-postgres";
 import { OpenAiModelPort } from "@monai/model-openai";
 import { StubModelPort } from "@monai/model-stub";
+import { FsObjectStore } from "@monai/objectstore-fs";
 import { InMemoryPersistence } from "@monai/persistence-memory";
 import {
   createPostgresPersistence,
@@ -20,15 +22,19 @@ import type {
   IdempotencyPort,
   LeasePort,
   ModelPort,
+  ObjectStorePort,
   OutboxPort,
   PersistencePort,
   QueuePort,
+  SandboxPort,
   SecretPort,
 } from "@monai/ports";
 import { mkdir } from "node:fs/promises";
 
 import { InMemoryQueue } from "@monai/queue-memory";
+import { createPostgresQueue } from "@monai/queue-postgres";
 import { Engine, InMemoryManifestStore, PreviewHub } from "@monai/runtime";
+import { RejectingSandbox } from "@monai/sandbox-stub";
 import { EnvSecretPort } from "@monai/secret-env";
 
 import type { HarnessConfig } from "../config/env.js";
@@ -41,11 +47,15 @@ export type PersistenceBundle = PersistencePort &
     close?: () => Promise<void>;
   };
 
+type ClosablePort = { close?: () => Promise<void> };
+
 export type HarnessRuntime = {
   config: HarnessConfig;
   persistence: PersistenceBundle;
   lease: LeasePort;
   queue: QueuePort;
+  objectStore: ObjectStorePort;
+  sandbox: SandboxPort;
   engine: Engine;
   previewHub: PreviewHub;
   dispatcher: OutboxDispatcher;
@@ -56,6 +66,8 @@ export type HarnessRuntime = {
   close: () => Promise<void>;
 };
 
+const HARNESS_TENANT_ID = "t1";
+
 export async function buildPersistence(config: HarnessConfig): Promise<PersistenceBundle> {
   if (config.persistenceDriver === "postgres") {
     const store: PostgresPersistence = await createPostgresPersistence(config.databaseUrl);
@@ -64,25 +76,51 @@ export async function buildPersistence(config: HarnessConfig): Promise<Persisten
   return new InMemoryPersistence();
 }
 
+export async function buildQueue(config: HarnessConfig): Promise<QueuePort & ClosablePort> {
+  if (config.queueDriver === "postgres") {
+    return createPostgresQueue(config.databaseUrl);
+  }
+  return new InMemoryQueue();
+}
+
+export async function buildLease(config: HarnessConfig): Promise<LeasePort & ClosablePort> {
+  if (config.leaseDriver === "postgres") {
+    return createPostgresLease(config.databaseUrl);
+  }
+  return new InMemoryLease();
+}
+
 /**
  * Bootstrap DI: config → adapters → Pack → Engine → delivery (EDR-002/014).
  */
 export async function bootstrap(config: HarnessConfig): Promise<HarnessRuntime> {
   const ownerId = "harness-worker";
   const persistence = await buildPersistence(config);
-  const lease: LeasePort = new InMemoryLease();
-  const queue: QueuePort = new InMemoryQueue();
+  const lease = await buildLease(config);
+  const queue = await buildQueue(config);
   await mkdir(config.workspaceDir, { recursive: true });
+  await mkdir(config.objectStoreDir, { recursive: true });
   const workspace = new FsWorkspace(config.workspaceDir);
+  const objectStore = new FsObjectStore({
+    rootDir: config.objectStoreDir,
+    tenantId: HARNESS_TENANT_ID,
+  });
+  const sandbox = new RejectingSandbox();
   console.log(`[harness] workspace: ${workspace.getRootDir()}`);
+  console.log(`[harness] objectStore: ${objectStore.getTenantRoot()}`);
+  console.log(
+    `[harness] drivers persistence=${config.persistenceDriver} queue=${config.queueDriver} lease=${config.leaseDriver}`,
+  );
 
   const governanceStore = config.roles.governance
     ? new InMemoryGovernanceEventStore()
     : undefined;
   const pack = wireWorkspaceGenericPack({
     workspace,
-    tenantId: "t1",
+    tenantId: HARNESS_TENANT_ID,
     governanceStore,
+    sandbox,
+    objectStore,
     knowledgeSearch: config.knowledgeBaseUrl
       ? new HttpKnowledgeSearchClient({
           baseUrl: config.knowledgeBaseUrl,
@@ -92,6 +130,9 @@ export async function bootstrap(config: HarnessConfig): Promise<HarnessRuntime> 
         })
       : undefined,
   });
+  if (pack.toolAllowlist.includes("sandbox.exec")) {
+    throw new Error("[harness][edr-014] sandbox.exec must not appear on tool allowlist");
+  }
   if (config.knowledgeBaseUrl) {
     console.log(
       `[harness] knowledge.search enabled base=${config.knowledgeBaseUrl} collections=${config.knowledgeCollectionIds.length}`,
@@ -158,6 +199,8 @@ export async function bootstrap(config: HarnessConfig): Promise<HarnessRuntime> 
     persistence,
     lease,
     queue,
+    objectStore,
+    sandbox,
     engine,
     previewHub,
     dispatcher,
@@ -166,6 +209,12 @@ export async function bootstrap(config: HarnessConfig): Promise<HarnessRuntime> 
     toolDispatcher,
     ownerId,
     close: async () => {
+      if (typeof queue.close === "function") {
+        await queue.close();
+      }
+      if (typeof lease.close === "function") {
+        await lease.close();
+      }
       if (typeof persistence.close === "function") {
         await persistence.close();
       }

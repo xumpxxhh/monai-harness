@@ -15,7 +15,7 @@ import { TurnDriver } from "./workers/turn-driver.js";
 async function main(): Promise<void> {
   const config = loadConfig();
   console.log(
-    `[harness] monai-harness starting driver=${config.persistenceDriver} mode=${config.mode} port=${config.port}`,
+    `[harness] monai-harness starting persistence=${config.persistenceDriver} queue=${config.queueDriver} lease=${config.leaseDriver} mode=${config.mode} port=${config.port}`,
   );
   console.log(`[harness] roles ${formatHarnessRoles(config.roles)}`);
   console.log(

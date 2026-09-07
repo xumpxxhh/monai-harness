@@ -302,6 +302,35 @@ M2e  harness：demo-session / SessionDemoObserver / FsWorkspace；pnpm demo:sess
 
 **非目标**：KnowledgePort；Context `knowledge` section；`list_knowledge_collections`；RAG 认证。
 
+## 可替换 infra 适配器（Queue / Lease / ObjectStore / Sandbox）
+
+**目标**：对齐 [engineering/05 §4.2](../engineering/05-testing-and-evolution.md#42-迁移检查点) 与 [04](../engineering/04-ports-extensions-and-security.md)，在 **不拆 API+Worker** 的前提下，使 Queue / Lease / ObjectStore / Sandbox 可经装配替换。
+
+**计划**：[sessions/0024-replaceable-infra-adapters-plan.md](sessions/0024-replaceable-infra-adapters-plan.md)
+
+**实现顺序**：
+
+```text
+1. harness：QUEUE_DRIVER / LEASE_DRIVER（默认 memory）
+2. @monai/queue-postgres（同库投影）
+3. @monai/lease-postgres（同库；fencing）
+4. @monai/sandbox-stub（exec 拒绝；EDR-014）
+5. @monai/objectstore-fs（租户路径 + hash）
+```
+
+**第一刀**：装配开关；delivery 业务代码零改动。
+
+**退出条件**：
+
+- [x] env 可切换 Queue / Lease 驱动；默认 memory
+- [x] `queue-postgres`：L1 双投递语义单测（dedupe + SKIP LOCKED + nack/ack）绿
+- [x] `lease-postgres`：stale owner 无法 heartbeat/validate；bind 换 owner 无双持有
+- [x] `sandbox-stub`：exec 恒拒绝；allowlist 无 `sandbox.exec`
+- [x] `objectstore-fs`：租户隔离 + hash 校验失败拒绝（Artifact Tool 联调后置）
+- [x] Eval 114 路径未改；delivery 不因换后端改语义（仅 adapter + 装配）
+
+**非目标**：拆进程；Redis/SQS；真 sandbox / EDR-010；KnowledgePort；confirm_once；「API 与 Worker 分离配置」下重跑 08。
+
 ## 阶段与测试层映射
 
 | 阶段 | 最低测试层 |
@@ -320,5 +349,6 @@ M2e  harness：demo-session / SessionDemoObserver / FsWorkspace；pnpm demo:sess
 | M1 | L0 BudgetGuard/Builder + L1 真实模型端到端（Eval 仍 stub） |
 | M2 | L0 投影/决策/并行 prepared 单测 + L1 工具链 + harness session demo |
 | M3 | L0 knowledge-http + handler；Eval 仍无 RAG 挂载 |
+| 可替换 infra | L1 双投递 + L2 fencing（PG queue/lease）；sandbox/objectstore L0 |
 
 详见 [engineering/05](../engineering/05-testing-and-evolution.md)。

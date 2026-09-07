@@ -141,6 +141,93 @@ describe("prepareToolCalls", () => {
     if (result.ok) return;
     expect(result.message).toMatch(/blind-retry|reconcile_tool/);
   });
+
+  it("scopes run idempotency keys per runId so cross-run reuse does not conflict", async () => {
+    const persistence = new InMemoryPersistence();
+    const { registry } = wireTestWorkspacePack();
+    const runA: Run = { ...run, runId: "r-a", revision: 1 };
+    const runB: Run = { ...run, runId: "r-b", revision: 1 };
+
+    const actionA: Action = {
+      schemaVersion: CONTRACTS_SCHEMA_VERSION,
+      actionId: "act-a",
+      type: "tool.call",
+      calls: [
+        {
+          toolId: "workspace.write",
+          arguments: { path: "/notes/a.md", content: "one" },
+          idempotencyKey: "model-reused-key",
+        },
+      ],
+    };
+    const first = await prepareToolCalls({
+      run: runA,
+      stepId: "step-1",
+      action: actionA,
+      correlationId: "c1",
+      expectedRevision: 1,
+      callIndices: [0],
+      persistence,
+      registry,
+      eventBase: eventBase(),
+    });
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    expect(first.idempotency[0]?.dedupeKey).toBe("run:r-a:model-reused-key");
+
+    const uow = await persistence.beginUnitOfWork("r-a");
+    const seeded = await uow.commit({
+      expectedRevision: 0,
+      expectedLeaseEpoch: 0,
+      runCreate: { ...runA, revision: 0 },
+      events: [],
+      toolCalls: first.toolCalls,
+      idempotency: first.idempotency,
+    });
+    expect(seeded.ok).toBe(true);
+
+    const actionB: Action = {
+      schemaVersion: CONTRACTS_SCHEMA_VERSION,
+      actionId: "act-b",
+      type: "tool.call",
+      calls: [
+        {
+          toolId: "workspace.write",
+          arguments: { path: "/notes/b.md", content: "two" },
+          idempotencyKey: "model-reused-key",
+        },
+      ],
+    };
+    const second = await prepareToolCalls({
+      run: runB,
+      stepId: "step-1",
+      action: actionB,
+      correlationId: "c2",
+      expectedRevision: 1,
+      callIndices: [0],
+      persistence,
+      registry,
+      eventBase: () =>
+        ({
+          schemaVersion: CONTRACTS_SCHEMA_VERSION,
+          eventId: "evt",
+          eventType: "test",
+          tenantId: "t1",
+          sessionId: "s1",
+          runId: "r-b",
+          occurredAt: new Date().toISOString(),
+          correlationId: "c2",
+          producer: { type: "engine" as const, id: "runtime" },
+          hash: "evt",
+          expectedRevision: 1,
+          payload: {},
+        }) as const,
+    });
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.toolCalls).toHaveLength(1);
+    expect(second.idempotency[0]?.dedupeKey).toBe("run:r-b:model-reused-key");
+  });
 });
 
 describe("inspectActionBatchSiblings", () => {
