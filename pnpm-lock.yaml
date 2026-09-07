@@ -95,6 +95,9 @@ importers:
       '@monai/sandbox-stub':
         specifier: workspace:*
         version: link:../../packages/adapters/sandbox-stub
+      '@monai/sandbox-subprocess':
+        specifier: workspace:*
+        version: link:../../packages/adapters/sandbox-subprocess
       '@monai/secret-env':
         specifier: workspace:*
         version: link:../../packages/adapters/secret-env
@@ -373,6 +376,22 @@ importers:
         specifier: 'catalog:'
         version: 3.2.7(@types/node@22.20.1)
 
+  packages/adapters/sandbox-subprocess:
+    dependencies:
+      '@monai/ports':
+        specifier: workspace:*
+        version: link:../../ports
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.20.1
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 3.2.7(@types/node@22.20.1)
+
   packages/adapters/secret-env:
     dependencies:
       '@monai/contracts':
@@ -512,6 +531,9 @@ importers:
       '@monai/queue-memory':
         specifier: workspace:*
         version: link:../adapters/queue-memory
+      '@monai/sandbox-subprocess':
+        specifier: workspace:*
+        version: link:../adapters/sandbox-subprocess
       '@monai/workspace-memory':
         specifier: workspace:*
         version: link:../adapters/workspace-memory

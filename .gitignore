@@ -13,3 +13,4 @@ coverage
 
 apps/harness/workspace/
 apps/harness/object-store/
+apps/harness/sandbox/

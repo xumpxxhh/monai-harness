@@ -33,6 +33,8 @@ export type {
   QueueEnqueueInput,
   QueueMessage,
   QueuePort,
+  SandboxExecRequest,
+  SandboxExecResult,
   SandboxPort,
   SecretLease,
   SecretPort,

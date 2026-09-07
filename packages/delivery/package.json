@@ -35,6 +35,7 @@
     "@monai/model-stub": "workspace:*",
     "@monai/persistence-memory": "workspace:*",
     "@monai/queue-memory": "workspace:*",
+    "@monai/sandbox-subprocess": "workspace:*",
     "@monai/synthetic-sink": "workspace:*",
     "@monai/workspace-memory": "workspace:*",
     "@types/node": "catalog:",

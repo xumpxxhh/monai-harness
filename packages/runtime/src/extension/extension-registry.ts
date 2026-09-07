@@ -18,6 +18,11 @@ import {
 export type RegisterPackInput = {
   tenantId: string;
   contribution: PackContributionDefinition;
+  /**
+   * Opt-in: allow specific EDR-014 tool ids (and matching permissions) to register.
+   * Default empty → sandbox.exec etc. stay disabled (contribution status `disabled`).
+   */
+  allowEdr014Tools?: readonly string[];
 };
 
 type RegisteredPack = {
@@ -73,30 +78,31 @@ export class ExtensionRegistry {
 
     const manifest = parsed.data;
     const permissionsRequested = new Set(manifest.permissionsRequested);
+    const allowEdr014 = new Set(input.allowEdr014Tools ?? []);
     let rejected = false;
 
     for (const permission of manifest.permissionsRequested) {
-      if (isEdr014DisabledPermission(permission)) {
-        rejected = true;
+      if (isEdr014DisabledPermission(permission) && !allowEdr014.has(permission)) {
+        // Soft-disable: do not fail the whole pack (default path stays active).
         contributions.push({
           kind: "tool",
           id: permission,
           version: manifest.version,
-          status: "rejected",
+          status: "disabled",
           reasonCodes: ["edr014_disabled_permission"],
           effectivePermissions: [],
         });
+        continue;
       }
     }
 
     for (const tool of manifest.tools) {
-      if (isEdr014DisabledTool(tool.toolId)) {
-        rejected = true;
+      if (isEdr014DisabledTool(tool.toolId) && !allowEdr014.has(tool.toolId)) {
         contributions.push({
           kind: "tool",
           id: tool.toolId,
           version: tool.version,
-          status: "rejected",
+          status: "disabled",
           reasonCodes: ["edr014_disabled_tool"],
           effectivePermissions: [],
         });
@@ -182,11 +188,12 @@ export class ExtensionRegistry {
     const hasRegisteredTool = contributions.some(
       (c) => c.kind === "tool" && c.status === "registered",
     );
-    const status = rejected
-      ? hasRegisteredTool
+    const hasHardReject = contributions.some((c) => c.status === "rejected") || rejected;
+    const status = !hasRegisteredTool
+      ? "rejected"
+      : hasHardReject
         ? "partial_rejected"
-        : "rejected"
-      : "active";
+        : "active";
 
     const result: PackRegistrationResult = {
       schemaVersion: CONTRACTS_SCHEMA_VERSION,

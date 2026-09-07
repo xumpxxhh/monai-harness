@@ -3,7 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ToolCallRecord } from "@monai/contracts";
 import { PackRegistrationService } from "@monai/governance";
-import { createWorkspaceGenericPack, KNOWLEDGE_SEARCH_ALLOWLIST_ENTRY, WORKSPACE_GENERIC_REQUIRE_APPROVAL, WORKSPACE_GENERIC_TOOL_ALLOWLIST } from "@monai/pack-workspace-generic";
+import {
+  createWorkspaceGenericPack,
+  KNOWLEDGE_SEARCH_ALLOWLIST_ENTRY,
+  SANDBOX_EXEC_ALLOWLIST_ENTRY,
+  WORKSPACE_GENERIC_REQUIRE_APPROVAL,
+  WORKSPACE_GENERIC_TOOL_ALLOWLIST,
+} from "@monai/pack-workspace-generic";
 import type { GovernanceEventStorePort, ObjectStorePort, SandboxPort, WorkspacePort } from "@monai/ports";
 import type { KnowledgeSearchClient } from "@monai/knowledge-http";
 import type { ExecutionContext } from "@monai/pack-sdk";
@@ -29,6 +35,11 @@ export type WireWorkspaceGenericOptions = {
   objectStore?: ObjectStorePort;
   /** Defaults to RejectingSandbox (EDR-014). */
   sandbox?: SandboxPort;
+  /**
+   * Opt-in sandbox.exec (0025). Requires a non-RejectingSandbox implementation.
+   * Appends allowlist entry and Registry allowEdr014Tools.
+   */
+  enableSandboxExec?: boolean;
 };
 
 export type WireWorkspaceGenericResult = {
@@ -60,7 +71,20 @@ export function wireWorkspaceGenericPack(
   const synthetic = new IsolatedSyntheticSink();
   const objectStore = options.objectStore ?? defaultFsObjectStore(tenantId);
   const sandbox = options.sandbox ?? new RejectingSandbox();
+  const enableSandboxExec = options.enableSandboxExec === true;
+
+  if (enableSandboxExec && sandbox instanceof RejectingSandbox) {
+    throw new Error(
+      "enableSandboxExec requires an executable SandboxPort (got RejectingSandbox)",
+    );
+  }
+
   const contribution = createWorkspaceGenericPack();
+  const registerInput = {
+    tenantId,
+    contribution,
+    ...(enableSandboxExec ? { allowEdr014Tools: [SANDBOX_EXEC_ALLOWLIST_ENTRY] as const } : {}),
+  };
 
   let packRegistration: PackRegistrationService | undefined;
   const registration = options.governanceStore
@@ -69,9 +93,9 @@ export function wireWorkspaceGenericPack(
           registry,
           governanceStore: options.governanceStore,
         });
-        return packRegistration.register({ tenantId, contribution });
+        return packRegistration.register(registerInput);
       })()
-    : registry.register({ tenantId, contribution });
+    : registry.register(registerInput);
   if (registration.status === "rejected") {
     throw new Error(
       `workspace-generic pack registration rejected: ${registration.contributions
@@ -104,9 +128,11 @@ export function wireWorkspaceGenericPack(
     buildExecutionContext,
   });
 
-  const toolAllowlist = options.knowledgeSearch
-    ? [...WORKSPACE_GENERIC_TOOL_ALLOWLIST, KNOWLEDGE_SEARCH_ALLOWLIST_ENTRY]
-    : WORKSPACE_GENERIC_TOOL_ALLOWLIST;
+  const toolAllowlist = [
+    ...WORKSPACE_GENERIC_TOOL_ALLOWLIST,
+    ...(options.knowledgeSearch ? [KNOWLEDGE_SEARCH_ALLOWLIST_ENTRY] : []),
+    ...(enableSandboxExec ? [SANDBOX_EXEC_ALLOWLIST_ENTRY] : []),
+  ];
 
   return {
     registry,

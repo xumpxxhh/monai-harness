@@ -17,12 +17,13 @@
 - 同进程角色：api / dispatcher / scheduler / worker / observability / governance
 - graceful shutdown：停接流量 → drain → 释放 lease
 - Feature flags 默认关闭 DAG、spawn_child、Memory、sandbox.exec、真实 write_high
+- `FEATURE_ENABLE_SANDBOX_EXEC=true` 时可挂 `@monai/sandbox-subprocess`（需 `SANDBOX_ALLOWED_BINARIES`）
 
 **P8b — bootstrap**（对齐 [engineering/02 §2](../../engineering/02-runtime-composition.md#2-bootstrap-与依赖注入)）：
 
 ```text
 load config (.env)
-→ build adapters (persistence / queue / lease：memory | postgres；sandbox-stub；objectstore-fs)
+→ build adapters (persistence / queue / lease：memory | postgres；sandbox-stub | sandbox-subprocess；objectstore-fs)
 → build Engine + delivery (dispatcher / scheduler / compensation scanner)
 → build api handlers
 → start loops + optional HTTP server (P8c)
@@ -45,6 +46,7 @@ load config (.env)
 - [x] `PERSISTENCE_DRIVER=postgres|memory` — P8b
 - [x] `QUEUE_DRIVER` / `LEASE_DRIVER=memory|postgres` — 0024
 - [x] `RejectingSandbox` + `FsObjectStore` 装配 — 0024
+- [x] `SubprocessSandbox` opt-in（`FEATURE_ENABLE_SANDBOX_EXEC`）— 0025
 - [x] delivery 循环（Outbox → queue → execute_turn）— P8b（`DeliveryLoops`；demo 内 tick；`HARNESS_MODE=serve` 常驻）
 - [x] `.env.example`（`DATABASE_URL`、`PORT`、flags）— P8b
 - [x] HTTP server 启动 — P8c（`http-server.ts` + `createHttpApp`；`HARNESS_MODE=serve`）
@@ -71,7 +73,7 @@ load config (.env)
 
 ## 4. 依赖
 
-几乎所有 packages/adapters（运行期）。已链接 contracts/ports/runtime/api/delivery/observability/pack-sdk/model-stub/model-openai/secret-env/persistence-memory/**persistence-postgres**/queue-memory/**queue-postgres**/lease-memory/**lease-postgres**/**sandbox-stub**/**objectstore-fs**/synthetic-sink。
+几乎所有 packages/adapters（运行期）。已链接 contracts/ports/runtime/api/delivery/observability/pack-sdk/model-stub/model-openai/secret-env/persistence-memory/**persistence-postgres**/queue-memory/**queue-postgres**/lease-memory/**lease-postgres**/**sandbox-stub**/**sandbox-subprocess**/**objectstore-fs**/synthetic-sink。
 
 ## 5. 缺口与风险
 

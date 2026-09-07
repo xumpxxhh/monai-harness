@@ -28,6 +28,9 @@ export function requiredPermissionsForTool(
   toolId: string,
   sideEffectProfile: "none" | "read" | "write_low" | "write_high",
 ): string[] {
+  if (toolId === "sandbox.exec" || toolId.startsWith("sandbox.")) {
+    return ["sandbox.exec"];
+  }
   if (toolId.startsWith("workspace.")) {
     return sideEffectProfile === "read" ? ["workspace.read"] : ["workspace.read", "workspace.write"];
   }

@@ -130,7 +130,7 @@ flowchart TB
 | EDR-011 | `packages/runtime` 首版保持单包，内部分模块；不拆独立写入微服务 | Accepted | [01](./01-repository-and-modules.md) |
 | EDR-012 | 统一 `HarnessCommand` 信封作为 API / Scheduler / Worker 唯一推进入口 | Accepted | [02](./02-runtime-composition.md) |
 | EDR-013 | Governance Event 与 Evaluation Store 与 Run 真相分离存储/表族 | Accepted | [03](./03-persistence-and-transactions.md)；[04](./04-ports-extensions-and-security.md) |
-| EDR-014 | MVP 装配层显式禁用 DAG、spawn_child、Memory、sandbox.exec、真实 write_high | Accepted | [04](./04-ports-extensions-and-security.md)；设计 [08](../design/08-mvp-and-evolution.md) |
+| EDR-014 | MVP 装配层**默认**禁用 DAG、spawn_child、Memory、sandbox.exec、真实 write_high；`sandbox.exec` 可经 `FEATURE_ENABLE_SANDBOX_EXEC` + 可执行 SandboxPort **opt-in**（Eval/默认路径仍关） | Accepted | [04](./04-ports-extensions-and-security.md)；设计 [08](../design/08-mvp-and-evolution.md)；[0025](../implementation/sessions/0025-sandbox-exec-opt-in.md) |
 | EDR-015 | 测试金字塔：纯函数 → InMemory 故障注入 → 真实单库集成 → 08 Eval Suite | Accepted | [05](./05-testing-and-evolution.md) |
 | EDR-016 | 自研 RAG HTTP 以 Pack Tool `knowledge.search` 接入；装配层仅在配置 `KNOWLEDGE_BASE_URL` 时加入 allowlist；**不**实现 KnowledgePort 预检索；Eval 默认不挂载 | Accepted | [04](./04-ports-extensions-and-security.md)；`packages/adapters/knowledge-http` |
 

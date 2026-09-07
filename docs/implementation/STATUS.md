@@ -1,7 +1,7 @@
 # 实现状态看板
 
 > 与各 [packages/](./packages/) / [adapters/](./adapters/) 进展页同步。不一致时以包页为准。  
-> 最后同步：2026-09-07（**artifact→FsObjectStore**；已撤回误加的 objectstore-memory；全 postgres L1/L2；0024 infra 收口）
+> 最后同步：2026-09-07（**0025 sandbox.exec opt-in**；artifact→FsObjectStore；0024 infra 收口）
 
 ## 1. 阶段
 
@@ -50,7 +50,8 @@
 | objectstore | `done`（fs；artifact 已接） | [objectstore.md](./adapters/objectstore.md) |
 | knowledge | `in_progress`（RAG HTTP + Tool done；KnowledgePort 后置） | [knowledge.md](./adapters/knowledge.md) |
 | secret | `done`（`@monai/secret-env`；M1e） | [secret.md](./adapters/secret.md) |
-| sandbox-stub | `done` | [sandbox-stub.md](./adapters/sandbox-stub.md) |
+| sandbox-stub | `done` | [sandbox-stub.md](./adapters/sandbox-stub.md) — 默认拒绝 |
+| sandbox-subprocess | `done`（opt-in） | [sandbox-subprocess.md](./adapters/sandbox-subprocess.md) — 0025 |
 | synthetic-sink | `in_progress` | [synthetic-sink.md](./adapters/synthetic-sink.md) |
 
 ## 4. 阻塞与风险
@@ -60,7 +61,8 @@
 | Eval 完整矩阵 | 信息 | 114/114 绿（stub）；M2 未影响 Eval 门禁 |
 | Knowledge 缺口 | 信息 | KnowledgePort / Context `knowledge` section 仍后置；RAG Tool 已接 |
 | ConfirmationGrant | 信息 | P5 未做 confirm_once |
-| EDR-010 | 低 | Deferred |
+| EDR-010 | 低 | Deferred（isolated_extension；与 opt-in sandbox.exec 分立） |
+| sandbox.exec opt-in | 信息 | 0025：默认关；`FEATURE_ENABLE_SANDBOX_EXEC` + subprocess |
 
 ## 5. 决策关闭记录
 
@@ -76,6 +78,7 @@
 | 2026-08-28 | M1 | Accepted | Context Builder + BudgetGuard + SecretPort + OpenAiModelPort |
 | 2026-09-02 | M2 | Accepted | function calling + Action.calls[] + Dialogue Context + Session Demo |
 | 2026-09-02 | EDR-016 | Accepted | RAG HTTP → `knowledge.search` Tool；非 KnowledgePort |
+| 2026-09-07 | EDR-014 | Accepted（澄清） | 默认禁用；`sandbox.exec` 可 opt-in（0025）；Eval 仍关 |
 
 ## 6. 测试 readiness
 
@@ -98,4 +101,5 @@
 - M3 RAG Tool：[sessions/0020-knowledge-search-tool.md](./sessions/0020-knowledge-search-tool.md)
 - workspace.write：[sessions/0021-workspace-write-tool.md](./sessions/0021-workspace-write-tool.md)
 - 可替换 infra：[sessions/0024-replaceable-infra-adapters-plan.md](./sessions/0024-replaceable-infra-adapters-plan.md)
+- sandbox.exec opt-in：[sessions/0025-sandbox-exec-opt-in.md](./sessions/0025-sandbox-exec-opt-in.md)
 - 工程 EDR：[../engineering/00-implementation-baseline.md](../engineering/00-implementation-baseline.md)

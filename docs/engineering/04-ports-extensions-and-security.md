@@ -24,7 +24,7 @@
 | `KnowledgePort` | 按 sourceId/version/权限/预算返回带 provenance 片段 |
 | `WorkspacePort` | list/read/write/delete/search；写/删仅受控 Tool |
 | `ObjectStorePort` | put/get/signedRef；内容哈希与租户隔离 |
-| `SandboxPort` | 接口保留；**MVP 不挂载可执行实现** |
+| `SandboxPort` | 接口保留；**MVP 默认**挂 stub（拒绝 exec）；可经 flag opt-in 挂 subprocess 实现（非 EDR-010） |
 | `SecretPort` | 短时凭证注入；值不进 Context/Event/State |
 | `EventStreamPort` | 从已提交 sequence 游标读取/推送 |
 | `EvaluationPort` | 样本提交与评测任务；不改生产门禁 |
@@ -110,7 +110,8 @@ ExecutionContext {
 | `objectstore-*` | Artifact 正文 |
 | `knowledge-http` | RAG `POST /api/v1/search` 客户端（Tool 后端；非 KnowledgePort） |
 | `secret-*` | 可 stub；禁止明文落 Event |
-| `sandbox-stub` | 仅占位，拒绝 exec |
+| `sandbox-stub` | 默认占位，拒绝 exec |
+| `sandbox-subprocess` | opt-in 可执行实现（argv / 无 shell；见 0025） |
 | `synthetic-sink` | `synthetic.write_high` + reconcile |
 
 Adapter 不得实现领域状态机，不得在回调里直接 `revision++`。
@@ -149,7 +150,7 @@ Adapter 不得实现领域状态机，不得在回调里直接 `revision++`。
 | Memory 检索/晋升 | ContextBuilder 不读取 Memory；晋升流程不挂载 |
 | 向量/语义 Knowledge | KnowledgePort MVP 实现仅精确/规则 |
 | 自动 Knowledge 写回 | 无写回 Tool/Hook 注册 |
-| `sandbox.exec` | SandboxPort stub；allowlist 不得引用 |
+| `sandbox.exec` | **默认** SandboxPort stub + allowlist 不得引用；`FEATURE_ENABLE_SANDBOX_EXEC=true` 时可挂 `@monai/sandbox-subprocess` 并追加 allowlist（Registry `allowEdr014Tools`） |
 | 真实 `write_high` | 仅 `synthetic.write_high` 在测试租户；默认 deny 真实外部写 |
 | 多 Agent 共享 State | 不提供旁路；阶段 G 前不启用 |
 

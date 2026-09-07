@@ -172,11 +172,33 @@ export type ObjectStorePort = {
 };
 
 /**
- * SandboxPort — interface retained; MVP must NOT mount an executable implementation (EDR-014).
+ * Bounded sandbox exec request (opt-in; default MVP uses RejectingSandbox).
+ * argv only — never a shell string.
+ */
+export type SandboxExecRequest = {
+  argv: string[];
+  cwd?: string;
+  env?: Record<string, string>;
+  timeoutMs?: number;
+  maxStdoutBytes?: number;
+  maxStderrBytes?: number;
+};
+
+/** Bounded sandbox exec result. Truncation/timeout must not be reported as full success by Tools. */
+export type SandboxExecResult = {
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+  timedOut: boolean;
+  truncated: boolean;
+};
+
+/**
+ * SandboxPort — MVP **default** is non-executable stub (EDR-014).
+ * Executable adapters (e.g. subprocess) only when feature flag + assembly opt-in.
  */
 export type SandboxPort = {
-  /** @deprecated MVP: do not call. */
-  exec(_request: unknown): Promise<never>;
+  exec(request: SandboxExecRequest): Promise<SandboxExecResult>;
 };
 
 export type SecretLease = {

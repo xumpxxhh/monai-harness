@@ -59,6 +59,10 @@ export type HarnessConfig = {
   workspaceDir: string;
   /** ObjectStore fs root (tenant partitions underneath). */
   objectStoreDir: string;
+  /** Sandbox cwd root when FEATURE_ENABLE_SANDBOX_EXEC (subprocess). */
+  sandboxDir: string;
+  /** Bare binary names allowed for sandbox.exec (comma-parsed). Empty = fail closed when enabled. */
+  sandboxAllowedBinaries: readonly string[];
   /** RAG HTTP base URL; empty = knowledge.search disabled (EDR-016). */
   knowledgeBaseUrl?: string;
   knowledgeCollectionIds: readonly string[];
@@ -81,6 +85,11 @@ export function defaultWorkspaceDir(): string {
 /** Default object store root: `apps/harness/object-store`. */
 export function defaultObjectStoreDir(): string {
   return resolve(harnessRootDir(), "object-store");
+}
+
+/** Default sandbox root: `apps/harness/sandbox`. */
+export function defaultSandboxDir(): string {
+  return resolve(harnessRootDir(), "sandbox");
 }
 
 function parseBool(raw: string | undefined, fallback: boolean): boolean {
@@ -243,6 +252,9 @@ export function loadConfig(): HarnessConfig {
   const objectStoreDir = objectStoreDirRaw
     ? resolve(objectStoreDirRaw)
     : defaultObjectStoreDir();
+  const sandboxDirRaw = process.env.HARNESS_SANDBOX_DIR?.trim();
+  const sandboxDir = sandboxDirRaw ? resolve(sandboxDirRaw) : defaultSandboxDir();
+  const sandboxAllowedBinaries = parseCommaSeparated(process.env.SANDBOX_ALLOWED_BINARIES);
 
   const knowledgeBaseUrl = process.env.KNOWLEDGE_BASE_URL?.trim() || undefined;
   const knowledgeCollectionIds = parseCommaSeparated(process.env.KNOWLEDGE_COLLECTION_IDS);
@@ -283,6 +295,8 @@ export function loadConfig(): HarnessConfig {
     roles,
     workspaceDir,
     objectStoreDir,
+    sandboxDir,
+    sandboxAllowedBinaries,
     knowledgeBaseUrl,
     knowledgeCollectionIds,
     knowledgeTopK: Number.isFinite(knowledgeTopK) ? knowledgeTopK : undefined,

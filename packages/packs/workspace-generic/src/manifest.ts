@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { CONTRACTS_SCHEMA_VERSION, type PackManifest } from "@monai/contracts";
-import type { ObjectStorePort, WorkspacePort } from "@monai/ports";
+import type { ObjectStorePort, SandboxPort, WorkspacePort } from "@monai/ports";
 import {
   packDefaultAllowlist,
   packRequireApprovalTools,
@@ -18,6 +18,9 @@ const MAX_OUTPUT_CHARS = 512_000;
 
 /** Tool id for RAG HTTP retrieve-only search (EDR-016). Not in default allowlist. */
 export const KNOWLEDGE_SEARCH_TOOL_ID = "knowledge.search" as const;
+
+/** Tool id for opt-in sandbox.exec (0025 / EDR-014). Not in default allowlist. */
+export const SANDBOX_EXEC_TOOL_ID = "sandbox.exec" as const;
 
 export type KnowledgeSearchClientPort = {
   search(input: {
@@ -58,6 +61,12 @@ function objectStore(ctx: ExecutionContext): ObjectStorePort {
     throw new Error("objectStore not configured");
   }
   return store;
+}
+
+function sandboxPort(ctx: ExecutionContext): SandboxPort | undefined {
+  const port = ctx.ports?.sandbox as SandboxPort | undefined;
+  if (!port || typeof port.exec !== "function") return undefined;
+  return port;
 }
 
 function artifactObjectKey(artifactId: string): string {
@@ -230,6 +239,57 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
       return { ok: false, error: message };
     }
   },
+  [SANDBOX_EXEC_TOOL_ID]: async (input) => {
+    const sandbox = sandboxPort(input.executionContext);
+    if (!sandbox) {
+      return { ok: false, error: "sandbox not configured" };
+    }
+    const args = input.arguments as Record<string, unknown>;
+    const argvRaw = args.argv ?? args.command;
+    if (!Array.isArray(argvRaw) || argvRaw.length === 0) {
+      return { ok: false, error: "argv must be a non-empty array of strings" };
+    }
+    const argv = argvRaw.map((part) => String(part));
+    const cwd = args.cwd !== undefined ? String(args.cwd) : undefined;
+    const timeoutRaw = args.timeout_ms ?? args.timeoutMs;
+    const timeoutMs =
+      timeoutRaw !== undefined && timeoutRaw !== null ? Number(timeoutRaw) : undefined;
+    try {
+      const result = await sandbox.exec({
+        argv,
+        cwd,
+        timeoutMs: Number.isFinite(timeoutMs) && timeoutMs! > 0 ? timeoutMs : undefined,
+      });
+      const summary = result.timedOut
+        ? `sandbox.exec timed out: ${argv[0]}`
+        : result.truncated
+          ? `sandbox.exec truncated: ${argv[0]} exit=${result.exitCode}`
+          : `sandbox.exec ${argv[0]} exit=${result.exitCode}`;
+      if (result.timedOut || result.truncated) {
+        return {
+          ok: false,
+          error: result.timedOut
+            ? "sandbox exec timed out"
+            : "sandbox exec output truncated",
+          data: { ...result, summary },
+        };
+      }
+      if (result.exitCode !== 0) {
+        return {
+          ok: false,
+          error: `sandbox exec exit ${result.exitCode}`,
+          data: { ...result, summary },
+        };
+      }
+      return {
+        ok: true,
+        data: { ...result, summary },
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "sandbox exec failed";
+      return { ok: false, error: message };
+    }
+  },
   "artifact.write_markdown": async (input) => {
     const args = input.arguments as Record<string, unknown>;
     const markdown = capOutput(String(args.markdown ?? args.content ?? ""));
@@ -367,6 +427,13 @@ const knowledgeContract = {
   timeoutMs: 60_000,
 };
 
+const sandboxContract = {
+  schemaVersion: CONTRACTS_SCHEMA_VERSION,
+  deliverySemantics: "at_most_once" as const,
+  idempotencyScope: "run" as const,
+  timeoutMs: 30_000,
+};
+
 export const WORKSPACE_GENERIC_MANIFEST = {
   schemaVersion: CONTRACTS_SCHEMA_VERSION,
   packId: "com.monai.pack.workspace-generic",
@@ -378,6 +445,7 @@ export const WORKSPACE_GENERIC_MANIFEST = {
     "artifact.write",
     "synthetic.write_high",
     "knowledge.read",
+    "sandbox.exec",
   ],
   tools: [
     {
@@ -525,6 +593,48 @@ export const WORKSPACE_GENERIC_MANIFEST = {
       },
     },
     {
+      toolId: SANDBOX_EXEC_TOOL_ID,
+      version: "0.1.0",
+      defaultEnabled: false,
+      requireApproval: true,
+      description:
+        "Run an allowlisted binary as argv (no shell) inside the sandbox root. Requires approval. Opt-in only.",
+      parameters: {
+        type: "object",
+        properties: {
+          argv: {
+            type: "array",
+            items: { type: "string" },
+            description: "Command argv; argv[0] must be an allowlisted bare binary name",
+            minItems: 1,
+          },
+          cwd: {
+            type: "string",
+            description: "Optional relative cwd under the sandbox root",
+          },
+          timeout_ms: {
+            type: "integer",
+            minimum: 1,
+            description: "Optional wall-clock timeout in ms",
+          },
+        },
+        required: ["argv"],
+        additionalProperties: true,
+      },
+      argHint: "Run an allowlisted sandbox command (requires approval)",
+      systemPrompt: [
+        "Sandbox exec (sandbox.exec):",
+        "Only use when the user explicitly needs a controlled command run.",
+        "Pass argv as a string array; never invent shell metacharacters or unlisted binaries.",
+        "Requires approval; prefer workspace tools for normal file work.",
+      ].join("\n"),
+      effectContract: {
+        ...sandboxContract,
+        sideEffectProfile: "write_high" as const,
+        reconcileSupported: false,
+      },
+    },
+    {
       toolId: "artifact.write_markdown",
       version: "0.1.0",
       description: "Write a markdown artifact.",
@@ -617,6 +727,9 @@ export const WORKSPACE_GENERIC_TOOL_ALLOWLIST = [
 
 /** Appended at wiring time when RAG client is configured (EDR-016). */
 export const KNOWLEDGE_SEARCH_ALLOWLIST_ENTRY = KNOWLEDGE_SEARCH_TOOL_ID;
+
+/** Appended at wiring time when sandbox.exec opt-in is enabled (0025). */
+export const SANDBOX_EXEC_ALLOWLIST_ENTRY = SANDBOX_EXEC_TOOL_ID;
 
 export const WORKSPACE_GENERIC_REQUIRE_APPROVAL = packRequireApprovalTools(
   WORKSPACE_GENERIC_MANIFEST.tools,

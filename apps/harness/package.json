@@ -36,6 +36,7 @@
     "@monai/queue-postgres": "workspace:*",
     "@monai/runtime": "workspace:*",
     "@monai/sandbox-stub": "workspace:*",
+    "@monai/sandbox-subprocess": "workspace:*",
     "@monai/secret-env": "workspace:*",
     "@monai/synthetic-sink": "workspace:*",
     "dotenv": "^16.6.1",

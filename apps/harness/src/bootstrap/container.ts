@@ -34,6 +34,7 @@ import { mkdir } from "node:fs/promises";
 import { InMemoryQueue } from "@monai/queue-memory";
 import { createPostgresQueue } from "@monai/queue-postgres";
 import { Engine, InMemoryManifestStore, PreviewHub } from "@monai/runtime";
+import { SubprocessSandbox } from "@monai/sandbox-subprocess";
 import { RejectingSandbox } from "@monai/sandbox-stub";
 import { EnvSecretPort } from "@monai/secret-env";
 
@@ -105,9 +106,23 @@ export async function bootstrap(config: HarnessConfig): Promise<HarnessRuntime> 
     rootDir: config.objectStoreDir,
     tenantId: HARNESS_TENANT_ID,
   });
-  const sandbox = new RejectingSandbox();
+  const enableSandboxExec = config.featureFlags.enableSandboxExec;
+  if (enableSandboxExec) {
+    await mkdir(config.sandboxDir, { recursive: true });
+  }
+  const sandbox: SandboxPort = enableSandboxExec
+    ? new SubprocessSandbox({
+        sandboxRoot: config.sandboxDir,
+        allowedBinaries: config.sandboxAllowedBinaries,
+      })
+    : new RejectingSandbox();
   console.log(`[harness] workspace: ${workspace.getRootDir()}`);
   console.log(`[harness] objectStore: ${objectStore.getTenantRoot()}`);
+  if (enableSandboxExec) {
+    console.log(
+      `[harness] sandbox: ${config.sandboxDir} binaries=${config.sandboxAllowedBinaries.join(",") || "(empty)"}`,
+    );
+  }
   console.log(
     `[harness] drivers persistence=${config.persistenceDriver} queue=${config.queueDriver} lease=${config.leaseDriver}`,
   );
@@ -121,6 +136,7 @@ export async function bootstrap(config: HarnessConfig): Promise<HarnessRuntime> 
     governanceStore,
     sandbox,
     objectStore,
+    enableSandboxExec,
     knowledgeSearch: config.knowledgeBaseUrl
       ? new HttpKnowledgeSearchClient({
           baseUrl: config.knowledgeBaseUrl,
@@ -130,8 +146,14 @@ export async function bootstrap(config: HarnessConfig): Promise<HarnessRuntime> 
         })
       : undefined,
   });
-  if (pack.toolAllowlist.includes("sandbox.exec")) {
+  if (!enableSandboxExec && pack.toolAllowlist.includes("sandbox.exec")) {
     throw new Error("[harness][edr-014] sandbox.exec must not appear on tool allowlist");
+  }
+  if (enableSandboxExec && !pack.toolAllowlist.includes("sandbox.exec")) {
+    throw new Error("[harness] sandbox.exec enabled but missing from tool allowlist");
+  }
+  if (enableSandboxExec && sandbox instanceof RejectingSandbox) {
+    throw new Error("[harness] sandbox.exec enabled but SandboxPort is RejectingSandbox");
   }
   if (config.knowledgeBaseUrl) {
     console.log(

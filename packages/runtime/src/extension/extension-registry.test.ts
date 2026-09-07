@@ -44,7 +44,7 @@ function validContribution(overrides?: Partial<PackContributionDefinition>): Pac
 }
 
 describe("ExtensionRegistry", () => {
-  it("rejects EDR-014 disabled tools", () => {
+  it("rejects EDR-014 disabled tools when pack has no other tools", () => {
     const registry = new ExtensionRegistry();
     const contribution = validContribution({
       manifest: {
@@ -62,6 +62,63 @@ describe("ExtensionRegistry", () => {
     const result = registry.register({ tenantId: "t1", contribution });
     expect(result.status).toBe("rejected");
     expect(result.contributions.some((c) => c.reasonCodes.includes("edr014_disabled_tool"))).toBe(true);
+  });
+
+  it("allows sandbox.exec when allowEdr014Tools includes it", () => {
+    const registry = new ExtensionRegistry();
+    const contribution = validContribution({
+      manifest: {
+        ...validContribution().manifest,
+        permissionsRequested: [
+          ...validContribution().manifest.permissionsRequested,
+          "sandbox.exec",
+        ],
+        tools: [
+          {
+            toolId: "sandbox.exec",
+            version: "0.1.0",
+            effectContract: { ...baseContract, sideEffectProfile: "write_high" },
+          },
+        ],
+      },
+      tools: { "sandbox.exec": stubHandler() },
+    });
+    const result = registry.register({
+      tenantId: "t1",
+      contribution,
+      allowEdr014Tools: ["sandbox.exec"],
+    });
+    expect(result.status).toBe("active");
+    expect(registry.getToolAllowlist()).toContain("sandbox.exec");
+  });
+
+  it("keeps pack active when sandbox.exec is soft-disabled beside other tools", () => {
+    const registry = new ExtensionRegistry();
+    const contribution = validContribution({
+      manifest: {
+        ...validContribution().manifest,
+        permissionsRequested: [
+          ...validContribution().manifest.permissionsRequested,
+          "sandbox.exec",
+        ],
+        tools: [
+          ...validContribution().manifest.tools,
+          {
+            toolId: "sandbox.exec",
+            version: "0.1.0",
+            effectContract: { ...baseContract, sideEffectProfile: "write_high" },
+          },
+        ],
+      },
+      tools: {
+        ...validContribution().tools,
+        "sandbox.exec": stubHandler(),
+      },
+    });
+    const result = registry.register({ tenantId: "t1", contribution });
+    expect(result.status).toBe("active");
+    expect(registry.getToolAllowlist()).not.toContain("sandbox.exec");
+    expect(registry.getToolAllowlist()).toContain("workspace.read");
   });
 
   it("rejects missing handler", () => {
