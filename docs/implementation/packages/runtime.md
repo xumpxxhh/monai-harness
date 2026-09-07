@@ -105,6 +105,7 @@ Event Log → projectDialogue → DialogueTurn[]
 - [x] `projectSessionDialogue`：Session 跨 Run 合并对话（goal 仅当前句）
 - [x] `projectModelMessages`：recent 窗口完整 messages + history 摘要
 - [x] `ensureDialogueCompression`：超阈值 LLM/确定性摘要 + `context.summary_created` Event
+- [x] 压缩切窗按 **完整执行回合**（同 `stepId` 的 assistant+tools 不可拆）；`DialogueTurn.turnId` 仍为消息级；`recentTurnCount` **计组**不计消息条
 - [x] `build-model-context`：组装 `ModelCompleteInput.messages`
 - [x] `publish-model-context` / `preview-hub`：模型上下文预览
 - [x] `DisabledMemoryPort` 占位（MVP 不检索）
@@ -125,6 +126,7 @@ contracts、ports、pack-sdk、synthetic-sink（invoker）；workspace 运行期
 
 | 日期 | 说明 |
 | --- | --- |
+| 2026-09-07 | 压缩切窗按 `stepId` 完整回合；`recentTurnCount` 计组 |
 | 2026-09-02 | M2d：Dialogue 投影 + 压缩 + `build-model-context`；`publish-model-context` |
 | 2026-09-01 | M2c：并行 `prepare-tool-calls`；Policy 按条；`project-approval`；Step 闭合 |
 | 2026-09-01 | M2b：function calling 决策环（`map-decision` / `hydrate-action` / `function-catalog`） |

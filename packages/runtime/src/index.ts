@@ -9,6 +9,7 @@ export { buildModelContext, type BuildModelContextInput, type BuildModelContextR
 export {
   ensureDialogueCompression,
   findCachedCompression,
+  groupCompleteTurns,
   planDialogueCompression,
   summarizeDialogueDeterministic,
 } from "./context/compress-dialogue.js";

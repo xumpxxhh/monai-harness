@@ -90,6 +90,42 @@ export async function summarizeDialogueWithModel(input: {
   return { summaryText, modelCallId };
 }
 
+export type CompleteTurnGroup = {
+  /** `stepId` when present; otherwise message-level `turnId` (user/goal). */
+  key: string;
+  turns: DialogueTurn[];
+};
+
+/**
+ * Group DialogueTurn messages into complete execution rounds.
+ * Same `stepId` (assistant + tools) stays atomic; messages without stepId are singleton groups.
+ */
+export function groupCompleteTurns(turns: readonly DialogueTurn[]): CompleteTurnGroup[] {
+  const groups: CompleteTurnGroup[] = [];
+  const byStepId = new Map<string, CompleteTurnGroup>();
+
+  for (const turn of turns) {
+    const stepId = turn.stepId?.trim();
+    if (stepId) {
+      let group = byStepId.get(stepId);
+      if (!group) {
+        group = { key: stepId, turns: [] };
+        byStepId.set(stepId, group);
+        groups.push(group);
+      }
+      group.turns.push(turn);
+      continue;
+    }
+    groups.push({ key: turn.turnId, turns: [turn] });
+  }
+
+  return groups;
+}
+
+function flattenGroups(groups: readonly CompleteTurnGroup[]): DialogueTurn[] {
+  return groups.flatMap((g) => g.turns);
+}
+
 export type CompressionPlan = {
   historyTurns: DialogueTurn[];
   recentTurns: DialogueTurn[];
@@ -98,17 +134,22 @@ export type CompressionPlan = {
   needsCompression: boolean;
 };
 
+/**
+ * Plan history vs recent split. `recentTurnCount` counts **complete turn groups**
+ * (stepId rounds), not individual DialogueTurn messages.
+ */
 export function planDialogueCompression(input: {
   turns: readonly DialogueTurn[];
   policy: ContextProjectionPolicy;
 }): CompressionPlan {
   const turns = [...input.turns];
+  const groups = groupCompleteTurns(turns);
   const totalTokens = estimateDialogueTokens(turns);
   const needsCompression =
-    turns.length > input.policy.recentTurnCount ||
+    groups.length > input.policy.recentTurnCount ||
     totalTokens > input.policy.compressThreshold;
 
-  if (!needsCompression || turns.length === 0) {
+  if (!needsCompression || groups.length === 0) {
     return {
       historyTurns: [],
       recentTurns: turns,
@@ -118,13 +159,16 @@ export function planDialogueCompression(input: {
     };
   }
 
-  let recentStart = Math.max(0, turns.length - input.policy.recentTurnCount);
-  while (recentStart > 0 && estimateDialogueTokens(turns.slice(recentStart)) > input.policy.recentTokenBudget) {
+  let recentStart = Math.max(0, groups.length - input.policy.recentTurnCount);
+  while (
+    recentStart > 0 &&
+    estimateDialogueTokens(flattenGroups(groups.slice(recentStart))) > input.policy.recentTokenBudget
+  ) {
     recentStart -= 1;
   }
 
-  const historyTurns = turns.slice(0, recentStart);
-  const recentTurns = turns.slice(recentStart);
+  const historyTurns = flattenGroups(groups.slice(0, recentStart));
+  const recentTurns = flattenGroups(groups.slice(recentStart));
 
   const rangeByRun = new Map<string, { from: number; to: number }>();
   for (const turn of historyTurns) {
