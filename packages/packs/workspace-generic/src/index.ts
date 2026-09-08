@@ -1,4 +1,6 @@
 export { createWorkspaceGenericPack } from "./pack.js";
+export { BashWorkspaceShell } from "./bash-workspace-shell.js";
+export type { BashWorkspaceShellOptions } from "./bash-workspace-shell.js";
 export {
   WORKSPACE_GENERIC_HOOKS,
   WORKSPACE_GENERIC_MANIFEST,
@@ -8,6 +10,8 @@ export {
   KNOWLEDGE_SEARCH_TOOL_ID,
   SANDBOX_EXEC_ALLOWLIST_ENTRY,
   SANDBOX_EXEC_TOOL_ID,
+  WORKSPACE_EXEC_ALLOWLIST_ENTRY,
+  WORKSPACE_EXEC_TOOL_ID,
   workspaceGenericToolHandlers,
 } from "./manifest.js";
 

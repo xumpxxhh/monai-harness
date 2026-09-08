@@ -19,7 +19,7 @@ async function main(): Promise<void> {
   );
   console.log(`[harness] roles ${formatHarnessRoles(config.roles)}`);
   console.log(
-    `[harness][edr-014] flags dag=${config.featureFlags.enableDag} spawn=${config.featureFlags.enableSpawnChild} memory=${config.featureFlags.enableMemory} sandbox=${config.featureFlags.enableSandboxExec} realWriteHigh=${config.featureFlags.enableRealWriteHigh}`,
+    `[harness][edr-014] flags dag=${config.featureFlags.enableDag} spawn=${config.featureFlags.enableSpawnChild} memory=${config.featureFlags.enableMemory} sandbox=${config.featureFlags.enableSandboxExec} workspaceExec=${config.featureFlags.enableWorkspaceExec} realWriteHigh=${config.featureFlags.enableRealWriteHigh}`,
   );
 
   const evalPassed = await runStartupEval(config);

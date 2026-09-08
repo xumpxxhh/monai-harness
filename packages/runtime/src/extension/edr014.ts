@@ -2,6 +2,7 @@
 export const EDR014_DISABLED_TOOL_IDS = [
   "sandbox.exec",
   "sandbox.run",
+  "workspace.exec",
   "memory.read",
   "memory.write",
   "memory.promote",
@@ -9,6 +10,7 @@ export const EDR014_DISABLED_TOOL_IDS = [
 
 export const EDR014_DISABLED_PERMISSIONS = [
   "sandbox.exec",
+  "workspace.exec",
   "memory.read",
   "memory.write",
   "memory.promote",
@@ -30,6 +32,9 @@ export function requiredPermissionsForTool(
 ): string[] {
   if (toolId === "sandbox.exec" || toolId.startsWith("sandbox.")) {
     return ["sandbox.exec"];
+  }
+  if (toolId === "workspace.exec") {
+    return ["workspace.exec"];
   }
   if (toolId.startsWith("workspace.")) {
     return sideEffectProfile === "read" ? ["workspace.read"] : ["workspace.read", "workspace.write"];

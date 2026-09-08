@@ -160,9 +160,40 @@ export type WorkspacePort = {
   list(path: string): Promise<unknown[]>;
   read(path: string): Promise<unknown>;
   write(path: string, content: unknown): Promise<void>;
-  /** Delete a file under the authorized workspace root. Must reject `/` and directories. */
-  delete(path: string): Promise<void>;
+  /**
+   * Delete a file or directory under the authorized workspace root.
+   * Must reject `/`. Directories are removed recursively.
+   */
+  delete(path: string): Promise<{ kind: "file" | "directory" }>;
   search(query: string): Promise<unknown[]>;
+};
+
+/**
+ * Opt-in bash/shell exec inside the authorized workspace root (workspace.exec).
+ * Distinct from SandboxPort (argv-only, separate sandboxRoot).
+ */
+export type WorkspaceShellExecRequest = {
+  /** Shell command string passed to `bash -lc` (or configured shell). */
+  command: string;
+  /** Optional relative cwd under the workspace root (default "."). */
+  cwd?: string;
+  timeoutMs?: number;
+  maxStdoutBytes?: number;
+  maxStderrBytes?: number;
+};
+
+export type WorkspaceShellExecResult = {
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+  timedOut: boolean;
+  truncated: boolean;
+  /** Absolute cwd used for the process. */
+  cwd: string;
+};
+
+export type WorkspaceShellPort = {
+  exec(request: WorkspaceShellExecRequest): Promise<WorkspaceShellExecResult>;
 };
 
 export type ObjectStorePort = {

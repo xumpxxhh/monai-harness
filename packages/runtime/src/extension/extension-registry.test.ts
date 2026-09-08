@@ -92,6 +92,34 @@ describe("ExtensionRegistry", () => {
     expect(registry.getToolAllowlist()).toContain("sandbox.exec");
   });
 
+  it("allows workspace.exec when allowEdr014Tools includes it", () => {
+    const registry = new ExtensionRegistry();
+    const contribution = validContribution({
+      manifest: {
+        ...validContribution().manifest,
+        permissionsRequested: [
+          ...validContribution().manifest.permissionsRequested,
+          "workspace.exec",
+        ],
+        tools: [
+          {
+            toolId: "workspace.exec",
+            version: "0.1.0",
+            effectContract: { ...baseContract, sideEffectProfile: "write_high" },
+          },
+        ],
+      },
+      tools: { "workspace.exec": stubHandler() },
+    });
+    const result = registry.register({
+      tenantId: "t1",
+      contribution,
+      allowEdr014Tools: ["workspace.exec"],
+    });
+    expect(result.status).toBe("active");
+    expect(registry.getToolAllowlist()).toContain("workspace.exec");
+  });
+
   it("keeps pack active when sandbox.exec is soft-disabled beside other tools", () => {
     const registry = new ExtensionRegistry();
     const contribution = validContribution({

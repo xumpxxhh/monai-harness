@@ -28,8 +28,23 @@ describe("InMemoryWorkspace path escape", () => {
 
   it("deletes a file and rejects root", async () => {
     const ws = new InMemoryWorkspace({ "/notes/out.md": "bye" });
-    await ws.delete("/notes/out.md");
+    const deleted = await ws.delete("/notes/out.md");
+    expect(deleted).toEqual({ kind: "file" });
     await expect(ws.read("/notes/out.md")).rejects.toThrow(/not found/);
-    await expect(ws.delete("/")).rejects.toThrow(/file path/);
+    await expect(ws.delete("/")).rejects.toThrow(/must not target \//);
+  });
+
+  it("deletes a directory recursively (all nested files)", async () => {
+    const ws = new InMemoryWorkspace({
+      "/notes/a.md": "a",
+      "/notes/deep/b.md": "b",
+      "/keep.md": "keep",
+    });
+    const deleted = await ws.delete("/notes");
+    expect(deleted).toEqual({ kind: "directory" });
+    await expect(ws.read("/notes/a.md")).rejects.toThrow(/not found/);
+    await expect(ws.read("/notes/deep/b.md")).rejects.toThrow(/not found/);
+    const keep = (await ws.read("/keep.md")) as { content: string };
+    expect(keep.content).toBe("keep");
   });
 });

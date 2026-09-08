@@ -44,15 +44,24 @@ export class InMemoryWorkspace implements WorkspacePort {
     this.files.set(key, typeof content === "string" ? content : JSON.stringify(content));
   }
 
-  async delete(path: string): Promise<void> {
+  async delete(path: string): Promise<{ kind: "file" | "directory" }> {
     const key = this.normalize(path);
     if (key === "/") {
-      throw new Error("workspace delete requires a file path, not /");
+      throw new Error("workspace delete must not target /");
     }
-    if (!this.files.has(key)) {
+    if (this.files.has(key)) {
+      this.files.delete(key);
+      return { kind: "file" };
+    }
+    const prefix = `${key}/`;
+    const toDelete = [...this.files.keys()].filter((k) => k.startsWith(prefix));
+    if (toDelete.length === 0) {
       throw new Error(`workspace path not found: ${key}`);
     }
-    this.files.delete(key);
+    for (const child of toDelete) {
+      this.files.delete(child);
+    }
+    return { kind: "directory" };
   }
 
   async search(query: string): Promise<unknown[]> {

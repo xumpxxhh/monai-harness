@@ -40,6 +40,9 @@ export type {
   SecretPort,
   ToolCallPort,
   WorkspacePort,
+  WorkspaceShellExecRequest,
+  WorkspaceShellExecResult,
+  WorkspaceShellPort,
 } from "./stubs.js";
 
 export const PACKAGE_NAME = "@monai/ports" as const;

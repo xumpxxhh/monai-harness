@@ -1,6 +1,11 @@
 import { createHash } from "node:crypto";
 import { CONTRACTS_SCHEMA_VERSION, type PackManifest } from "@monai/contracts";
-import type { ObjectStorePort, SandboxPort, WorkspacePort } from "@monai/ports";
+import type {
+  ObjectStorePort,
+  SandboxPort,
+  WorkspacePort,
+  WorkspaceShellPort,
+} from "@monai/ports";
 import {
   packDefaultAllowlist,
   packRequireApprovalTools,
@@ -21,6 +26,9 @@ export const KNOWLEDGE_SEARCH_TOOL_ID = "knowledge.search" as const;
 
 /** Tool id for opt-in sandbox.exec (0025 / EDR-014). Not in default allowlist. */
 export const SANDBOX_EXEC_TOOL_ID = "sandbox.exec" as const;
+
+/** Tool id for opt-in workspace.exec (bash in workspace root / EDR-014). Not in default allowlist. */
+export const WORKSPACE_EXEC_TOOL_ID = "workspace.exec" as const;
 
 export type KnowledgeSearchClientPort = {
   search(input: {
@@ -65,6 +73,12 @@ function objectStore(ctx: ExecutionContext): ObjectStorePort {
 
 function sandboxPort(ctx: ExecutionContext): SandboxPort | undefined {
   const port = ctx.ports?.sandbox as SandboxPort | undefined;
+  if (!port || typeof port.exec !== "function") return undefined;
+  return port;
+}
+
+function workspaceShellPort(ctx: ExecutionContext): WorkspaceShellPort | undefined {
+  const port = ctx.ports?.workspaceShell as WorkspaceShellPort | undefined;
   if (!port || typeof port.exec !== "function") return undefined;
   return port;
 }
@@ -170,7 +184,7 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
       },
     };
   },
-  "workspace.delete": async (input) => {
+  "workspace.edit": async (input) => {
     const ws = workspacePort(input.executionContext);
     if (!ws) return { ok: false, error: "workspace not configured" };
     const args = input.arguments as Record<string, unknown>;
@@ -180,24 +194,120 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
     }
     const virtual = path.replace(/\\/g, "/");
     if (virtual === "/") {
-      return { ok: false, error: "workspace.delete requires a file path, not /" };
+      return { ok: false, error: "workspace.edit requires a file path, not /" };
     }
     rejectPathEscape(path);
+
+    if (args.old_string === undefined && args.oldString === undefined) {
+      return { ok: false, error: "old_string is required" };
+    }
+    if (args.new_string === undefined && args.newString === undefined) {
+      return { ok: false, error: "new_string is required" };
+    }
+    const oldString = String(args.old_string ?? args.oldString ?? "");
+    const newString = String(args.new_string ?? args.newString ?? "");
+    if (!oldString) {
+      return { ok: false, error: "old_string must be non-empty" };
+    }
+    if (oldString === newString) {
+      return { ok: false, error: "old_string and new_string are identical" };
+    }
+    const replaceAllRaw = args.replace_all ?? args.replaceAll;
+    const replaceAll =
+      replaceAllRaw === true ||
+      replaceAllRaw === 1 ||
+      (typeof replaceAllRaw === "string" &&
+        ["1", "true", "yes", "on"].includes(replaceAllRaw.trim().toLowerCase()));
+
+    let raw: unknown;
     try {
-      await ws.delete(path);
+      raw = await ws.read(path);
     } catch (err) {
       return {
         ok: false,
         error: err instanceof Error ? err.message : String(err),
       };
     }
+    const before =
+      typeof raw === "string"
+        ? raw
+        : raw && typeof raw === "object" && "content" in raw
+          ? String((raw as { content: unknown }).content ?? "")
+          : null;
+    if (before === null) {
+      return { ok: false, error: "workspace read returned unexpected shape" };
+    }
+
+    let occurrences = 0;
+    let searchFrom = 0;
+    while (true) {
+      const idx = before.indexOf(oldString, searchFrom);
+      if (idx < 0) break;
+      occurrences += 1;
+      searchFrom = idx + oldString.length;
+    }
+    if (occurrences === 0) {
+      return {
+        ok: false,
+        error: "old_string not found in file (edit requires an exact match)",
+      };
+    }
+    if (!replaceAll && occurrences > 1) {
+      return {
+        ok: false,
+        error: `old_string matched ${occurrences} times; provide more context or set replace_all=true`,
+      };
+    }
+
+    const after = replaceAll
+      ? before.split(oldString).join(newString)
+      : before.replace(oldString, newString);
+    const content = capOutput(after);
+    await ws.write(path, content);
     return {
       ok: true,
       data: {
         path,
-        summary: `deleted ${path}`,
+        replacements: replaceAll ? occurrences : 1,
+        charsBefore: before.length,
+        charsAfter: content.length,
+        summary: `edited ${path} (${replaceAll ? occurrences : 1} replacement${(replaceAll ? occurrences : 1) === 1 ? "" : "s"})`,
       },
     };
+  },
+  "workspace.delete": async (input) => {
+    const ws = workspacePort(input.executionContext);
+    if (!ws) return { ok: false, error: "workspace not configured" };
+    const args = input.arguments as Record<string, unknown>;
+    const path = String(args.path ?? "").trim();
+    if (!path) {
+      return { ok: false, error: "path is required" };
+    }
+    const virtual = path.replace(/\\/g, "/");
+    if (virtual === "/" || virtual === "") {
+      return { ok: false, error: "workspace.delete must not target /" };
+    }
+    rejectPathEscape(path);
+    try {
+      const result = await ws.delete(path);
+      const kind = result?.kind === "directory" ? "directory" : "file";
+      return {
+        ok: true,
+        data: {
+          path,
+          kind,
+          summary:
+            kind === "directory"
+              ? `deleted directory ${path} (recursive)`
+              : `deleted ${path}`,
+        },
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
   },
   [KNOWLEDGE_SEARCH_TOOL_ID]: async (input) => {
     const client = knowledgeSearchPort(input.executionContext);
@@ -287,6 +397,68 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : "sandbox exec failed";
+      return { ok: false, error: message };
+    }
+  },
+  [WORKSPACE_EXEC_TOOL_ID]: async (input) => {
+    const shell = workspaceShellPort(input.executionContext);
+    if (!shell) {
+      return { ok: false, error: "workspace shell not configured (enable FEATURE_ENABLE_WORKSPACE_EXEC)" };
+    }
+    const args = input.arguments as Record<string, unknown>;
+    const command = String(args.command ?? args.cmd ?? "").trim();
+    if (!command) {
+      return { ok: false, error: "command must be a non-empty string" };
+    }
+    const cwd = args.cwd !== undefined ? String(args.cwd) : undefined;
+    if (cwd !== undefined) {
+      rejectPathEscape(cwd);
+    }
+    const timeoutRaw = args.timeout_ms ?? args.timeoutMs;
+    const timeoutMs =
+      timeoutRaw !== undefined && timeoutRaw !== null ? Number(timeoutRaw) : undefined;
+    try {
+      const result = await shell.exec({
+        command,
+        cwd,
+        timeoutMs: Number.isFinite(timeoutMs) && timeoutMs! > 0 ? timeoutMs : undefined,
+      });
+      const preview = command.length > 80 ? `${command.slice(0, 77)}...` : command;
+      const summary = result.timedOut
+        ? `workspace.exec timed out: ${preview}`
+        : result.truncated
+          ? `workspace.exec truncated: exit=${result.exitCode}`
+          : `workspace.exec exit=${result.exitCode}`;
+      if (result.timedOut || result.truncated) {
+        return {
+          ok: false,
+          error: result.timedOut
+            ? "workspace exec timed out"
+            : "workspace exec output truncated",
+          data: { ...result, summary },
+        };
+      }
+      if (result.exitCode !== 0) {
+        return {
+          ok: false,
+          error: `workspace exec exit ${result.exitCode}`,
+          data: { ...result, summary },
+        };
+      }
+      return {
+        ok: true,
+        data: {
+          exitCode: result.exitCode,
+          stdout: capOutput(result.stdout),
+          stderr: capOutput(result.stderr),
+          timedOut: result.timedOut,
+          truncated: result.truncated,
+          cwd: result.cwd,
+          summary,
+        },
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "workspace exec failed";
       return { ok: false, error: message };
     }
   },
@@ -442,6 +614,7 @@ export const WORKSPACE_GENERIC_MANIFEST = {
   permissionsRequested: [
     "workspace.read",
     "workspace.write",
+    "workspace.exec",
     "artifact.write",
     "synthetic.write_high",
     "knowledge.read",
@@ -515,8 +688,47 @@ export const WORKSPACE_GENERIC_MANIFEST = {
       argHint: "Create or overwrite a workspace file",
       systemPrompt: [
         "Workspace write (workspace.write):",
-        "Prefer workspace.write when persisting text the user asked to save.",
+        "Prefer workspace.write when creating a new file or intentionally replacing the entire contents.",
+        "For surgical in-place changes to an existing file, prefer workspace.edit.",
         "Overwriting an existing file is intentional; do not invent paths outside the authorized workspace.",
+      ].join("\n"),
+      effectContract: {
+        ...baseContract,
+        sideEffectProfile: "write_low" as const,
+        reconcileSupported: false,
+      },
+    },
+    {
+      toolId: "workspace.edit",
+      version: "0.1.0",
+      description:
+        "Edit an existing UTF-8 workspace file by exact string replacement. Path must be absolute under / (e.g. /notes/out.md). Fails if old_string is missing or matches multiple times unless replace_all is true.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "Absolute workspace file path starting with /" },
+          old_string: {
+            type: "string",
+            description: "Exact text to find (include enough surrounding context for uniqueness)",
+          },
+          new_string: {
+            type: "string",
+            description: "Replacement text (may be empty to delete the matched span)",
+          },
+          replace_all: {
+            type: "boolean",
+            description: "When true, replace every occurrence; default false (requires a unique match)",
+          },
+        },
+        required: ["path", "old_string", "new_string"],
+        additionalProperties: true,
+      },
+      argHint: "Surgically edit an existing workspace file",
+      systemPrompt: [
+        "Workspace edit (workspace.edit):",
+        "Use workspace.edit for precise in-place edits of an existing file.",
+        "old_string must match the file exactly (including whitespace); enlarge context until the match is unique, or set replace_all=true.",
+        "Prefer workspace.write only when creating a new file or replacing the whole file is intentional.",
       ].join("\n"),
       effectContract: {
         ...baseContract,
@@ -529,19 +741,23 @@ export const WORKSPACE_GENERIC_MANIFEST = {
       version: "0.1.0",
       requireApproval: true,
       description:
-        "Delete a UTF-8 file in the authorized workspace. Path must be absolute under / (e.g. /notes/out.md). Requires approval.",
+        "Delete a file or directory in the authorized workspace. Path must be absolute under / (e.g. /notes/out.md or /notes/tmp). Directories are removed recursively. Must not target /. Requires approval.",
       parameters: {
         type: "object",
         properties: {
-          path: { type: "string", description: "Absolute workspace file path starting with /" },
+          path: {
+            type: "string",
+            description: "Absolute workspace file or directory path starting with /",
+          },
         },
         required: ["path"],
         additionalProperties: true,
       },
-      argHint: "Delete a workspace file (requires approval)",
+      argHint: "Delete a workspace file or directory (requires approval)",
       systemPrompt: [
         "Workspace delete (workspace.delete):",
-        "Use workspace.delete only when the user clearly wants a file removed.",
+        "Use workspace.delete when the user clearly wants a file or directory removed.",
+        "Directories are deleted recursively (all contents). Never target /.",
         "Prefer confirming intent when the target path is ambiguous.",
       ].join("\n"),
       effectContract: {
@@ -627,6 +843,47 @@ export const WORKSPACE_GENERIC_MANIFEST = {
         "Only use when the user explicitly needs a controlled command run.",
         "Pass argv as a string array; never invent shell metacharacters or unlisted binaries.",
         "Requires approval; prefer workspace tools for normal file work.",
+      ].join("\n"),
+      effectContract: {
+        ...sandboxContract,
+        sideEffectProfile: "write_high" as const,
+        reconcileSupported: false,
+      },
+    },
+    {
+      toolId: WORKSPACE_EXEC_TOOL_ID,
+      version: "0.1.0",
+      defaultEnabled: false,
+      requireApproval: true,
+      description:
+        "Run a bash command string with cwd fixed to the authorized workspace root (or a relative subdir). Requires approval. Opt-in only. Prefer workspace.* tools for normal file work.",
+      parameters: {
+        type: "object",
+        properties: {
+          command: {
+            type: "string",
+            description: "Bash command passed to `bash -lc` (e.g. `ls -la` or `wc -c notes/*.md`)",
+          },
+          cwd: {
+            type: "string",
+            description: "Optional relative cwd under the workspace root (default .)",
+          },
+          timeout_ms: {
+            type: "integer",
+            minimum: 1,
+            description: "Optional wall-clock timeout in ms (default 30000)",
+          },
+        },
+        required: ["command"],
+        additionalProperties: true,
+      },
+      argHint: "Run a bash command in the workspace (requires approval)",
+      systemPrompt: [
+        "Workspace exec (workspace.exec):",
+        "Use when the user needs a shell command whose cwd must be the agent workspace (unlike sandbox.exec).",
+        "Pass a single command string; it runs via bash -lc under the workspace root.",
+        "Requires approval. Prefer workspace.list/read/write/search for ordinary file tasks.",
+        "Do not use for host-wide administration; stay within the workspace tree.",
       ].join("\n"),
       effectContract: {
         ...sandboxContract,
@@ -730,6 +987,9 @@ export const KNOWLEDGE_SEARCH_ALLOWLIST_ENTRY = KNOWLEDGE_SEARCH_TOOL_ID;
 
 /** Appended at wiring time when sandbox.exec opt-in is enabled (0025). */
 export const SANDBOX_EXEC_ALLOWLIST_ENTRY = SANDBOX_EXEC_TOOL_ID;
+
+/** Appended at wiring time when workspace.exec opt-in is enabled (EDR-014). */
+export const WORKSPACE_EXEC_ALLOWLIST_ENTRY = WORKSPACE_EXEC_TOOL_ID;
 
 export const WORKSPACE_GENERIC_REQUIRE_APPROVAL = packRequireApprovalTools(
   WORKSPACE_GENERIC_MANIFEST.tools,

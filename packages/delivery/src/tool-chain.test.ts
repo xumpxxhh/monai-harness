@@ -1,7 +1,7 @@
 import { CONTRACTS_SCHEMA_VERSION } from "@monai/contracts";
 import type { HarnessCommand, ModelPort } from "@monai/ports";
 import { StubModelPort } from "@monai/model-stub";
-import { workspaceGenericToolHandlers, WORKSPACE_GENERIC_REQUIRE_APPROVAL } from "@monai/pack-workspace-generic";
+import { workspaceGenericToolHandlers, WORKSPACE_GENERIC_REQUIRE_APPROVAL, WORKSPACE_GENERIC_TOOL_ALLOWLIST } from "@monai/pack-workspace-generic";
 import type { ExecutionContext } from "@monai/pack-sdk";
 import { InMemoryWorkspace } from "@monai/workspace-memory";
 import { describe, expect, it } from "vitest";
@@ -422,6 +422,110 @@ describe("workspace.write handler", () => {
   });
 });
 
+describe("workspace.edit handler", () => {
+  function editInput(
+    args: Record<string, unknown>,
+    workspace?: InMemoryWorkspace,
+  ) {
+    return {
+      toolId: "workspace.edit",
+      arguments: args,
+      executionContext: {
+        tenantId: "t1",
+        sessionId: "s1",
+        runId: "r1",
+        executionManifestRef: "m1",
+        effectivePermissions: [],
+        ports: workspace ? { workspace } : {},
+      } as ExecutionContext,
+      toolCallId: "tc-edit",
+    };
+  }
+
+  it("replaces a unique span and is on the default allowlist", async () => {
+    expect(WORKSPACE_GENERIC_TOOL_ALLOWLIST).toContain("workspace.edit");
+    expect(WORKSPACE_GENERIC_REQUIRE_APPROVAL).not.toContain("workspace.edit");
+
+    const workspace = new InMemoryWorkspace({
+      "/notes/out.md": "hello world\nhello again\n",
+    });
+    const result = await workspaceGenericToolHandlers["workspace.edit"]!(
+      editInput(
+        {
+          path: "/notes/out.md",
+          old_string: "hello world",
+          new_string: "hello monai",
+        },
+        workspace,
+      ),
+    );
+    expect(result.ok).toBe(true);
+    expect(result.data).toMatchObject({
+      path: "/notes/out.md",
+      replacements: 1,
+      summary: "edited /notes/out.md (1 replacement)",
+    });
+    const written = (await workspace.read("/notes/out.md")) as { content: string };
+    expect(written.content).toBe("hello monai\nhello again\n");
+  });
+
+  it("supports replace_all and rejects ambiguous or missing matches", async () => {
+    const workspace = new InMemoryWorkspace({
+      "/a.md": "aa aa aa",
+    });
+
+    const ambiguous = await workspaceGenericToolHandlers["workspace.edit"]!(
+      editInput(
+        { path: "/a.md", old_string: "aa", new_string: "bb" },
+        workspace,
+      ),
+    );
+    expect(ambiguous.ok).toBe(false);
+    expect(ambiguous.error).toMatch(/matched 3 times/i);
+
+    const all = await workspaceGenericToolHandlers["workspace.edit"]!(
+      editInput(
+        { path: "/a.md", old_string: "aa", new_string: "bb", replace_all: true },
+        workspace,
+      ),
+    );
+    expect(all.ok).toBe(true);
+    expect(all.data).toMatchObject({ replacements: 3 });
+    const written = (await workspace.read("/a.md")) as { content: string };
+    expect(written.content).toBe("bb bb bb");
+
+    const missing = await workspaceGenericToolHandlers["workspace.edit"]!(
+      editInput(
+        { path: "/a.md", old_string: "zz", new_string: "yy" },
+        workspace,
+      ),
+    );
+    expect(missing.ok).toBe(false);
+    expect(missing.error).toMatch(/not found/i);
+  });
+
+  it("rejects missing args, identical strings, and root path", async () => {
+    const workspace = new InMemoryWorkspace({ "/a.md": "x" });
+    const missingOld = await workspaceGenericToolHandlers["workspace.edit"]!(
+      editInput({ path: "/a.md", new_string: "y" }, workspace),
+    );
+    expect(missingOld.ok).toBe(false);
+    expect(missingOld.error).toMatch(/old_string is required/);
+
+    const identical = await workspaceGenericToolHandlers["workspace.edit"]!(
+      editInput({ path: "/a.md", old_string: "x", new_string: "x" }, workspace),
+    );
+    expect(identical.ok).toBe(false);
+    expect(identical.error).toMatch(/identical/);
+
+    const root = await workspaceGenericToolHandlers["workspace.edit"]!(
+      editInput({ path: "/", old_string: "a", new_string: "b" }, workspace),
+    );
+    expect(root.ok).toBe(false);
+    expect(root.error).toMatch(/file path/);
+  });
+});
+
 describe("workspace.delete handler", () => {
   function deleteInput(
     args: Record<string, unknown>,
@@ -450,8 +554,32 @@ describe("workspace.delete handler", () => {
       deleteInput({ path: "/notes/out.md" }, workspace),
     );
     expect(result.ok).toBe(true);
-    expect(result.data).toMatchObject({ path: "/notes/out.md", summary: "deleted /notes/out.md" });
+    expect(result.data).toMatchObject({
+      path: "/notes/out.md",
+      kind: "file",
+      summary: "deleted /notes/out.md",
+    });
     await expect(workspace.read("/notes/out.md")).rejects.toThrow(/not found/);
+  });
+
+  it("deletes a directory recursively", async () => {
+    const workspace = new InMemoryWorkspace({
+      "/tmp/a.md": "a",
+      "/tmp/nested/b.md": "b",
+      "/keep.md": "k",
+    });
+    const result = await workspaceGenericToolHandlers["workspace.delete"]!(
+      deleteInput({ path: "/tmp" }, workspace),
+    );
+    expect(result.ok).toBe(true);
+    expect(result.data).toMatchObject({
+      path: "/tmp",
+      kind: "directory",
+      summary: "deleted directory /tmp (recursive)",
+    });
+    await expect(workspace.read("/tmp/a.md")).rejects.toThrow(/not found/);
+    const keep = (await workspace.read("/keep.md")) as { content: string };
+    expect(keep.content).toBe("k");
   });
 
   it("rejects missing path, root, and missing file", async () => {
@@ -466,7 +594,7 @@ describe("workspace.delete handler", () => {
       deleteInput({ path: "/" }, workspace),
     );
     expect(root.ok).toBe(false);
-    expect(root.error).toMatch(/file path/);
+    expect(root.error).toMatch(/must not target \//);
 
     const missing = await workspaceGenericToolHandlers["workspace.delete"]!(
       deleteInput({ path: "/missing.md" }, workspace),

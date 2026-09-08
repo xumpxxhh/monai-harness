@@ -1,4 +1,4 @@
-import { readdir, readFile, unlink, stat, writeFile, mkdir } from "node:fs/promises";
+import { readdir, readFile, unlink, stat, writeFile, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 
 import type { WorkspacePort } from "@monai/ports";
@@ -55,17 +55,22 @@ export class FsWorkspace implements WorkspacePort {
     await writeFile(abs, text, "utf8");
   }
 
-  async delete(workspacePath: string): Promise<void> {
+  async delete(workspacePath: string): Promise<{ kind: "file" | "directory" }> {
     const virtual = this.normalizeVirtual(workspacePath);
     if (virtual === "/") {
-      throw new Error("workspace delete requires a file path, not /");
+      throw new Error("workspace delete must not target /");
     }
     const abs = this.resolveOnDisk(virtual);
     const st = await stat(abs);
-    if (!st.isFile()) {
-      throw new Error(`workspace path is not a file: ${virtual}`);
+    if (st.isFile()) {
+      await unlink(abs);
+      return { kind: "file" };
     }
-    await unlink(abs);
+    if (st.isDirectory()) {
+      await rm(abs, { recursive: true, force: false });
+      return { kind: "directory" };
+    }
+    throw new Error(`workspace path is not a file or directory: ${virtual}`);
   }
 
   async search(query: string): Promise<unknown[]> {

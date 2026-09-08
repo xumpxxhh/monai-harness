@@ -92,6 +92,8 @@ export type ExecutionContext = {
     knowledge?: unknown;
     secretLease?: unknown;
     sandbox?: unknown;
+    /** Opt-in workspace.exec bash runner (cwd = workspace root). */
+    workspaceShell?: unknown;
     telemetry?: unknown;
   };
 };

@@ -53,8 +53,25 @@ describe("FsWorkspace", () => {
 
   it("deletes a file", async () => {
     const ws = await makeWorkspace({ "readme.md": "hello" });
-    await ws.delete("/readme.md");
+    const deleted = await ws.delete("/readme.md");
+    expect(deleted).toEqual({ kind: "file" });
     await expect(ws.read("/readme.md")).rejects.toThrow();
-    await expect(ws.delete("/")).rejects.toThrow(/file path/);
+    await expect(ws.delete("/")).rejects.toThrow(/must not target \//);
+  });
+
+  it("deletes a directory recursively", async () => {
+    const ws = await makeWorkspace({
+      "notes/a.md": "a",
+      "notes/deep/b.md": "b",
+      "keep.md": "keep",
+    });
+    const deleted = await ws.delete("/notes");
+    expect(deleted).toEqual({ kind: "directory" });
+    await expect(ws.read("/notes/a.md")).rejects.toThrow();
+    await expect(ws.read("/notes/deep/b.md")).rejects.toThrow();
+    const keep = (await ws.read("/keep.md")) as { content: string };
+    expect(keep.content).toBe("keep");
+    const root = (await ws.list("/")) as Array<{ name: string }>;
+    expect(root.map((e) => e.name)).toEqual(["keep.md"]);
   });
 });

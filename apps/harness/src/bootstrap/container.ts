@@ -37,6 +37,7 @@ import { Engine, InMemoryManifestStore, PreviewHub } from "@monai/runtime";
 import { SubprocessSandbox } from "@monai/sandbox-subprocess";
 import { RejectingSandbox } from "@monai/sandbox-stub";
 import { EnvSecretPort } from "@monai/secret-env";
+import { BashWorkspaceShell } from "@monai/pack-workspace-generic";
 
 import type { HarnessConfig } from "../config/env.js";
 import { FsWorkspace } from "../workspace/fs-workspace.js";
@@ -107,6 +108,7 @@ export async function bootstrap(config: HarnessConfig): Promise<HarnessRuntime> 
     tenantId: HARNESS_TENANT_ID,
   });
   const enableSandboxExec = config.featureFlags.enableSandboxExec;
+  const enableWorkspaceExec = config.featureFlags.enableWorkspaceExec;
   if (enableSandboxExec) {
     await mkdir(config.sandboxDir, { recursive: true });
   }
@@ -116,11 +118,22 @@ export async function bootstrap(config: HarnessConfig): Promise<HarnessRuntime> 
         allowedBinaries: config.sandboxAllowedBinaries,
       })
     : new RejectingSandbox();
+  const workspaceShell = enableWorkspaceExec
+    ? new BashWorkspaceShell({
+        workspaceRoot: workspace.getRootDir(),
+        shellBinary: config.workspaceExecShell,
+      })
+    : undefined;
   console.log(`[harness] workspace: ${workspace.getRootDir()}`);
   console.log(`[harness] objectStore: ${objectStore.getTenantRoot()}`);
   if (enableSandboxExec) {
     console.log(
       `[harness] sandbox: ${config.sandboxDir} binaries=${config.sandboxAllowedBinaries.join(",") || "(empty)"}`,
+    );
+  }
+  if (enableWorkspaceExec) {
+    console.log(
+      `[harness] workspace.exec enabled shell=${config.workspaceExecShell} cwd=${workspace.getRootDir()}`,
     );
   }
   console.log(
@@ -137,6 +150,8 @@ export async function bootstrap(config: HarnessConfig): Promise<HarnessRuntime> 
     sandbox,
     objectStore,
     enableSandboxExec,
+    enableWorkspaceExec,
+    workspaceShell,
     knowledgeSearch: config.knowledgeBaseUrl
       ? new HttpKnowledgeSearchClient({
           baseUrl: config.knowledgeBaseUrl,
@@ -154,6 +169,15 @@ export async function bootstrap(config: HarnessConfig): Promise<HarnessRuntime> 
   }
   if (enableSandboxExec && sandbox instanceof RejectingSandbox) {
     throw new Error("[harness] sandbox.exec enabled but SandboxPort is RejectingSandbox");
+  }
+  if (!enableWorkspaceExec && pack.toolAllowlist.includes("workspace.exec")) {
+    throw new Error("[harness][edr-014] workspace.exec must not appear on tool allowlist");
+  }
+  if (enableWorkspaceExec && !pack.toolAllowlist.includes("workspace.exec")) {
+    throw new Error("[harness] workspace.exec enabled but missing from tool allowlist");
+  }
+  if (enableWorkspaceExec && !workspaceShell) {
+    throw new Error("[harness] workspace.exec enabled but WorkspaceShellPort missing");
   }
   if (config.knowledgeBaseUrl) {
     console.log(

@@ -7,10 +7,17 @@ import {
   createWorkspaceGenericPack,
   KNOWLEDGE_SEARCH_ALLOWLIST_ENTRY,
   SANDBOX_EXEC_ALLOWLIST_ENTRY,
+  WORKSPACE_EXEC_ALLOWLIST_ENTRY,
   WORKSPACE_GENERIC_REQUIRE_APPROVAL,
   WORKSPACE_GENERIC_TOOL_ALLOWLIST,
 } from "@monai/pack-workspace-generic";
-import type { GovernanceEventStorePort, ObjectStorePort, SandboxPort, WorkspacePort } from "@monai/ports";
+import type {
+  GovernanceEventStorePort,
+  ObjectStorePort,
+  SandboxPort,
+  WorkspacePort,
+  WorkspaceShellPort,
+} from "@monai/ports";
 import type { KnowledgeSearchClient } from "@monai/knowledge-http";
 import type { ExecutionContext } from "@monai/pack-sdk";
 import { FsObjectStore } from "@monai/objectstore-fs";
@@ -40,6 +47,13 @@ export type WireWorkspaceGenericOptions = {
    * Appends allowlist entry and Registry allowEdr014Tools.
    */
   enableSandboxExec?: boolean;
+  /**
+   * Opt-in workspace.exec (bash in workspace root). Requires WorkspaceShellPort.
+   * Appends allowlist entry and Registry allowEdr014Tools.
+   */
+  enableWorkspaceExec?: boolean;
+  /** Injected when enableWorkspaceExec is true. */
+  workspaceShell?: WorkspaceShellPort;
 };
 
 export type WireWorkspaceGenericResult = {
@@ -49,6 +63,7 @@ export type WireWorkspaceGenericResult = {
   synthetic: IsolatedSyntheticSink;
   objectStore: ObjectStorePort;
   sandbox: SandboxPort;
+  workspaceShell?: WorkspaceShellPort;
   toolAllowlist: readonly string[];
   requireApprovalTools: readonly string[];
   packRegistration?: PackRegistrationService;
@@ -72,18 +87,26 @@ export function wireWorkspaceGenericPack(
   const objectStore = options.objectStore ?? defaultFsObjectStore(tenantId);
   const sandbox = options.sandbox ?? new RejectingSandbox();
   const enableSandboxExec = options.enableSandboxExec === true;
+  const enableWorkspaceExec = options.enableWorkspaceExec === true;
+  const workspaceShell = options.workspaceShell;
 
   if (enableSandboxExec && sandbox instanceof RejectingSandbox) {
     throw new Error(
       "enableSandboxExec requires an executable SandboxPort (got RejectingSandbox)",
     );
   }
+  if (enableWorkspaceExec && !workspaceShell) {
+    throw new Error("enableWorkspaceExec requires a WorkspaceShellPort");
+  }
 
   const contribution = createWorkspaceGenericPack();
+  const edrAllow: string[] = [];
+  if (enableSandboxExec) edrAllow.push(SANDBOX_EXEC_ALLOWLIST_ENTRY);
+  if (enableWorkspaceExec) edrAllow.push(WORKSPACE_EXEC_ALLOWLIST_ENTRY);
   const registerInput = {
     tenantId,
     contribution,
-    ...(enableSandboxExec ? { allowEdr014Tools: [SANDBOX_EXEC_ALLOWLIST_ENTRY] as const } : {}),
+    ...(edrAllow.length > 0 ? { allowEdr014Tools: edrAllow } : {}),
   };
 
   let packRegistration: PackRegistrationService | undefined;
@@ -120,6 +143,7 @@ export function wireWorkspaceGenericPack(
       sandbox,
       telemetry: synthetic,
       ...(options.knowledgeSearch ? { knowledge: options.knowledgeSearch } : {}),
+      ...(enableWorkspaceExec && workspaceShell ? { workspaceShell } : {}),
     },
   });
 
@@ -132,6 +156,7 @@ export function wireWorkspaceGenericPack(
     ...WORKSPACE_GENERIC_TOOL_ALLOWLIST,
     ...(options.knowledgeSearch ? [KNOWLEDGE_SEARCH_ALLOWLIST_ENTRY] : []),
     ...(enableSandboxExec ? [SANDBOX_EXEC_ALLOWLIST_ENTRY] : []),
+    ...(enableWorkspaceExec ? [WORKSPACE_EXEC_ALLOWLIST_ENTRY] : []),
   ];
 
   return {
@@ -141,6 +166,7 @@ export function wireWorkspaceGenericPack(
     synthetic,
     objectStore,
     sandbox,
+    ...(workspaceShell ? { workspaceShell } : {}),
     toolAllowlist,
     requireApprovalTools: WORKSPACE_GENERIC_REQUIRE_APPROVAL,
     packRegistration,

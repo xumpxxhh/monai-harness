@@ -28,6 +28,7 @@ export type FeatureFlags = {
   enableSpawnChild: boolean;
   enableMemory: boolean;
   enableSandboxExec: boolean;
+  enableWorkspaceExec: boolean;
   enableRealWriteHigh: boolean;
 };
 
@@ -63,6 +64,11 @@ export type HarnessConfig = {
   sandboxDir: string;
   /** Bare binary names allowed for sandbox.exec (comma-parsed). Empty = fail closed when enabled. */
   sandboxAllowedBinaries: readonly string[];
+  /**
+   * Shell binary for workspace.exec (default bash).
+   * On Windows typically Git Bash `bash` if on PATH.
+   */
+  workspaceExecShell: string;
   /** RAG HTTP base URL; empty = knowledge.search disabled (EDR-016). */
   knowledgeBaseUrl?: string;
   knowledgeCollectionIds: readonly string[];
@@ -234,6 +240,7 @@ export function loadConfig(): HarnessConfig {
     enableSpawnChild: parseBool(process.env.FEATURE_ENABLE_SPAWN_CHILD, false),
     enableMemory: parseBool(process.env.FEATURE_ENABLE_MEMORY, false),
     enableSandboxExec: parseBool(process.env.FEATURE_ENABLE_SANDBOX_EXEC, false),
+    enableWorkspaceExec: parseBool(process.env.FEATURE_ENABLE_WORKSPACE_EXEC, false),
     enableRealWriteHigh: parseBool(process.env.FEATURE_ENABLE_REAL_WRITE_HIGH, false),
   };
 
@@ -255,6 +262,7 @@ export function loadConfig(): HarnessConfig {
   const sandboxDirRaw = process.env.HARNESS_SANDBOX_DIR?.trim();
   const sandboxDir = sandboxDirRaw ? resolve(sandboxDirRaw) : defaultSandboxDir();
   const sandboxAllowedBinaries = parseCommaSeparated(process.env.SANDBOX_ALLOWED_BINARIES);
+  const workspaceExecShell = process.env.WORKSPACE_EXEC_SHELL?.trim() || "bash";
 
   const knowledgeBaseUrl = process.env.KNOWLEDGE_BASE_URL?.trim() || undefined;
   const knowledgeCollectionIds = parseCommaSeparated(process.env.KNOWLEDGE_COLLECTION_IDS);
@@ -297,6 +305,7 @@ export function loadConfig(): HarnessConfig {
     objectStoreDir,
     sandboxDir,
     sandboxAllowedBinaries,
+    workspaceExecShell,
     knowledgeBaseUrl,
     knowledgeCollectionIds,
     knowledgeTopK: Number.isFinite(knowledgeTopK) ? knowledgeTopK : undefined,
