@@ -104,7 +104,7 @@ Event Log → projectDialogue → DialogueTurn[]
 - [x] `projectDialogueFromEvents`：从 Event 重建 user/assistant/tool turns
 - [x] `projectSessionDialogue`：Session 跨 Run 合并对话（goal 仅当前句）
 - [x] `projectModelMessages`：recent 窗口完整 messages + history 摘要
-- [x] `ensureDialogueCompression`：超阈值 LLM/确定性摘要 + `context.summary_created` Event
+- [x] `ensureDialogueCompression`：超阈值 LLM/确定性摘要 + `context.summary_created` Event；**增量前缀合并**（最长前缀缓存命中后只摘要 delta turns，再与旧 summary 合并）
 - [x] 压缩切窗按 **完整执行回合**（同 `stepId` 的 assistant+tools 不可拆）；`DialogueTurn.turnId` 仍为消息级；`recentTurnCount` **计组**不计消息条
 - [x] `build-model-context`：组装 `ModelCompleteInput.messages`
 - [x] `publish-model-context` / `preview-hub`：模型上下文预览

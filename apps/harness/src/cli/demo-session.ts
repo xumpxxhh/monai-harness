@@ -23,13 +23,53 @@ import {
 import { DeliveryLoops } from "../workers/delivery-loops.js";
 import { TurnDriver } from "../workers/turn-driver.js";
 
-function printSessionBanner(sessionId: string): void {
+export type SessionCliArgs = {
+  resumeSessionId?: string;
+};
+
+/**
+ * Parse Session CLI argv (slice of process.argv after node + script).
+ * Recognizes `--resume=<sessionId>`; unknown flags / missing value throw.
+ */
+export function parseSessionCliArgs(argv: readonly string[]): SessionCliArgs {
+  let resumeSessionId: string | undefined;
+
+  for (const arg of argv) {
+    if (arg.startsWith("--resume=")) {
+      const value = arg.slice("--resume=".length).trim();
+      if (!value) {
+        throw new Error("demo-session: --resume=<sessionId> requires a sessionId");
+      }
+      resumeSessionId = value;
+      continue;
+    }
+    if (arg === "--resume") {
+      throw new Error("demo-session: use --resume=<sessionId>");
+    }
+    if (arg.startsWith("-")) {
+      throw new Error(`demo-session: unknown option ${arg}`);
+    }
+    throw new Error(`demo-session: unexpected argument ${arg}`);
+  }
+
+  return { resumeSessionId };
+}
+
+function printSessionBanner(
+  sessionId: string,
+  options: { resumed?: boolean; priorRunCount?: number } = {},
+): void {
   console.log("");
   console.log("══════════════════════════════════════════════");
   console.log("  Monai Harness · Session CLI Demo");
   console.log("  多轮对话（同一 sessionId，每条消息 = 新 Run）");
   console.log("══════════════════════════════════════════════");
-  console.log(`Session ${sessionId} started. Type /exit to quit.`);
+  if (options.resumed) {
+    const n = options.priorRunCount ?? 0;
+    console.log(`Resuming session ${sessionId} (${n} prior runs). Type /exit to quit.`);
+  } else {
+    console.log(`Session ${sessionId} started. Type /exit to quit.`);
+  }
   console.log("");
 }
 
@@ -37,7 +77,13 @@ export async function runSessionCliDemo(
   runtime: Awaited<ReturnType<typeof bootstrap>>,
   loops: DeliveryLoops,
   turnDriver: TurnDriver,
-  options: { cli?: CliIo; sessionId?: string } = {},
+  options: {
+    cli?: CliIo;
+    sessionId?: string;
+    initialTurnIndex?: number;
+    resumed?: boolean;
+    priorRunCount?: number;
+  } = {},
 ): Promise<void> {
   const cli = options.cli ?? createCliIo();
   const ownsCli = !options.cli;
@@ -45,11 +91,14 @@ export async function runSessionCliDemo(
   const transcript = new SessionTranscript();
   const sessionObserver = new SessionDemoObserver({ sessionId, runtime });
 
-  printSessionBanner(sessionId);
+  printSessionBanner(sessionId, {
+    resumed: options.resumed,
+    priorRunCount: options.priorRunCount,
+  });
   await sessionObserver.start();
   console.log(`[demo-session] observer recording → ${sessionObserver.getArchiveDir()}`);
 
-  let turnIndex = 0;
+  let turnIndex = options.initialTurnIndex ?? 0;
 
   try {
     while (true) {
@@ -145,15 +194,55 @@ export async function runSessionCliDemo(
 }
 
 async function main(): Promise<void> {
+  let args: SessionCliArgs;
+  try {
+    args = parseSessionCliArgs(process.argv.slice(2));
+  } catch (err) {
+    console.error(`[harness][demo-session] ${err instanceof Error ? err.message : String(err)}`);
+    process.exitCode = 1;
+    return;
+  }
+
   const config = loadConfig();
   console.log(
     `[harness][demo-session] starting driver=${config.persistenceDriver} model=${config.modelDriver}`,
   );
+
+  if (args.resumeSessionId && config.persistenceDriver !== "postgres") {
+    console.error(
+      "[harness][demo-session] --resume requires PERSISTENCE_DRIVER=postgres (memory has no prior runs)",
+    );
+    process.exitCode = 1;
+    return;
+  }
+
   const runtime = await bootstrap(config);
   const turnDriver = new TurnDriver(runtime, { autoExecute: false });
   const loops = new DeliveryLoops(runtime, config.loopIntervalMs, turnDriver);
   try {
-    await runSessionCliDemo(runtime, loops, turnDriver);
+    if (args.resumeSessionId) {
+      const sessionId = args.resumeSessionId;
+      const priorRuns = await runtime.persistence.listRuns({
+        tenantId: "t1",
+        sessionId,
+        limit: 100,
+      });
+      if (priorRuns.length === 0) {
+        console.error(
+          `[harness][demo-session] no runs found for sessionId=${sessionId} (tenant t1)`,
+        );
+        process.exitCode = 1;
+        return;
+      }
+      await runSessionCliDemo(runtime, loops, turnDriver, {
+        sessionId,
+        initialTurnIndex: priorRuns.length,
+        resumed: true,
+        priorRunCount: priorRuns.length,
+      });
+    } else {
+      await runSessionCliDemo(runtime, loops, turnDriver);
+    }
     console.log("[harness] demo-session complete");
   } finally {
     await runtime.close();

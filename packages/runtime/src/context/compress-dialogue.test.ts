@@ -3,14 +3,18 @@ import {
   CONTRACTS_SCHEMA_VERSION,
   DEFAULT_CONTEXT_PROJECTION_POLICY,
   type DialogueTurn,
+  type EventEnvelope,
 } from "@monai/contracts";
 import { StubModelPort } from "@monai/model-stub";
+import type { ModelCompleteInput, ModelPort } from "@monai/ports";
 
 import {
   ensureDialogueCompression,
   findCachedCompression,
+  findLongestPrefixCompression,
   groupCompleteTurns,
   planDialogueCompression,
+  rangesFromTurns,
   summarizeDialogueDeterministic,
 } from "./compress-dialogue.js";
 import { dialogueSourceRangeHash } from "./project-dialogue.js";
@@ -29,6 +33,47 @@ function turn(
     ...(options?.stepId ? { stepId: options.stepId } : {}),
     sourceEventIds: [`e-${index}`],
     sequenceRange: { from: index, to: index },
+  };
+}
+
+function summaryEvent(
+  record: {
+    compressionId: string;
+    summaryHash: string;
+    summaryText: string;
+    sourceRunIds: string[];
+    sourceEventRanges: Array<{ runId: string; fromSequence: number; toSequence: number }>;
+    createdAt: string;
+    parentCompressionId?: string;
+  },
+): EventEnvelope {
+  return {
+    schemaVersion: CONTRACTS_SCHEMA_VERSION,
+    eventId: `evt-${record.compressionId}`,
+    eventType: "context.summary_created",
+    tenantId: "t1",
+    sessionId: "s1",
+    runId: "run-1",
+    occurredAt: new Date().toISOString(),
+    correlationId: "c1",
+    producer: { type: "engine", id: "engine" },
+    hash: "h1",
+    expectedRevision: 1,
+    sequence: 1,
+    recordedAt: new Date().toISOString(),
+    payload: { record },
+  };
+}
+
+/** ModelPort that records calls and returns empty content so deterministic fallback runs. */
+function recordingModel(): ModelPort & { calls: ModelCompleteInput[] } {
+  const calls: ModelCompleteInput[] = [];
+  return {
+    calls,
+    async completeStructured(input: ModelCompleteInput) {
+      calls.push(input);
+      return { content: "", calls: [] };
+    },
   };
 }
 
@@ -103,27 +148,7 @@ describe("compress-dialogue", () => {
       createdAt: new Date().toISOString(),
     };
 
-    const cached = findCachedCompression(
-      [
-        {
-          schemaVersion: CONTRACTS_SCHEMA_VERSION,
-          eventId: "evt-sum",
-          eventType: "context.summary_created",
-          tenantId: "t1",
-          sessionId: "s1",
-          runId: "run-1",
-          occurredAt: new Date().toISOString(),
-          correlationId: "c1",
-          producer: { type: "engine", id: "engine" },
-          hash: "h1",
-          expectedRevision: 1,
-          sequence: 1,
-          recordedAt: new Date().toISOString(),
-          payload: { record },
-        },
-      ],
-      hash,
-    );
+    const cached = findCachedCompression([summaryEvent(record)], hash);
 
     expect(cached?.summaryText).toBe("cached summary");
   });
@@ -144,5 +169,161 @@ describe("compress-dialogue", () => {
     expect(result.isNew).toBe(true);
     expect(result.compression?.summaryText).toContain("Compressed dialogue history");
     expect(summarizeDialogueDeterministic(history)).toContain("read files");
+  });
+
+  it("findLongestPrefixCompression matches at complete-group boundaries", () => {
+    const history = [
+      turn(1, "user", "a"),
+      turn(2, "user", "b"),
+      turn(3, "user", "c"),
+      turn(4, "user", "d"),
+    ];
+    const prefixTurns = history.slice(0, 2);
+    const ranges = rangesFromTurns(prefixTurns);
+    const record = {
+      compressionId: "cmp-prefix",
+      summaryHash: "h",
+      summaryText: "prior summary text",
+      sourceRunIds: ["run-1"],
+      sourceEventRanges: ranges,
+      createdAt: new Date().toISOString(),
+    };
+
+    const match = findLongestPrefixCompression(history, [summaryEvent(record)]);
+    expect(match?.coveredTurnCount).toBe(2);
+    expect(match?.record.summaryText).toBe("prior summary text");
+  });
+
+  it("exact rangeHash hit reuses without calling the model", async () => {
+    const turns = Array.from({ length: 5 }, (_, i) => turn(i + 1, "user", `msg-${i}`));
+    const plan = planDialogueCompression({
+      turns,
+      policy: { ...DEFAULT_CONTEXT_PROJECTION_POLICY, recentTurnCount: 2 },
+    });
+    const record = {
+      compressionId: "cmp-exact",
+      summaryHash: "h",
+      summaryText: "exact cached",
+      sourceRunIds: ["run-1"],
+      sourceEventRanges: plan.sourceEventRanges,
+      createdAt: new Date().toISOString(),
+    };
+    const model = recordingModel();
+    const result = await ensureDialogueCompression({
+      plan,
+      cachedEvents: [summaryEvent(record)],
+      model,
+    });
+
+    expect(result.isNew).toBe(false);
+    expect(result.compression?.summaryText).toBe("exact cached");
+    expect(model.calls).toHaveLength(0);
+  });
+
+  it("extends prior summary with delta turns only (incremental path)", async () => {
+    // 6 user turns, recentTurnCount=2 → history = first 4
+    const allTurns = Array.from({ length: 6 }, (_, i) => turn(i + 1, "user", `msg-${i}`));
+    const plan = planDialogueCompression({
+      turns: allTurns,
+      policy: { ...DEFAULT_CONTEXT_PROJECTION_POLICY, recentTurnCount: 2 },
+    });
+    expect(plan.historyTurns).toHaveLength(4);
+
+    const prefixTurns = plan.historyTurns.slice(0, 2);
+    const priorRecord = {
+      compressionId: "cmp-old",
+      summaryHash: "h",
+      summaryText: "PRIOR_SUMMARY_MARKER",
+      sourceRunIds: ["run-1"],
+      sourceEventRanges: rangesFromTurns(prefixTurns),
+      createdAt: new Date().toISOString(),
+    };
+
+    const model = recordingModel();
+    const result = await ensureDialogueCompression({
+      plan,
+      cachedEvents: [summaryEvent(priorRecord)],
+      model,
+    });
+
+    expect(result.isNew).toBe(true);
+    expect(result.compression?.parentCompressionId).toBe("cmp-old");
+    expect(result.compression?.sourceEventRanges).toEqual(plan.sourceEventRanges);
+    expect(model.calls).toHaveLength(1);
+
+    const call = model.calls[0]!;
+    const ctx = call.context as { purpose?: string; priorSummary?: string; transcript?: string };
+    expect(ctx.purpose).toBe("dialogue_compression_incremental");
+    expect(ctx.priorSummary).toBe("PRIOR_SUMMARY_MARKER");
+    // Delta should be turns 3–4 (msg-2, msg-3), not early msg-0
+    expect(ctx.transcript).toContain("msg-2");
+    expect(ctx.transcript).toContain("msg-3");
+    expect(ctx.transcript).not.toContain("msg-0");
+    expect(ctx.transcript).not.toContain("msg-1");
+
+    const userMsg = call.messages?.find((m) => m.role === "user")?.content ?? "";
+    expect(userMsg).toContain("PRIOR_SUMMARY_MARKER");
+    expect(userMsg).toContain("Incremental dialogue");
+    expect(result.compression?.summaryText).toContain("PRIOR_SUMMARY_MARKER");
+    expect(result.compression?.summaryText).toContain("Incremental turns");
+  });
+
+  it("falls back to full history summarize when no prefix cache exists", async () => {
+    const turns = Array.from({ length: 5 }, (_, i) => turn(i + 1, "user", `full-${i}`));
+    const plan = planDialogueCompression({
+      turns,
+      policy: { ...DEFAULT_CONTEXT_PROJECTION_POLICY, recentTurnCount: 2 },
+    });
+    const model = recordingModel();
+    const result = await ensureDialogueCompression({
+      plan,
+      cachedEvents: [],
+      model,
+    });
+
+    expect(result.isNew).toBe(true);
+    expect(result.compression?.parentCompressionId).toBeUndefined();
+    expect(model.calls).toHaveLength(1);
+    const ctx = model.calls[0]!.context as { purpose?: string; transcript?: string };
+    expect(ctx.purpose).toBe("dialogue_compression");
+    expect(ctx.transcript).toContain("full-0");
+    expect(ctx.transcript).toContain("full-2");
+  });
+
+  it("incremental prefix does not cut mid stepId group", () => {
+    const history = [
+      turn(1, "user", "goal"),
+      turn(2, "assistant", "a", { stepId: "s1", turnId: "asst-1" }),
+      turn(3, "tool", "t", { stepId: "s1", turnId: "tool-1" }),
+      turn(4, "user", "next"),
+    ];
+    // Cache only first user turn
+    const prior = {
+      compressionId: "cmp-u1",
+      summaryHash: "h",
+      summaryText: "goal only",
+      sourceRunIds: ["run-1"],
+      sourceEventRanges: rangesFromTurns([history[0]!]),
+      createdAt: new Date().toISOString(),
+    };
+    const match = findLongestPrefixCompression(history, [summaryEvent(prior)]);
+    expect(match?.coveredTurnCount).toBe(1);
+
+    // Cache covering whole step group (user + asst + tool) — still a proper prefix before "next"
+    const stepPrefix = history.slice(0, 3);
+    const priorStep = {
+      compressionId: "cmp-step",
+      summaryHash: "h2",
+      summaryText: "goal+step",
+      sourceRunIds: ["run-1"],
+      sourceEventRanges: rangesFromTurns(stepPrefix),
+      createdAt: new Date().toISOString(),
+    };
+    const matchStep = findLongestPrefixCompression(history, [
+      summaryEvent(prior),
+      summaryEvent(priorStep),
+    ]);
+    expect(matchStep?.coveredTurnCount).toBe(3);
+    expect(matchStep?.record.compressionId).toBe("cmp-step");
   });
 });

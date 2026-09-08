@@ -64,7 +64,7 @@ load config (.env)
 ### M2（完成 — [0019](../sessions/0019-post-m1-agent-loop.md)）
 
 - [x] `demo`：单 Run 交互 CLI（`demo.ts` + `demo-shared`；Preview / ask_user / approval）
-- [x] `demo:session`：多轮 Session CLI（`demo-session.ts`；同 sessionId，每消息新 Run）
+- [x] `demo:session`：多轮 Session CLI（`demo-session.ts`；同 sessionId，每消息新 Run；`pnpm harness:session -- --resume=<sessionId>` 续聊，需 `PERSISTENCE_DRIVER=postgres`）
 - [x] `session-transcript` / `SessionDemoObserver` / `DemoRunObserver`；归档 `temp/demo-sessions/<sessionId>/`
 - [x] `FsWorkspace`：磁盘工作区（`HARNESS_WORKSPACE_DIR`；默认 `apps/harness/workspace`）
 - [x] web 控制台集成：`CORS_ORIGIN` + `apps/web` `RunConsoleContext`（serve 模式）

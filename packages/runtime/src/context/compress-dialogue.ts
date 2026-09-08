@@ -36,6 +36,62 @@ export function findCachedCompression(
   return undefined;
 }
 
+/** Build per-run event ranges from ordered dialogue turns (stable for rangeHash). */
+export function rangesFromTurns(
+  turns: readonly DialogueTurn[],
+): Array<{ runId: string; fromSequence: number; toSequence: number }> {
+  const rangeByRun = new Map<string, { from: number; to: number }>();
+  for (const turn of turns) {
+    const from = turn.sequenceRange.from;
+    const to = turn.sequenceRange.to;
+    const existing = rangeByRun.get(turn.runId);
+    if (!existing) {
+      rangeByRun.set(turn.runId, { from, to });
+    } else {
+      existing.from = Math.min(existing.from, from);
+      existing.to = Math.max(existing.to, to);
+    }
+  }
+
+  return [...rangeByRun.entries()].map(([runId, range]) => ({
+    runId,
+    fromSequence: range.from > 0 ? range.from : 1,
+    toSequence: range.to > 0 ? range.to : 1,
+  }));
+}
+
+export type PrefixCompressionMatch = {
+  record: ContextCompressionRecord;
+  /** Number of DialogueTurn messages covered by the matched prefix. */
+  coveredTurnCount: number;
+};
+
+/**
+ * Find the longest proper prefix of `historyTurns` (at complete-turn-group boundaries)
+ * that already has a cached `context.summary_created` record.
+ */
+export function findLongestPrefixCompression(
+  historyTurns: readonly DialogueTurn[],
+  cachedEvents: readonly EventEnvelope[],
+): PrefixCompressionMatch | undefined {
+  const groups = groupCompleteTurns(historyTurns);
+  if (groups.length < 2) return undefined;
+
+  let best: PrefixCompressionMatch | undefined;
+
+  // Proper prefixes only (exclude full history — that is exact-match reuse).
+  for (let g = 0; g < groups.length - 1; g += 1) {
+    const prefixTurns = flattenGroups(groups.slice(0, g + 1));
+    const hash = dialogueSourceRangeHash(rangesFromTurns(prefixTurns));
+    const cached = findCachedCompression(cachedEvents, hash);
+    if (cached) {
+      best = { record: cached, coveredTurnCount: prefixTurns.length };
+    }
+  }
+
+  return best;
+}
+
 function formatTurnForSummary(turn: DialogueTurn): string {
   if (turn.role === "tool") {
     return `tool(${turn.toolName ?? "unknown"}): ${turn.content ?? ""}`;
@@ -47,12 +103,21 @@ function formatTurnForSummary(turn: DialogueTurn): string {
   return `user: ${turn.content ?? ""}`;
 }
 
-export function summarizeDialogueDeterministic(turns: readonly DialogueTurn[]): string {
+export function summarizeDialogueDeterministic(
+  turns: readonly DialogueTurn[],
+  options?: { priorSummary?: string },
+): string {
   const lines = turns.map((turn, index) => `${index + 1}. ${formatTurnForSummary(turn)}`);
-  return [
-    "Compressed dialogue history (deterministic summary):",
-    ...lines,
-  ].join("\n");
+  if (options?.priorSummary?.trim()) {
+    return [
+      "Compressed dialogue history (deterministic summary, incremental):",
+      "Prior summary:",
+      options.priorSummary.trim(),
+      "Incremental turns:",
+      ...lines,
+    ].join("\n");
+  }
+  return ["Compressed dialogue history (deterministic summary):", ...lines].join("\n");
 }
 
 const SUMMARIZER_SYSTEM_PROMPT = [
@@ -61,31 +126,52 @@ const SUMMARIZER_SYSTEM_PROMPT = [
   "Do not invent facts. Use concise bullet points.",
 ].join("\n");
 
+const INCREMENTAL_SUMMARIZER_SYSTEM_PROMPT = [
+  "You update an existing compressed agent dialogue summary with incremental turns.",
+  "Merge the prior summary with the new turns; preserve goals, tools, key results, decisions, and unfinished work.",
+  "Do not invent facts. Use concise bullet points. Output only the updated summary.",
+].join("\n");
+
 export async function summarizeDialogueWithModel(input: {
   turns: readonly DialogueTurn[];
   model: ModelPort;
   modelPolicy?: unknown;
+  priorSummary?: string;
 }): Promise<{ summaryText: string; modelCallId: string }> {
   const transcript = input.turns.map(formatTurnForSummary).join("\n");
   const modelCallId = `summary-${Date.now()}`;
+  const priorSummary = input.priorSummary?.trim();
+  const systemPrompt = priorSummary ? INCREMENTAL_SUMMARIZER_SYSTEM_PROMPT : SUMMARIZER_SYSTEM_PROMPT;
+  const userContent = priorSummary
+    ? [
+        "Update the existing session summary with the incremental dialogue below. Do not invent facts.",
+        "",
+        "Existing summary:",
+        priorSummary,
+        "",
+        "Incremental dialogue:",
+        transcript,
+      ].join("\n")
+    : `Summarize the following dialogue history:\n\n${transcript}`;
 
   const result = (await input.model.completeStructured({
-    context: { transcript, purpose: "dialogue_compression" },
-    systemPrompt: SUMMARIZER_SYSTEM_PROMPT,
+    context: {
+      transcript,
+      purpose: priorSummary ? "dialogue_compression_incremental" : "dialogue_compression",
+      ...(priorSummary ? { priorSummary } : {}),
+    },
+    systemPrompt,
     modelPolicy: input.modelPolicy,
     messages: [
-      { role: "system", content: SUMMARIZER_SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: `Summarize the following dialogue history:\n\n${transcript}`,
-      },
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userContent },
     ],
   })) as ModelDecision;
 
   const summaryText =
     typeof result.content === "string" && result.content.trim()
       ? result.content.trim()
-      : summarizeDialogueDeterministic(input.turns);
+      : summarizeDialogueDeterministic(input.turns, { priorSummary });
 
   return { summaryText, modelCallId };
 }
@@ -169,26 +255,7 @@ export function planDialogueCompression(input: {
 
   const historyTurns = flattenGroups(groups.slice(0, recentStart));
   const recentTurns = flattenGroups(groups.slice(recentStart));
-
-  const rangeByRun = new Map<string, { from: number; to: number }>();
-  for (const turn of historyTurns) {
-    const from = turn.sequenceRange.from;
-    const to = turn.sequenceRange.to;
-    const existing = rangeByRun.get(turn.runId);
-    if (!existing) {
-      rangeByRun.set(turn.runId, { from, to });
-    } else {
-      existing.from = Math.min(existing.from, from);
-      existing.to = Math.max(existing.to, to);
-    }
-  }
-
-  const sourceEventRanges = [...rangeByRun.entries()].map(([runId, range]) => ({
-    runId,
-    fromSequence: range.from > 0 ? range.from : 1,
-    toSequence: range.to > 0 ? range.to : 1,
-  }));
-
+  const sourceEventRanges = rangesFromTurns(historyTurns);
   const rangeHash = dialogueSourceRangeHash(sourceEventRanges);
 
   return {
@@ -215,24 +282,47 @@ export async function ensureDialogueCompression(input: {
     return { isNew: false };
   }
 
-  const cached = findCachedCompression(input.cachedEvents, input.plan.rangeHash);
-  if (cached) {
-    return { compression: cached, isNew: false };
+  const exact = findCachedCompression(input.cachedEvents, input.plan.rangeHash);
+  if (exact) {
+    return { compression: exact, isNew: false };
   }
 
-  const { summaryText, modelCallId } = await summarizeDialogueWithModel({
-    turns: input.plan.historyTurns,
-    model: input.model,
-    modelPolicy: input.modelPolicy,
-  });
+  const historyTurns = input.plan.historyTurns;
+  const prefix = findLongestPrefixCompression(historyTurns, input.cachedEvents);
+
+  let summaryText: string;
+  let modelCallId: string;
+  let parentCompressionId: string | undefined;
+
+  if (prefix && prefix.coveredTurnCount < historyTurns.length) {
+    const deltaTurns = historyTurns.slice(prefix.coveredTurnCount);
+    const summarized = await summarizeDialogueWithModel({
+      turns: deltaTurns,
+      priorSummary: prefix.record.summaryText,
+      model: input.model,
+      modelPolicy: input.modelPolicy,
+    });
+    summaryText = summarized.summaryText;
+    modelCallId = summarized.modelCallId;
+    parentCompressionId = prefix.record.compressionId;
+  } else {
+    const summarized = await summarizeDialogueWithModel({
+      turns: historyTurns,
+      model: input.model,
+      modelPolicy: input.modelPolicy,
+    });
+    summaryText = summarized.summaryText;
+    modelCallId = summarized.modelCallId;
+  }
 
   const compressionId = `cmp-${input.plan.rangeHash.slice(0, 16)}`;
   const record: ContextCompressionRecord = {
     compressionId,
     summaryHash: sha256(summaryText),
     summaryText,
-    sourceRunIds: [...new Set(input.plan.historyTurns.map((t) => t.runId))],
+    sourceRunIds: [...new Set(historyTurns.map((t) => t.runId))],
     sourceEventRanges: input.plan.sourceEventRanges,
+    ...(parentCompressionId ? { parentCompressionId } : {}),
     summarizerModelCallId: modelCallId,
     createdAt: new Date().toISOString(),
   };

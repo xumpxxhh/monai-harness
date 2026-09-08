@@ -9,8 +9,10 @@ export { buildModelContext, type BuildModelContextInput, type BuildModelContextR
 export {
   ensureDialogueCompression,
   findCachedCompression,
+  findLongestPrefixCompression,
   groupCompleteTurns,
   planDialogueCompression,
+  rangesFromTurns,
   summarizeDialogueDeterministic,
 } from "./context/compress-dialogue.js";
 export { DisabledMemoryPort } from "./context/memory-stub.js";

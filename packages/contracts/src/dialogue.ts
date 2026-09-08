@@ -68,6 +68,8 @@ export const contextCompressionRecordSchema = strictObject({
   summaryText: z.string().min(1),
   sourceRunIds: z.array(z.string().min(1)),
   sourceEventRanges: z.array(dialogueEventRangeSchema),
+  /** Prior compression this record was incrementally extended from (audit). */
+  parentCompressionId: z.string().min(1).optional(),
   summarizerModelCallId: z.string().optional(),
   createdAt: z.string().min(1),
 });
