@@ -6,10 +6,10 @@
 | --- | --- |
 | 计划路径 | `packages/adapters/synthetic-sink/` |
 | 实现端口 | 支撑 `synthetic.write_high` / reconcile（经 Tool Runtime） |
-| 状态 | `in_progress` |
+| 状态 | `done`（P4–P5） |
 | 首触阶段 | P4–P5 |
 | 上游 | [design/08 §2.5](../../design/08-mvp-and-evolution.md) |
-| 最后更新 | 2026-08-27 |
+| 最后更新 | 2026-09-08 |
 
 ## 1. 范围
 
@@ -24,14 +24,14 @@
 
 ## 3. 验收清单
 
-- [ ] 审批链可完整走通（require_approval → consume → prepared → dispatch）— P5
+- [x] 审批链可完整走通（require_approval → consume → prepared → dispatch）— delivery `approval-chain` L1
 - [x] 超时与对账用例稳定可重复（L1）
 - [x] 副作用计数可断言「无重复」
 - [x] `synthetic://` 资源前缀强制隔离
 
 ## 4. 依赖
 
-runtime ToolInvoker。
+经 Pack / ToolInvoker 注入；runtime 仅测试夹具依赖本包。
 
 ## 5. 缺口与风险
 
@@ -41,5 +41,6 @@ runtime ToolInvoker。
 
 | 日期 | 说明 |
 | --- | --- |
+| 2026-09-08 | 进展页纠错：状态 `done`；勾选审批链项 |
 | 2026-08-27 | P4：`IsolatedSyntheticSink` + timeout/reconcile |
 | 2026-08-27 | 创建进展页 |

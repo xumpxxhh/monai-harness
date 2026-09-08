@@ -8,7 +8,7 @@
 | 状态 | `done`（P9d + M2c 并行派发） |
 | 首触阶段 | P2 |
 | 上游 | [engineering/02](../../engineering/02-runtime-composition.md)、[engineering/03](../../engineering/03-persistence-and-transactions.md)、EDR-004 |
-| 最后更新 | 2026-09-02 |
+| 最后更新 | 2026-09-08 |
 
 ## 1. 范围
 
@@ -45,12 +45,14 @@
 ## 5. 缺口与风险
 
 - 租户公平与并发限额仍为骨架
-- 真实外部 Queue 未接
+- Redis/SQS 等外部 Queue：`deferred`（postgres/memory Queue 已可替换）
 
 ## 6. 最近变更
 
 | 日期 | 说明 |
 | --- | --- |
+| 2026-09-08 | 抽检：pack-wiring 含 sandbox/knowledge 装配；日期刷新 |
+| 2026-09-07 | pack-wiring：`sandbox.exec` / ObjectStore 装配（0024/0025） |
 | 2026-09-01 | M2c：并行 prepared 扇出；`tool-chain` 扩展多 ToolCall 场景 |
 | 2026-08-27 | P5：approval-chain L1（synthetic 默认 require_approval + ask_user） |
 | 2026-08-27 | P4：ToolDispatcher + tool-chain L1；Outbox 跳过非 queue_run |

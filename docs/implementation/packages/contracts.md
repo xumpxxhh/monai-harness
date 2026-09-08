@@ -8,7 +8,7 @@
 | 状态 | `done`（M2a） |
 | 首触阶段 | P0–P1；M1a 模型 Event 载荷；M2a Dialogue / Action.calls[] |
 | 上游 | [design/01](../../design/01-domain-model.md)、[design/05 §3.1.1 Dialogue 投影](../../design/05-context-and-data.md#311-dialogue-投影与-modelview实现)、[engineering/01](../../engineering/01-repository-and-modules.md) |
-| 最后更新 | 2026-09-02 |
+| 最后更新 | 2026-09-08 |
 
 ## 1. 范围
 
@@ -66,6 +66,7 @@
 
 | 日期 | 说明 |
 | --- | --- |
+| 2026-09-08 | 抽检：压缩/投影类型仍以 M2a 为准；日期刷新（无新契约缺口） |
 | 2026-09-02 | M2a：`Action.calls[]`、`dialogue.ts`（DialogueTurn / ModelMessage / ContextCompressionRecord） |
 | 2026-08-28 | M1a 实装完成：ContextBuildRecord、Manifest modelPolicy、Event usage / priceTable |
 | 2026-08-28 | M1a 计划：ContextBuildRecord、Manifest modelPolicy、Event usage；见 0018 |

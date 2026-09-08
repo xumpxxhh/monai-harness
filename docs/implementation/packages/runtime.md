@@ -5,10 +5,10 @@
 | 项 | 值 |
 | --- | --- |
 | 计划路径 | `packages/runtime/`（**单包**，EDR-011） |
-| 状态 | `done`（M2） |
+| 状态 | `done`（M2 + context 压缩增强） |
 | 首触阶段 | P1–P6（贯穿）；M1 Budget/Builder/Policy；M2 决策/并行/Context |
 | 上游 | [engineering/01–03](../../engineering/01-repository-and-modules.md)、[design/03 §6.1](../../design/03-run-lifecycle.md#61-toolcall)、[design/05 §3.1.1](../../design/05-context-and-data.md#311-dialogue-投影与-modelview实现) |
-| 最后更新 | 2026-09-02 |
+| 最后更新 | 2026-09-08 |
 
 ## 1. 范围（内部模块）
 
@@ -20,8 +20,9 @@ model/ preview/ recovery/
 
 ## 2. 非目标
 
-- 静态 import adapters/packs（ToolInvoker 依赖 synthetic-sink 为编译期；Workspace 运行期注入）
+- 生产路径静态 import adapters/packs（Workspace / ObjectStore / Sandbox 运行期注入）
 - MVP 启用 Child Run / Memory / DAG
+- KnowledgePort 检索进 Context `knowledge` section（`deferred`；RAG 走 Pack Tool）
 
 ## 3. 验收清单（分阶段勾选）
 
@@ -112,20 +113,22 @@ Event Log → projectDialogue → DialogueTurn[]
 
 ## 4. 依赖
 
-contracts、ports、pack-sdk、synthetic-sink（invoker）；workspace 运行期注入。
+生产：`contracts`、`ports`、`pack-sdk`。`synthetic-sink` / workspace Pack 等仅 **devDependencies**（测试夹具）；生产 invoker 由 delivery/harness 注入。
 
 ## 5. 缺口与风险
 
-- ConfirmationGrant / confirm_once 未实现
+- ConfirmationGrant / confirm_once 未实现（`deferred`）
 - design 08 完整故障注入矩阵仍为 L1 子集
-- ToolInvoker 编译依赖 synthetic-sink（隔离测试适配器）
 - Agent Definition 尚未作为持久对象；`acceptanceChecks` 经 `EngineDeps` 注入
-- Knowledge 真实检索后置切片
+- KnowledgePort / Context `knowledge` section：`deferred`（M3 已提供 `knowledge.search` Tool）
+- 工作区可能仍有未提交的 `project-dialogue` 微调（见 HANDOFF / 0026）
 
 ## 6. 最近变更
 
 | 日期 | 说明 |
 | --- | --- |
+| 2026-09-08 | 进展页纠错：去掉「生产编译依赖 synthetic-sink」；Knowledge 口径改为 Port/section deferred |
+| 2026-09-08 | context 增量压缩策略调整；与 session resume 联调（见 0026） |
 | 2026-09-07 | 压缩切窗按 `stepId` 完整回合；`recentTurnCount` 计组 |
 | 2026-09-02 | M2d：Dialogue 投影 + 压缩 + `build-model-context`；`publish-model-context` |
 | 2026-09-01 | M2c：并行 `prepare-tool-calls`；Policy 按条；`project-approval`；Step 闭合 |

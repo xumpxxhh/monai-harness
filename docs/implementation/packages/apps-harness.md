@@ -8,7 +8,7 @@
 | 状态 | `done`（M2e） |
 | 首触阶段 | P0（空壳）起贯穿；M1h Secret + Model；M2e Session Demo |
 | 上游 | [engineering/00 §4](../../engineering/00-implementation-baseline.md)、[engineering/02](../../engineering/02-runtime-composition.md)、EDR-002/014 |
-| 最后更新 | 2026-09-07 |
+| 最后更新 | 2026-09-08 |
 
 ## 1. 范围
 
@@ -79,11 +79,13 @@ load config (.env)
 
 - 共享 Compose PG 上 compensation 可能扫到历史 pending outbox（dedupe 安全）
 - 不得用真实模型跑 Eval 洗绿
+- `demo-session --resume` 依赖 `PERSISTENCE_DRIVER=postgres`（memory 无跨进程会话）
 
 ## 6. 最近变更
 
 | 日期 | 说明 |
 | --- | --- |
+| 2026-09-08 | `demo-session --resume=<sessionId>` 历史会话恢复（postgres）；见 0026 |
 | 2026-09-07 | 撤回误加 objectstore-memory；artifact 仅 `FsObjectStore`（Eval 用 tmpdir） |
 | 2026-09-07 | artifact Tool 经 ObjectStorePort；harness `HARNESS_OBJECT_STORE_DIR` |
 | 2026-09-07 | `QUEUE_DRIVER` / `LEASE_DRIVER`；装配 `queue-postgres` / `lease-postgres`（0024） |

@@ -37,77 +37,41 @@ function actionFromPayload(payload: unknown): Action | undefined {
   return (payload as { action?: Action }).action;
 }
 
-function controlCallName(action: Action): string | undefined {
-  switch (action.type) {
-    case "ask_user":
-      return "ask_user";
-    case "finish":
-      return "finish";
-    case "noop":
-      return "noop";
-    case "spawn_child":
-      return "spawn_child";
-    default:
-      return undefined;
-  }
-}
-
 function actionToToolCalls(
   action: Action,
   prepared: Array<{ toolCallId: string; toolId: string }>,
 ): ModelMessageToolCall[] {
-  if (action.type === "tool.call") {
-    const invocations = getToolCallInvocations(action);
-    return invocations.map((inv, index) => {
-      const match =
-        prepared.find((p) => p.toolId === inv.toolId) ?? prepared[index];
-      return {
-        id: match?.toolCallId ?? `call-${index}`,
-        type: "function" as const,
-        function: {
-          name: inv.toolId,
-          arguments: JSON.stringify(inv.arguments ?? {}),
-        },
-      };
-    });
-  }
+  // Domain tools only. Control actions (finish / ask_user / noop / …) stay content-only in
+  // ModelView so history never carries orphan toolCalls without tool results. Audit Events
+  // still store the full Action on action.proposed.
+  if (action.type !== "tool.call") return [];
 
-  const controlName = controlCallName(action);
-  if (!controlName) return [];
-
-  return [
-    {
-      id: `ctrl-${action.actionId}`,
-      type: "function",
+  const invocations = getToolCallInvocations(action);
+  const used = new Set<number>();
+  return invocations.map((inv, index) => {
+    let matchIndex = -1;
+    const byOrder = prepared[index];
+    if (byOrder && byOrder.toolId === inv.toolId && !used.has(index)) {
+      matchIndex = index;
+    } else {
+      matchIndex = prepared.findIndex((p, i) => p.toolId === inv.toolId && !used.has(i));
+    }
+    if (matchIndex >= 0) used.add(matchIndex);
+    const match = matchIndex >= 0 ? prepared[matchIndex] : undefined;
+    return {
+      id: match?.toolCallId ?? `call-${index}`,
+      type: "function" as const,
       function: {
-        name: controlName,
-        arguments: JSON.stringify(controlArguments(action)),
+        name: inv.toolId,
+        arguments: JSON.stringify(inv.arguments ?? {}),
       },
-    },
-  ];
-}
-
-function controlArguments(action: Action): unknown {
-  switch (action.type) {
-    case "ask_user":
-      return { prompt: action.displayText ?? "" };
-    case "finish":
-      return { summary: action.displayText ?? "" };
-    case "noop":
-      return {};
-    case "spawn_child":
-      return action.childSpec ?? {};
-    default:
-      return {};
-  }
+    };
+  });
 }
 
 function assistantContent(action: Action | undefined, display?: string): string | undefined {
   if (display?.trim()) return display.trim();
   if (action?.displayText?.trim()) return action.displayText.trim();
-  if (action?.type === "finish" && action.displayText?.trim()) {
-    return action.displayText.trim();
-  }
   return undefined;
 }
 
@@ -133,13 +97,18 @@ export function projectDialogueFromEvents(input: {
   });
 
   const preparedByStep = new Map<string, Array<{ toolCallId: string; toolId: string }>>();
+  const toolIdByCallId = new Map<string, string>();
   for (const event of sorted) {
     if (event.eventType !== "tool.call_prepared" || !event.stepId) continue;
     const payload = event.payload as { toolCallId?: string; toolId?: string } | undefined;
-    if (!payload?.toolCallId || !payload.toolId) continue;
+    // prepare-tool-calls puts toolCallId on the Event envelope; payload may omit it.
+    const toolCallId = event.toolCallId ?? payload?.toolCallId;
+    const toolId = payload?.toolId;
+    if (!toolCallId || !toolId) continue;
     const bucket = preparedByStep.get(event.stepId) ?? [];
-    bucket.push({ toolCallId: payload.toolCallId, toolId: payload.toolId });
+    bucket.push({ toolCallId, toolId });
     preparedByStep.set(event.stepId, bucket);
+    toolIdByCallId.set(toolCallId, toolId);
   }
 
   const assistantByStep = new Set<string>();
@@ -163,6 +132,11 @@ export function projectDialogueFromEvents(input: {
 
       const toolCalls = action ? actionToToolCalls(action, preparedByStep.get(event.stepId) ?? []) : [];
       const content = assistantContent(action, display);
+      const projectedCalls = toolCalls.map((tc) => ({
+        id: tc.id,
+        name: tc.function.name,
+        arguments: JSON.parse(tc.function.arguments || "{}") as unknown,
+      }));
 
       turns.push({
         turnId: `turn-asst-${event.stepId}`,
@@ -170,11 +144,7 @@ export function projectDialogueFromEvents(input: {
         stepId: event.stepId,
         role: "assistant",
         content,
-        toolCalls: toolCalls.map((tc) => ({
-          id: tc.id,
-          name: tc.function.name,
-          arguments: JSON.parse(tc.function.arguments || "{}") as unknown,
-        })),
+        ...(projectedCalls.length > 0 ? { toolCalls: projectedCalls } : {}),
         sourceEventIds: [event.eventId, ...(responded ? [responded.eventId] : [])],
         sequenceRange: { from: event.sequence, to: responded?.sequence ?? event.sequence },
       });
@@ -205,14 +175,21 @@ export function projectDialogueFromEvents(input: {
       }
 
       if (observation.source.kind === "tool") {
+        const toolCallId = event.toolCallId;
+        const toolName =
+          (toolCallId ? toolIdByCallId.get(toolCallId) : undefined) ??
+          (typeof (observation.data as { toolId?: unknown } | undefined)?.toolId === "string"
+            ? String((observation.data as { toolId: string }).toolId)
+            : undefined) ??
+          observation.source.sourceId;
         turns.push({
           turnId: `turn-tool-${observation.observationId}`,
           runId: input.run.runId,
           stepId: event.stepId,
           role: "tool",
           content: capToolContent(observation.data, maxToolContentChars),
-          toolCallId: event.toolCallId,
-          toolName: observation.source.sourceId,
+          toolCallId,
+          toolName,
           sourceEventIds: [event.eventId],
           sequenceRange: { from: event.sequence, to: event.sequence },
         });

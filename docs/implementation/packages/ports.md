@@ -8,7 +8,7 @@
 | 状态 | `done`（M1e + M2b 签名） |
 | 首触阶段 | P0–P1；M1 SecretPort；M2 ModelDecision |
 | 上游 | [engineering/02](../../engineering/02-runtime-composition.md)、[engineering/04](../../engineering/04-ports-extensions-and-security.md)、[design/02 §7](../../design/02-core-architecture.md#7-端口清单) |
-| 最后更新 | 2026-09-02 |
+| 最后更新 | 2026-09-08 |
 
 ## 1. 范围
 
@@ -27,7 +27,7 @@
 - [x] 包仅依赖 `contracts`
 - [x] Persistence `beginUnitOfWork` + commit 形状与 [engineering/03](../../engineering/03-persistence-and-transactions.md) 一致
 - [x] Queue/Lease/Outbox 方法集：Outbox 已具 claim/mark；Queue/Lease 为 stub 签名（P2 兑现）
-- [x] SandboxPort 接口存在且标明 MVP 不挂载执行
+- [x] SandboxPort 接口存在；**默认**装配 RejectingSandbox；`FEATURE_ENABLE_SANDBOX_EXEC` 时可挂 subprocess（0025）
 - [x] Persistence getStateSnapshot（P6 recovery）
 
 ### M1（完成 — [0018](../sessions/0018-real-model-cluster-plan.md)）
@@ -46,12 +46,15 @@
 ## 5. 缺口与风险
 
 - ApprovalPort 仍为 stub（决定经 Engine `approval_decision` 命令）
-- MemoryPort 接口预留；MVP 默认 `DisabledMemoryPort` 不检索
+- MemoryPort 接口预留；MVP 默认 `DisabledMemoryPort` 不检索（`deferred`）
+- KnowledgePort 接口/检索路径：`deferred`（产品路径先用 `knowledge.search` Tool）
 
 ## 6. 最近变更
 
 | 日期 | 说明 |
 | --- | --- |
+| 2026-09-08 | SandboxPort 文档：默认拒绝 + opt-in 可执行；KnowledgePort 标 deferred |
+| 2026-09-07 | SandboxExecRequest/Result 形状（0025） |
 | 2026-09-01 | M2b：`ModelPort.completeStructured` 改为 function calling 签名；`ModelDecision` / `ModelCompleteInput.messages` |
 | 2026-08-28 | M1e 实装完成：SecretPort lease + ModelPort modelPolicy 必传 |
 | 2026-08-28 | M1：ModelPort modelPolicy + SecretPort lease 接线备注；见 0018 |

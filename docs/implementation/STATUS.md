@@ -1,7 +1,7 @@
 # 实现状态看板
 
-> 与各 [packages/](./packages/) / [adapters/](./adapters/) 进展页同步。不一致时以包页为准。  
-> 最后同步：2026-09-07（**0025 sandbox.exec opt-in**；artifact→FsObjectStore；0024 infra 收口）
+> 与各 [packages/](./packages/) / [adapters/](./adapters/) 进展页同步。不一致时：**先修包页到与代码一致，再改本表**（见 [CONVENTIONS.md](./CONVENTIONS.md)）。  
+> 最后同步：2026-09-08（**0026** session resume + context 增量压缩；implementation 文档纠错）
 
 ## 1. 阶段
 
@@ -17,10 +17,10 @@
 | [P7](./PHASES.md#p7--观测与评测门禁) | `done` | EventStream + MVP 指标 + Eval 子集 |
 | [P8](./PHASES.md#p8--http--postgresql) | `done` | PG L2 + harness bootstrap + Hono HTTP/SSE |
 | [P9](./PHASES.md#p9--阶段-a-收口) | `done` | P9a–P9d 完成 |
-| [M1](./PHASES.md#m1--真实模型簇可选) | `done` | M1a–M1h 实装完成；Knowledge 后置 |
+| [M1](./PHASES.md#m1--真实模型簇可选) | `done` | M1a–M1h；Token/cost 已收口；KnowledgePort deferred |
 | [M2](./PHASES.md#m2--agent-loop-增强) | `done` | function calling + 并行工具 + Dialogue Context + Session Demo |
-| [M3](./PHASES.md#m3--rag-knowledge-search-tool) | `done` | EDR-016：`knowledge.search` RAG HTTP Tool；KnowledgePort 仍后置 |
-| [可替换 infra 适配器](./PHASES.md#可替换-infra-适配器queue--lease--objectstore--sandbox) | `done` | Queue/Lease/Sandbox/ObjectStore 已落地；Artifact Tool 联调后置；[0024](./sessions/0024-replaceable-infra-adapters-plan.md) |
+| [M3](./PHASES.md#m3--rag-knowledge-search-tool) | `done` | EDR-016：`knowledge.search`；KnowledgePort 仍 deferred |
+| [可替换 infra](./PHASES.md#可替换-infra-适配器queue--lease--objectstore--sandbox) | `done` | Queue/Lease/ObjectStore + sandbox stub；artifact 已接；subprocess opt-in（0025） |
 
 ## 2. 包状态
 
@@ -28,15 +28,15 @@
 | --- | --- | --- |
 | tooling / 仓库根 | `done`（P0） | [tooling.md](./packages/tooling.md) |
 | contracts | `done`（M2a） | [contracts.md](./packages/contracts.md) — Action.calls[] / DialogueTurn |
-| ports | `done`（M1e + M2b） | [ports.md](./packages/ports.md) — ModelDecision / SecretPort |
-| runtime | `done`（M2） | [runtime.md](./packages/runtime.md) — 决策环 / 并行工具 / Context 投影 |
+| ports | `done`（M1e + M2b） | [ports.md](./packages/ports.md) — ModelDecision / SecretPort；Sandbox 默认拒绝+opt-in |
+| runtime | `done`（M2 + 压缩增强） | [runtime.md](./packages/runtime.md) — 决策环 / 并行工具 / Context 投影与增量压缩 |
 | delivery | `done`（M2c） | [delivery.md](./packages/delivery.md) — 多 ToolCall 派发 |
 | api | `done`（P8c） | [api.md](./packages/api.md) |
 | pack-sdk | `done`（P9a） | [pack-sdk.md](./packages/pack-sdk.md) |
-| packs/workspace-generic | `done`（P9a + workspace.write） | [workspace-generic.md](./packages/workspace-generic.md) |
+| packs/workspace-generic | `done`（write/delete + RAG/sandbox 元数据） | [workspace-generic.md](./packages/workspace-generic.md) |
 | governance | `done`（P9c） | [governance.md](./packages/governance.md) |
 | observability | `done`（M1g） | [observability.md](./packages/observability.md) — Token/cost + Context 指标 |
-| apps/harness | `done`（M2e） | [apps-harness.md](./packages/apps-harness.md) — Session Demo / FsWorkspace |
+| apps/harness | `done`（M2e + resume） | [apps-harness.md](./packages/apps-harness.md) — Session Demo / `--resume` / FsWorkspace |
 
 ## 3. Adapter 状态
 
@@ -46,23 +46,25 @@
 | queue | `done`（memory + postgres） | [queue.md](./adapters/queue.md) |
 | lease | `done`（memory + postgres） | [lease.md](./adapters/lease.md) |
 | model | `done`（stub + openai；M2b function calling） | [model.md](./adapters/model.md) |
-| workspace | `done`（memory + harness FsWorkspace） | [workspace.md](./adapters/workspace.md) |
+| workspace | `done`（memory + harness FsWorkspace；Windows 矩阵缺口） | [workspace.md](./adapters/workspace.md) |
 | objectstore | `done`（fs；artifact 已接） | [objectstore.md](./adapters/objectstore.md) |
-| knowledge | `in_progress`（RAG HTTP + Tool done；KnowledgePort 后置） | [knowledge.md](./adapters/knowledge.md) |
+| knowledge-http / `knowledge.search` | `done`（EDR-016） | [knowledge.md](./adapters/knowledge.md) |
+| KnowledgePort / Context `knowledge` | `deferred` | [knowledge.md](./adapters/knowledge.md) |
 | secret | `done`（`@monai/secret-env`；M1e） | [secret.md](./adapters/secret.md) |
 | sandbox-stub | `done` | [sandbox-stub.md](./adapters/sandbox-stub.md) — 默认拒绝 |
 | sandbox-subprocess | `done`（opt-in） | [sandbox-subprocess.md](./adapters/sandbox-subprocess.md) — 0025 |
-| synthetic-sink | `in_progress` | [synthetic-sink.md](./adapters/synthetic-sink.md) |
+| synthetic-sink | `done`（P4–P5） | [synthetic-sink.md](./adapters/synthetic-sink.md) |
 
 ## 4. 阻塞与风险
 
 | 项 | 级别 | 说明 |
 | --- | --- | --- |
-| Eval 完整矩阵 | 信息 | 114/114 绿（stub）；M2 未影响 Eval 门禁 |
-| Knowledge 缺口 | 信息 | KnowledgePort / Context `knowledge` section 仍后置；RAG Tool 已接 |
-| ConfirmationGrant | 信息 | P5 未做 confirm_once |
-| EDR-010 | 低 | Deferred（isolated_extension；与 opt-in sandbox.exec 分立） |
-| sandbox.exec opt-in | 信息 | 0025：默认关；`FEATURE_ENABLE_SANDBOX_EXEC` + subprocess |
+| Eval 完整矩阵 | 信息 | 114/114 绿（stub） |
+| KnowledgePort | 信息 | `deferred`；RAG Tool 已接 |
+| ConfirmationGrant | 信息 | `deferred`；单次审批主路径已够 |
+| EDR-010 | 低 | Deferred（isolated_extension） |
+| sandbox.exec opt-in | 信息 | 默认关；Session 联调仍可做 |
+| `project-dialogue` 未提交改动 | 信息 | 工作区有未收口微调；见 HANDOFF |
 
 ## 5. 决策关闭记录
 
@@ -84,22 +86,23 @@
 
 | 层 | 状态 | 备注 |
 | --- | --- | --- |
-| L0 纯函数 | `done`（M1b/c + M2） | BudgetGuard、Context Builder、Dialogue 投影、prepare-tool-calls、map-decision |
+| L0 纯函数 | `done`（M1b/c + M2） | BudgetGuard、Context Builder、Dialogue 投影/压缩、prepare-tool-calls、map-decision |
 | L1 InMemory | `done`（M1d/f + M2c） | execute-turn 并行工具、OpenAiModelPort function calling |
 | L1-on-PG | `done`（全 postgres queue/lease） | CreateRun→running 3/3 |
 | L2 真实单库 | `done`（lease-postgres） | recovery + prepared 4/4；persistence 单测 8 |
 | L3 Eval / Golden | `done`（P9b-sec） | Golden 30 + 控制面 76 + 安全 8 = 114 绿 |
 | L0 governance | `done`（P9c） | GovernanceEvent store + Pack 注册 3/3 |
-| M2 harness demo | `done` | `demo:session` 多轮 CLI；`FsWorkspace` 磁盘工作区 |
+| M2 harness demo | `done` | `demo:session`；`--resume`（postgres）；`FsWorkspace` |
 
 ## 7. 快捷链接
 
 - 交接：[HANDOFF.md](./HANDOFF.md)
-- 阶段：[PHASES.md](./PHASES.md)（P9 / M1–M3 done；可替换 infra 计划见 0024）
-- M1 计划：[sessions/0018-real-model-cluster-plan.md](./sessions/0018-real-model-cluster-plan.md)
-- M2 归档：[sessions/0019-post-m1-agent-loop.md](./sessions/0019-post-m1-agent-loop.md)
-- M3 RAG Tool：[sessions/0020-knowledge-search-tool.md](./sessions/0020-knowledge-search-tool.md)
-- workspace.write：[sessions/0021-workspace-write-tool.md](./sessions/0021-workspace-write-tool.md)
-- 可替换 infra：[sessions/0024-replaceable-infra-adapters-plan.md](./sessions/0024-replaceable-infra-adapters-plan.md)
-- sandbox.exec opt-in：[sessions/0025-sandbox-exec-opt-in.md](./sessions/0025-sandbox-exec-opt-in.md)
+- 阶段：[PHASES.md](./PHASES.md)（历史路线；已完成 = 快照）
+- 约定：[CONVENTIONS.md](./CONVENTIONS.md)
+- M1 计划（已归档）：[sessions/0018](./sessions/0018-real-model-cluster-plan.md)
+- M2 归档：[sessions/0019](./sessions/0019-post-m1-agent-loop.md)
+- M3 RAG Tool：[sessions/0020](./sessions/0020-knowledge-search-tool.md)
+- 可替换 infra（已归档）：[sessions/0024](./sessions/0024-replaceable-infra-adapters-plan.md)
+- sandbox.exec opt-in：[sessions/0025](./sessions/0025-sandbox-exec-opt-in.md)
+- session resume + 压缩：[sessions/0026](./sessions/0026-context-compress-session-resume.md)
 - 工程 EDR：[../engineering/00-implementation-baseline.md](../engineering/00-implementation-baseline.md)

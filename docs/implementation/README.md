@@ -21,20 +21,20 @@ apps/ + packages/        代码与配置
 | 场景 | 先读 |
 | --- | --- |
 | 新会话 / 换人接着干 | [HANDOFF.md](./HANDOFF.md) → [STATUS.md](./STATUS.md) |
-| 看全局做到哪 | [STATUS.md](./STATUS.md) + [PHASES.md](./PHASES.md) |
+| 看全局做到哪 | [STATUS.md](./STATUS.md)；路线与退出条件见 [PHASES.md](./PHASES.md) |
 | 改某个包 | [packages/](./packages/) 或 [adapters/](./adapters/) 对应进展页 |
-| 结束一轮实现 | 更新包进展 → STATUS → **重写 HANDOFF** → 可选追加 [sessions/](./sessions/) |
+| 结束一轮实现 | **代码对齐** → 包进展 → STATUS → **重写 HANDOFF** → 可选 [sessions/](./sessions/) |
 
 ## 文档导航
 
 | 文档 | 职责 |
 | --- | --- |
-| [HANDOFF.md](./HANDOFF.md) | **唯一当前交接入口**：下一会话从哪开始、禁区、未决问题 |
-| [STATUS.md](./STATUS.md) | 全局看板：阶段、包状态、阻塞 |
-| [PHASES.md](./PHASES.md) | 实现阶段 P0–P9、依赖、退出条件 |
-| [CONVENTIONS.md](./CONVENTIONS.md) | 状态枚举、更新规则、会话日志约定 |
-| [packages/](./packages/) | 各 workspace 包进展 |
-| [adapters/](./adapters/) | 各基础设施适配器进展 |
+| [HANDOFF.md](./HANDOFF.md) | **唯一当前交接入口**：一句话状态、下一步、延后、禁区 |
+| [STATUS.md](./STATUS.md) | 全局看板：阶段、包/adapter 状态、阻塞、测试 readiness |
+| [PHASES.md](./PHASES.md) | 实现路线与退出条件（已完成阶段 = **历史快照**，非当前焦点） |
+| [CONVENTIONS.md](./CONVENTIONS.md) | 状态枚举、SSOT、更新规则、会话日志约定 |
+| [packages/](./packages/) | 各 workspace 包进展（细粒度真相） |
+| [adapters/](./adapters/) | 各基础设施适配器进展（细粒度真相） |
 | [sessions/](./sessions/) | 按会话追加的简短工作日志（可选但推荐） |
 
 上游：
@@ -44,6 +44,8 @@ apps/ + packages/        代码与配置
 - Turborepo：[docs/turborepo.md](../turborepo.md)
 
 ## 包进展一览（入口）
+
+状态以各进展页与 [STATUS.md](./STATUS.md) 为准（须一致）；此处只做导航。
 
 | 包 / 单元 | 进展页 | 首触阶段 |
 | --- | --- | --- |
@@ -62,10 +64,14 @@ apps/ + packages/        代码与配置
 
 ## 维护铁律
 
-1. **每轮实现结束必须更新 HANDOFF.md**（覆盖写「当前状态」，不要只追加聊天式废话）。
-2. 改了代码的包，同步改对应 `packages/*.md` 或 `adapters/*.md` 的勾选与状态。
-3. STATUS.md 的汇总表与包页状态保持一致；不一致时以包页为准并立刻修汇总。
-4. 发现工程/设计缺口：记入 HANDOFF「未决」，必要时回修 `docs/engineering` 或提设计修订，不要只在代码里默默偏离。
+1. **先对齐代码，再写文档**：包页状态/勾选必须反映仓库事实。
+2. 改了代码的包，同步改对应 `packages/*.md` 或 `adapters/*.md`。
+3. STATUS 汇总与包页状态保持一致；不一致时 **先修包页到与代码一致，再改 STATUS**。
+4. **每轮实现结束必须重写 HANDOFF.md**（覆盖「当前状态 / 下一步」，不要只追加聊天式废话）。
+5. PHASES 已完成节不充当 changelog；过时「仍缺」句必须改写或标注已关闭。
+6. 发现工程/设计缺口：记入 HANDOFF「显式延后」，必要时回修 `docs/engineering` 或提设计修订，不要只在代码里默默偏离。
+
+约定细节见 [CONVENTIONS.md](./CONVENTIONS.md)。
 
 ---
 

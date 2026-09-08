@@ -8,7 +8,7 @@
 | 状态 | `done`（M1g） |
 | 首触阶段 | P7；M1g usage/价表指标 |
 | 上游 | [design/07 §4.2 Token/cost](../../design/07-observability-and-evaluation.md)、[engineering/05](../../engineering/05-testing-and-evolution.md)、EDR-013/015 |
-| 最后更新 | 2026-09-02 |
+| 最后更新 | 2026-09-08 |
 
 ## 1. 范围
 
@@ -58,6 +58,7 @@
 
 | 日期 | 说明 |
 | --- | --- |
+| 2026-09-08 | 抽检：`MVP_METRIC_GAPS` 无 Token/cost（M1g 已关）；剩余 7 项见源码 |
 | 2026-08-28 | M1g 实装完成：Token/cost + Context overflow 指标；MVP_METRIC_GAPS 收口 |
 | 2026-08-28 | M1g 计划：Token/cost + Context overflow；见 0018 |
 | 2026-08-28 | P9c：`computeRunTiming`；`MVP_METRIC_GAPS` 收口时间指标 |

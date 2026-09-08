@@ -9,7 +9,7 @@
 | 状态 | `done`（`objectstore-fs`；artifact Tool 已接入） |
 | 首触阶段 | P4 |
 | 上游 | [design/01 Artifact](../../design/01-domain-model.md)、[engineering/03](../../engineering/03-persistence-and-transactions.md) |
-| 最后更新 | 2026-09-07 |
+| 最后更新 | 2026-09-08 |
 
 ## 1. 范围
 
@@ -41,6 +41,7 @@ ports。包：`@monai/objectstore-fs`。
 
 | 日期 | 说明 |
 | --- | --- |
+| 2026-09-08 | 抽检：artifact→FsObjectStore 口径与代码一致；日期刷新 |
 | 2026-09-07 | 撤回误加的 `@monai/objectstore-memory`；统一 `FsObjectStore`（tmpdir 默认） |
 | 2026-09-07 | artifact Tool 迁 ObjectStorePort；harness `HARNESS_OBJECT_STORE_DIR` |
 | 2026-09-07 | `@monai/objectstore-fs` 落地 |

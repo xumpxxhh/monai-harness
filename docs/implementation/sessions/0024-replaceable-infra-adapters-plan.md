@@ -1,9 +1,11 @@
 # Session 0024 — 可替换 infra 适配器计划
 
+> **状态：已归档 / 已落地**（Queue/Lease/ObjectStore/Sandbox stub done；artifact 已接；subprocess 见 0025）
+
 | 项 | 值 |
 | --- | --- |
 | 日期 | 2026-09-07 |
-| 类型 | 实现（Queue/Lease/Sandbox/ObjectStore；Artifact 联调后置） |
+| 类型 | 实现（Queue/Lease/Sandbox/ObjectStore；Artifact 其后已接入） |
 | HANDOFF 已更新 | 是 |
 
 ## 背景

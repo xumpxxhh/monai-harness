@@ -1,6 +1,8 @@
-# 实现阶段路线（P0–P9 + M1 + M2）
+# 实现阶段路线（P0–P9 + M1–M3 + 可替换 infra）
 
-对齐 [engineering/05 §6](../engineering/05-testing-and-evolution.md#6-建议实现顺序仅规划)，并增加 **P0 建仓**。每阶段退出必须带上对应测试层，禁止「假闭环」。P9 主链完成后，**M1** 为可选切片（不新开 P10）。
+对齐 [engineering/05 §6](../engineering/05-testing-and-evolution.md#6-建议实现顺序仅规划)，并增加 **P0 建仓**。每阶段退出必须带上对应测试层，禁止「假闭环」。P9 主链完成后，**M1–M3** 与可替换 infra 为可选切片（不新开 P10）。
+
+> **读法**：本页是路线与退出条件；**已完成阶段的勾选视为历史快照**。当前焦点与下一步见 [HANDOFF.md](./HANDOFF.md)；汇总状态见 [STATUS.md](./STATUS.md)。
 
 ## 总览
 
@@ -18,8 +20,10 @@
 | P9 | 阶段 A 收口（Pack / Eval / 治理·指标） | `done` | packs/workspace-generic、runtime/extension、observability/eval、governance |
 | M1 | 真实模型簇（可选） | `done` | contracts、runtime、model/secret adapters、observability、harness |
 | M2 | Agent Loop 增强 | `done` | contracts、runtime、delivery、model adapters、harness demo |
+| M3 | RAG `knowledge.search` Tool | `done` | knowledge-http、workspace-generic、harness |
+| 可替换 infra | Queue / Lease / ObjectStore / Sandbox | `done` | queue/lease-postgres、objectstore-fs、sandbox-stub；sandbox-subprocess opt-in（0025） |
 
-阶段依赖：`P0 → … → P9` 主链已完成。P9 收口 [design/08 阶段 A](../design/08-mvp-and-evolution.md#阶段-a--mvp-契约闭环) 的 Pack/Eval/治理面，**不**自动关闭阶段 A（Token/cost 基线可能仍缺）。治理/观测不得提前获得 Run 写权。**M1** 计划见 [sessions/0018](sessions/0018-real-model-cluster-plan.md)；**M2** 见 [sessions/0019](sessions/0019-post-m1-agent-loop.md)；Knowledge 检索后置。
+阶段依赖：`P0 → … → P9` 主链已完成。P9 收口 [design/08 阶段 A](../design/08-mvp-and-evolution.md#阶段-a--mvp-契约闭环) 的 Pack/Eval/治理面，**不**自动宣称 design 08 阶段 A 已关闭（运营规模 / KnowledgePort / Memory 等设计禁用项仍在；**Token/cost 已由 M1g 收口**，勿再当缺口）。治理/观测不得提前获得 Run 写权。**M1** 见 [sessions/0018](sessions/0018-real-model-cluster-plan.md)（已归档）；**M2** 见 [0019](sessions/0019-post-m1-agent-loop.md)；**M3** RAG Tool done，**KnowledgePort** 仍 `deferred`。
 
 ## P0 — Monorepo 骨架
 
@@ -183,7 +187,7 @@ P9d   运维（可选）     →  角色开关、L1-on-PG、engineering README E
 - [x] ExtensionRegistry：权限超限 / 缺 ToolEffectContract / EDR-014 能力 → 拒绝
 - [x] `@monai/pack-workspace-generic`：MVP Tool 集 + 5 Hook 可注册；`artifact.validate` 可 dispatch
 - [x] workspace-memory 路径防逃逸（`.` / `..` / 越权根）
-- [x] ToolInvoker handlers 注入；runtime 不再编译依赖 `synthetic-sink`
+- [x] ToolInvoker handlers 注入；runtime **生产路径**不再依赖 `synthetic-sink`（测试夹具仍可在 devDependencies）
 - [x] Golden 6×5 仍 ≥90%（30/30）
 - [x] CreateRun 冻结 `executionManifestHash`（P9a2；ref 仍为字符串 `executionManifestRef`）
 
@@ -212,7 +216,7 @@ P9d   运维（可选）     →  角色开关、L1-on-PG、engineering README E
 
 - [x] `@monai/governance`：GovernanceEvent store + PackRegistrationService（无 Run 写权）
 - [x] `computeRunTiming`：queue / active / awaiting / total wall time 从 Event 重算
-- [x] `MVP_METRIC_GAPS` 移除 4 项时间指标；Token/cost 仍列缺口
+- [x] `MVP_METRIC_GAPS` 移除 4 项时间指标（P9c 快照）；**其后 M1g 已移除 Token/cost 与 Context overflow**（见 `mvp-gaps.ts`）
 - [x] harness Pack 装配接 `governanceStore` 审计
 
 **P9d 退出条件**：
@@ -223,7 +227,7 @@ P9d   运维（可选）     →  角色开关、L1-on-PG、engineering README E
 
 **P9 非目标（整阶段）**：拆 API+Worker；真实 Queue/AuthN；ConfirmationGrant；阶段 B–G；用 Eval 重跑洗绿安全用例。
 
-**阶段 A 退出说明**：即使 P9 完成，Token/cost 20% 回归带仍可能缺 usage + 价表（`MVP_METRIC_GAPS`）；不自动宣称 design 08 阶段 A 已关闭。
+**阶段 A 退出说明**：即使 P9/M1 完成，亦不自动宣称 design 08 阶段 A 已关闭——运营进入信号、KnowledgePort、Memory 等设计禁用项仍在。**Token/cost 与 Context overflow 指标已由 M1g 可重算**，不再是文档意义上的实现缺口。
 
 ## M1 — 真实模型簇（可选）
 
@@ -258,7 +262,7 @@ M1h  harness 装配；Eval / Golden 仍 StubModelPort
 - [x] Token/cost 可从 Event+usage+价表重算；Context overflow 可统计
 - [x] harness 可切换真实 ModelPort + SecretPort；Eval 114 仍 stub 绿
 
-**非目标**：KnowledgePort 实装；Memory 进 Context；用真实模型跑 Eval；ConfirmationGrant；DAG/spawn_child/sandbox.exec；宣称阶段 A 仅因接供应商而关闭。
+**非目标**：KnowledgePort 实装；Memory 进 Context；用真实模型跑 Eval；ConfirmationGrant；DAG/spawn_child；**默认**开放 `sandbox.exec`（opt-in 见 0025）；宣称阶段 A 仅因接供应商而关闭。
 
 ## M2 — Agent Loop 增强
 
@@ -314,8 +318,9 @@ M2e  harness：demo-session / SessionDemoObserver / FsWorkspace；pnpm demo:sess
 1. harness：QUEUE_DRIVER / LEASE_DRIVER（默认 memory）
 2. @monai/queue-postgres（同库投影）
 3. @monai/lease-postgres（同库；fencing）
-4. @monai/sandbox-stub（exec 拒绝；EDR-014）
-5. @monai/objectstore-fs（租户路径 + hash）
+4. @monai/sandbox-stub（exec 拒绝；EDR-014 默认）
+5. @monai/objectstore-fs（租户路径 + hash；artifact Tool 已接）
+6. （0025）@monai/sandbox-subprocess + FEATURE_ENABLE_SANDBOX_EXEC opt-in
 ```
 
 **第一刀**：装配开关；delivery 业务代码零改动。
@@ -325,11 +330,12 @@ M2e  harness：demo-session / SessionDemoObserver / FsWorkspace；pnpm demo:sess
 - [x] env 可切换 Queue / Lease 驱动；默认 memory
 - [x] `queue-postgres`：L1 双投递语义单测（dedupe + SKIP LOCKED + nack/ack）绿
 - [x] `lease-postgres`：stale owner 无法 heartbeat/validate；bind 换 owner 无双持有
-- [x] `sandbox-stub`：exec 恒拒绝；allowlist 无 `sandbox.exec`
-- [x] `objectstore-fs`：租户隔离 + hash 校验失败拒绝（Artifact Tool 联调后置）
+- [x] `sandbox-stub`：默认 exec 恒拒绝；默认 allowlist 无 `sandbox.exec`
+- [x] `objectstore-fs`：租户隔离 + hash 校验失败拒绝；**artifact Tool 已接入**
 - [x] Eval 114 路径未改；delivery 不因换后端改语义（仅 adapter + 装配）
+- [x] （0025）`sandbox-subprocess` opt-in；Eval / 默认 MVP 仍关
 
-**非目标**：拆进程；Redis/SQS；真 sandbox / EDR-010；KnowledgePort；confirm_once；「API 与 Worker 分离配置」下重跑 08。
+**非目标**：拆进程；Redis/SQS；EDR-010 isolated_extension；KnowledgePort；confirm_once；「API 与 Worker 分离配置」下重跑 08。**注**：真 subprocess sandbox 已以 opt-in 落地，勿再读成「完全无真 sandbox」。
 
 ## 阶段与测试层映射
 
@@ -349,6 +355,6 @@ M2e  harness：demo-session / SessionDemoObserver / FsWorkspace；pnpm demo:sess
 | M1 | L0 BudgetGuard/Builder + L1 真实模型端到端（Eval 仍 stub） |
 | M2 | L0 投影/决策/并行 prepared 单测 + L1 工具链 + harness session demo |
 | M3 | L0 knowledge-http + handler；Eval 仍无 RAG 挂载 |
-| 可替换 infra | L1 双投递 + L2 fencing（PG queue/lease）；sandbox/objectstore L0 |
+| 可替换 infra | L1 双投递 + L2 fencing（PG queue/lease）；sandbox-stub L0；sandbox-subprocess opt-in；objectstore + artifact |
 
 详见 [engineering/05](../engineering/05-testing-and-evolution.md)。
