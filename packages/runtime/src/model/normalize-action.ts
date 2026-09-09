@@ -31,8 +31,12 @@ export function compactIdempotencyKey(raw: string): string {
   return `ikh:${sha256Hex(raw)}`;
 }
 
-function deriveIdempotencyKey(toolId: string, args: unknown): string {
-  return compactIdempotencyKey(`ik:${toolId}:${sha256Hex(stable(args))}`);
+/**
+ * Bind derived keys to the Action so the same argv on a later Action is a new
+ * logical call (retry/recovery reuse ToolCallRecord.idempotencyKey instead).
+ */
+function deriveIdempotencyKey(toolId: string, actionId: string, args: unknown): string {
+  return compactIdempotencyKey(`ik:${toolId}:${actionId}:${sha256Hex(stable(args))}`);
 }
 
 function invocationKey(inv: ToolCallInvocation): string {
@@ -53,6 +57,7 @@ function dedupeInvocations(calls: ToolCallInvocation[]): ToolCallInvocation[] {
 
 function hydrateInvocationKeys(
   inv: ToolCallInvocation,
+  actionId: string,
   lookup: ToolContractLookup,
 ): ToolCallInvocation {
   const next = { ...inv };
@@ -62,7 +67,7 @@ function hydrateInvocationKeys(
     requiresIdempotencyKey(contract) &&
     (typeof next.idempotencyKey !== "string" || !next.idempotencyKey.trim())
   ) {
-    next.idempotencyKey = deriveIdempotencyKey(next.toolId, next.arguments);
+    next.idempotencyKey = deriveIdempotencyKey(next.toolId, actionId, next.arguments);
   } else if (typeof next.idempotencyKey === "string" && next.idempotencyKey.trim()) {
     next.idempotencyKey = compactIdempotencyKey(next.idempotencyKey.trim());
   }
@@ -93,7 +98,11 @@ export function normalizeToolCallAction(
     ];
   }
 
-  calls = dedupeInvocations(calls.map((c) => hydrateInvocationKeys(c, lookup)));
+  const actionId =
+    typeof action.actionId === "string" && action.actionId.trim()
+      ? action.actionId.trim()
+      : "act-missing";
+  calls = dedupeInvocations(calls.map((c) => hydrateInvocationKeys(c, actionId, lookup)));
 
   const first = calls[0];
   return {

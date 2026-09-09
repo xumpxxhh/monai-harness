@@ -3,6 +3,7 @@ import { InMemoryPersistence } from "@monai/persistence-memory";
 import { describe, expect, it } from "vitest";
 
 import { wireTestWorkspacePack } from "../test-helpers/wire-workspace-pack.js";
+import { normalizeToolCallAction } from "../model/normalize-action.js";
 import { inspectActionBatchSiblings, prepareToolCalls } from "./prepare-tool-calls.js";
 
 const run: Run = {
@@ -227,6 +228,74 @@ describe("prepareToolCalls", () => {
     if (!second.ok) return;
     expect(second.toolCalls).toHaveLength(1);
     expect(second.idempotency[0]?.dedupeKey).toBe("run:r-b:model-reused-key");
+  });
+
+  it("allows a new Action with same args after a prior call completed", async () => {
+    const persistence = new InMemoryPersistence();
+    const { registry } = wireTestWorkspacePack();
+    const args = { path: "/notes/a.md", content: "one" };
+
+    const actionA: Action = {
+      schemaVersion: CONTRACTS_SCHEMA_VERSION,
+      actionId: "act-a",
+      type: "tool.call",
+      calls: [{ toolId: "workspace.write", arguments: args }],
+    };
+    const hydratedA = normalizeToolCallAction(actionA, (toolId) =>
+      registry.lookupToolContract(toolId),
+    );
+    const first = await prepareToolCalls({
+      run,
+      stepId: "step-1",
+      action: hydratedA,
+      correlationId: "c1",
+      expectedRevision: 3,
+      callIndices: [0],
+      persistence,
+      registry,
+      eventBase: eventBase(),
+    });
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+
+    const uow = await persistence.beginUnitOfWork("r1");
+    const seeded = await uow.commit({
+      expectedRevision: 0,
+      expectedLeaseEpoch: 0,
+      runCreate: { ...run, revision: 0 },
+      events: [],
+      toolCalls: first.toolCalls.map((t) => ({ ...t, status: "succeeded" as const })),
+      idempotency: first.idempotency,
+    });
+    expect(seeded.ok).toBe(true);
+
+    const actionB: Action = {
+      schemaVersion: CONTRACTS_SCHEMA_VERSION,
+      actionId: "act-b",
+      type: "tool.call",
+      calls: [{ toolId: "workspace.write", arguments: args }],
+    };
+    const hydratedB = normalizeToolCallAction(actionB, (toolId) =>
+      registry.lookupToolContract(toolId),
+    );
+    expect(hydratedA.calls?.[0]?.idempotencyKey).not.toBe(hydratedB.calls?.[0]?.idempotencyKey);
+
+    const second = await prepareToolCalls({
+      run: { ...run, revision: 1 },
+      stepId: "step-2",
+      action: hydratedB,
+      correlationId: "c2",
+      expectedRevision: 1,
+      callIndices: [0],
+      persistence,
+      registry,
+      eventBase: eventBase(),
+    });
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.toolCalls).toHaveLength(1);
+    expect(second.toolCalls[0]?.toolCallId).toBe("tc-r1-act-b-0");
+    expect(second.toolCalls[0]?.idempotencyKey).toBe(hydratedB.calls?.[0]?.idempotencyKey);
   });
 });
 

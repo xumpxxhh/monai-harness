@@ -406,8 +406,41 @@ describe("hydrateModelAction", () => {
       writeLowLookup,
     ) as { calls?: Array<{ idempotencyKey?: string }> };
     const key = hydrated.calls?.[0]?.idempotencyKey ?? "";
-    expect(key).toMatch(/^ik:workspace\.write:[a-f0-9]{64}$/);
+    expect(key).toMatch(/^ik:workspace\.write:act-[0-9a-f-]+:[a-f0-9]{64}$/);
     expect(Buffer.byteLength(key, "utf8")).toBeLessThan(200);
+  });
+
+  it("derives distinct idempotencyKeys for same args on different Actions", () => {
+    const writeLowLookup = (toolId: string) =>
+      toolId === "workspace.write"
+        ? {
+            schemaVersion: CONTRACTS_SCHEMA_VERSION,
+            sideEffectProfile: "write_low" as const,
+            deliverySemantics: "at_most_once" as const,
+            idempotencyScope: "run" as const,
+            reconcileSupported: false,
+            timeoutMs: 5_000,
+          }
+        : undefined;
+    const raw = {
+      type: "tool.call",
+      toolId: "workspace.write",
+      arguments: { path: "/notes/out.md", content: "hi" },
+    };
+    const a = hydrateModelAction(raw, writeLowLookup) as {
+      actionId: string;
+      calls?: Array<{ idempotencyKey?: string }>;
+    };
+    const b = hydrateModelAction(raw, writeLowLookup) as {
+      actionId: string;
+      calls?: Array<{ idempotencyKey?: string }>;
+    };
+    expect(a.actionId).not.toBe(b.actionId);
+    expect(a.calls?.[0]?.idempotencyKey).toBeTruthy();
+    expect(b.calls?.[0]?.idempotencyKey).toBeTruthy();
+    expect(a.calls?.[0]?.idempotencyKey).not.toBe(b.calls?.[0]?.idempotencyKey);
+    expect(a.calls?.[0]?.idempotencyKey).toContain(a.actionId);
+    expect(b.calls?.[0]?.idempotencyKey).toContain(b.actionId);
   });
 
   it("compacts oversized caller-supplied idempotencyKey", () => {

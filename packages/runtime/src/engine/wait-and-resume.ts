@@ -327,28 +327,24 @@ export async function resumeApprovedToolCall(
   if (!prepared.ok) {
     return { ok: false, code: prepared.code, message: prepared.message };
   }
-  if (prepared.toolCalls.length === 0) {
-    const saved = await deps.persistence.getRun(run.runId);
-    if (!saved) return { ok: false, code: "fatal", message: "run missing" };
-    return {
-      ok: true,
-      run: saved,
-      revision: saved.revision,
-      leaseEpoch: saved.leaseEpoch,
-      idempotent: true,
-    };
-  }
 
   const now = new Date().toISOString();
   const toolCallIds = prepared.toolCalls.map((t) => t.toolCallId);
+  const emptyPrepare = prepared.toolCalls.length === 0;
 
+  // Empty prepare: all invocations skipped (e.g. stale shared IK). Consume approval and
+  // clear continuation so the run is not stuck; do not backfill historical toolCallIds.
   const consumed: ApprovalRecord = {
     ...approval,
     status: "consumed",
     consumedAt: now,
-    consumedByToolCallId: toolCallIds[0],
-    consumedByToolCallIds: toolCallIds,
     revision: approval.revision + 1,
+    ...(emptyPrepare
+      ? {}
+      : {
+          consumedByToolCallId: toolCallIds[0],
+          consumedByToolCallIds: toolCallIds,
+        }),
   };
 
   const events: EventCandidate[] = [
@@ -365,6 +361,7 @@ export async function resumeApprovedToolCall(
         actionDecision: policy.actionDecision,
         callResults: policy.callResults,
         resume: true,
+        ...(emptyPrepare ? { emptyPrepare: true } : {}),
       },
     }),
     eventBase(run, {
@@ -373,7 +370,7 @@ export async function resumeApprovedToolCall(
       expectedRevision: rev,
       correlationId: args.correlationId,
       stepId,
-      payload: { actionId: action.actionId },
+      payload: { actionId: action.actionId, ...(emptyPrepare ? { emptyPrepare: true } : {}) },
     }),
     eventBase(run, {
       eventId: `evt-hook-inv-PreToolCall-${stepId}`,
@@ -390,8 +387,10 @@ export async function resumeApprovedToolCall(
       correlationId: args.correlationId,
       stepId,
       approvalId: approval.approvalId,
-      toolCallId: toolCallIds[0],
-      payload: { toolCallIds },
+      ...(emptyPrepare ? {} : { toolCallId: toolCallIds[0] }),
+      payload: emptyPrepare
+        ? { emptyPrepare: true, toolCallIds: [] }
+        : { toolCallIds },
     }),
     ...prepared.events,
   ];
@@ -400,10 +399,11 @@ export async function resumeApprovedToolCall(
     expectedRevision: args.commandExpectedRevision,
     expectedLeaseEpoch: args.commandLeaseEpoch,
     events,
-    toolCalls: prepared.toolCalls,
+    toolCalls: emptyPrepare ? undefined : prepared.toolCalls,
     approvals: [consumed],
-    outbox: prepared.outbox,
-    idempotency: prepared.idempotency.length > 0 ? prepared.idempotency : undefined,
+    outbox: emptyPrepare ? undefined : prepared.outbox,
+    idempotency:
+      !emptyPrepare && prepared.idempotency.length > 0 ? prepared.idempotency : undefined,
     clearContinuation: true,
   };
 
