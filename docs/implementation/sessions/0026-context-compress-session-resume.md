@@ -38,8 +38,9 @@ pnpm --filter @monai/runtime test
 
 ## 未完成
 
-- 工作区仍有未提交的 `project-dialogue.ts` / `project-dialogue.test.ts` 微调 → 见 HANDOFF 下一步 #1
-- opt-in sandbox Session 联调仍可选（下一步 #2）
+- **Context 压缩长任务问题**（粒度 / 非截断输入 / 摘要判坏兜底）→ 见 [HANDOFF 下一步 #1–#3](../HANDOFF.md)
+- 工作区仍有未提交的 `project-dialogue.ts` / `project-dialogue.test.ts` 微调 → 见 HANDOFF 其它 #4
+- opt-in sandbox Session 联调仍可选（HANDOFF 其它 #5）
 
 ## 明确不做
 

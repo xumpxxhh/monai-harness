@@ -103,6 +103,7 @@ export async function buildModelContext(
     cachedEvents,
     model: input.model,
     modelPolicy: input.modelPolicy,
+    stateFacts: input.state.facts.map((fact) => fact.summary).filter((s) => s.trim().length > 0),
   });
 
   const buildResult = buildContext({

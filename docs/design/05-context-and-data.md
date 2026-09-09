@@ -145,8 +145,8 @@ Event Log (full) → projectDialogue → DialogueTurn[]
   → projectModelMessages → ModelMessage[]
 ```
 
-- **Recent 窗口**：最近 N 个 turn 或 token 预算内，以原生 `user` / `assistant` / `tool` messages 完整保留。
-- **History 窗口**：超出阈值时由 Summarizer 压缩；摘要写入 `context.summary_created` Event，原始 Event 不删改。若已有摘要覆盖 history 的前缀 Event 范围，则对增量 turns 与旧摘要做前缀扩展合并，而非每次对全量 history 原文重压。
+- **Recent 窗口**：最近 N 个 **完整执行回合**（同 `stepId` 的 assistant+tool 组）或在 `recentTokenBudget` 内；超出预算时收缩 recent、把更早回合压入 history（同 Run 中段亦可压缩）。Run 仅作 provenance（`sourceRunIds` / ranges）。
+- **History 窗口**：超出阈值时由 Summarizer 压缩；摘要写入 `context.summary_created` Event，原始 Event 不删改。若已有摘要覆盖 history 的前缀 Event 范围，则对增量 turns 与旧摘要做前缀扩展合并，而非每次对全量 history 原文重压。压缩**输入**为里程碑锚点（Goal / 硬约束 / 变更路径 / 已确认事实 / 未决错误）+ 精简 transcript，不得只喂截断的 tool 流水；坏摘要（tool XML / 空回声等）回退确定性摘要且不进可复用 prefix cache。
 - **Session 多轮**：跨 Run 历史从各 Run 的 Event 投影；`Run.goal` 仅为当前用户一句。
 - **Memory**：接口预留；MVP 默认 `memoryEnabled=false`，不进入 ModelView。
 

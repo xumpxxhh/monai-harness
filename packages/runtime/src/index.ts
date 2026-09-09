@@ -7,10 +7,14 @@ export { HookRunner } from "./hooks/hook-runner.js";
 export { buildContext, formatRecentFacts, type TurnContext } from "./context/build-context.js";
 export { buildModelContext, type BuildModelContextInput, type BuildModelContextResult } from "./context/build-model-context.js";
 export {
+  buildCompressionMaterial,
   ensureDialogueCompression,
+  extractCompressionAnchors,
   findCachedCompression,
   findLongestPrefixCompression,
+  formatTurnForSummary,
   groupCompleteTurns,
+  isUsableDialogueSummary,
   planDialogueCompression,
   rangesFromTurns,
   summarizeDialogueDeterministic,
