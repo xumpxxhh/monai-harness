@@ -1,8 +1,13 @@
-import type { ModelCompleteInput, ModelMessage, ModelPreviewChannel } from "@monai/ports";
+import type {
+  ModelCompleteInput,
+  ModelDecision,
+  ModelPreviewChannel,
+} from "@monai/ports";
 
 import type { SystemPromptLayer } from "../model/assemble-system-message.js";
+import type { ModelContextStatus, ModelWireRequest } from "./publish-model-context.js";
 
-export type ModelContextStatus = "committed" | "invalid" | "failed";
+export type { ModelContextStatus, ModelWireRequest };
 
 export type ModelPreviewEvent =
   | {
@@ -20,9 +25,11 @@ export type ModelPreviewEvent =
       stepId: string;
       modelCallId: string;
       contextHash: string;
-      messages: ModelMessage[];
       status: ModelContextStatus;
-      reasoning?: string;
+      /** Provider HTTP request (no secrets). */
+      request?: ModelWireRequest;
+      /** Assembled model decision for this call. */
+      response?: ModelDecision;
       reason?: string;
     }
   | {

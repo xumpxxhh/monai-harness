@@ -11,6 +11,8 @@ export type ToolInvokeSuccess = {
 export type ToolInvokeFailure = {
   ok: false;
   error: string;
+  /** Handler failure details (stdout/stderr/summary/…); projected into observation. */
+  data?: unknown;
   unknown?: boolean;
 };
 
@@ -73,6 +75,7 @@ export class ToolInvoker {
       return {
         ok: false,
         error: result.error ?? "tool handler failed",
+        ...(result.data !== undefined ? { data: result.data } : {}),
         unknown: result.unknown,
       };
     } catch (err) {
@@ -105,7 +108,11 @@ export class ToolInvoker {
           resultHash: result.resultHash,
         };
       }
-      return { ok: false, error: result.error ?? "reconcile failed" };
+      return {
+        ok: false,
+        error: result.error ?? "reconcile failed",
+        ...(result.data !== undefined ? { data: result.data } : {}),
+      };
     } catch (err) {
       return {
         ok: false,

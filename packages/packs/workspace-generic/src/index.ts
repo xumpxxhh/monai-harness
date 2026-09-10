@@ -1,5 +1,5 @@
 export { createWorkspaceGenericPack } from "./pack.js";
-export { BashWorkspaceShell } from "./bash-workspace-shell.js";
+export { BashWorkspaceShell, wrapCommandForCapture } from "./bash-workspace-shell.js";
 export type { BashWorkspaceShellOptions } from "./bash-workspace-shell.js";
 export {
   WORKSPACE_GENERIC_HOOKS,

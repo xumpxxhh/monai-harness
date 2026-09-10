@@ -108,6 +108,7 @@ export class ToolDispatcher {
                 toolCallId: payload.toolCallId,
                 phase: "failed",
                 error: outcome.error,
+                ...(outcome.data !== undefined ? { data: outcome.data } : {}),
               },
       });
 
@@ -150,7 +151,7 @@ export class ToolDispatcher {
       payload: {
         toolCallId: input.toolCallId,
         ok: outcome.ok,
-        data: outcome.ok ? outcome.data : undefined,
+        data: outcome.data,
         resultRef: outcome.ok ? outcome.resultRef : undefined,
         resultHash: outcome.ok ? outcome.resultHash : undefined,
         error: outcome.ok ? undefined : outcome.error,

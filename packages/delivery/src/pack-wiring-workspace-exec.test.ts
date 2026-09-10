@@ -63,6 +63,82 @@ describe("wireWorkspaceGenericPack workspace_exec (EDR-014)", () => {
     expect((handled.data as { stdout: string }).stdout).toContain("hello-workspace-exec");
   });
 
+  it("timeout failure error uses summary and keeps stdout in data", async () => {
+    const root = mkdtempSync(join(tmpdir(), "monai-wire-wsexec-to-"));
+    const shell = {
+      getWorkspaceRoot: () => root,
+      exec: async () => ({
+        exitCode: null as number | null,
+        stdout: "npm notice partial",
+        stderr: "still running",
+        timedOut: true,
+        truncated: false,
+        cwd: root,
+      }),
+    };
+    const handler = workspaceGenericToolHandlers["workspace_exec"]!;
+    const handled = await handler({
+      toolId: "workspace_exec",
+      toolCallId: "tc-ws-timeout",
+      arguments: { command: "npm install --no-audit", timeout_ms: 1000 },
+      executionContext: {
+        tenantId: "t1",
+        sessionId: "s1",
+        runId: "r1",
+        executionManifestRef: "manifest://test",
+        effectivePermissions: ["workspace_exec"],
+        ports: { workspaceShell: shell },
+      },
+    });
+    expect(handled.ok).toBe(false);
+    expect(handled.error).toMatch(/^workspace_exec timed out:/);
+    expect(handled.error).toContain("npm install");
+    expect(handled.error).toContain("still running");
+    expect(handled.error).toContain("npm notice partial");
+    expect(handled.data).toMatchObject({
+      stdout: "npm notice partial",
+      stderr: "still running",
+      timedOut: true,
+      cwd: root,
+    });
+  });
+
+  it("exit failure error embeds stderr/stdout for the model", async () => {
+    const root = mkdtempSync(join(tmpdir(), "monai-wire-wsexec-exit-"));
+    const shell = {
+      getWorkspaceRoot: () => root,
+      exec: async () => ({
+        exitCode: 1,
+        stdout: "\n> app@0.1.0 build\n> tsc -b && vite build\n\n",
+        stderr: "error TS2307: Cannot find module 'react'\n",
+        timedOut: false,
+        truncated: false,
+        cwd: root,
+      }),
+    };
+    const handler = workspaceGenericToolHandlers["workspace_exec"]!;
+    const handled = await handler({
+      toolId: "workspace_exec",
+      toolCallId: "tc-ws-exit",
+      arguments: { command: "npm run build" },
+      executionContext: {
+        tenantId: "t1",
+        sessionId: "s1",
+        runId: "r1",
+        executionManifestRef: "manifest://test",
+        effectivePermissions: ["workspace_exec"],
+        ports: { workspaceShell: shell },
+      },
+    });
+    expect(handled.ok).toBe(false);
+    expect(handled.error).toContain("workspace_exec exit=1");
+    expect(handled.error).toContain("error TS2307");
+    expect(handled.data).toMatchObject({
+      exitCode: 1,
+      stderr: "error TS2307: Cannot find module 'react'\n",
+    });
+  });
+
   it("rejects cwd escape from workspace root", async () => {
     const root = mkdtempSync(join(tmpdir(), "monai-wire-wsexec-esc-"));
     const shell = new BashWorkspaceShell({ workspaceRoot: root });

@@ -3,9 +3,14 @@ import type { HarnessCommand, ModelPort } from "@monai/ports";
 import { StubModelPort } from "@monai/model-stub";
 import { workspaceGenericToolHandlers, WORKSPACE_GENERIC_REQUIRE_APPROVAL, WORKSPACE_GENERIC_TOOL_ALLOWLIST } from "@monai/pack-workspace-generic";
 import type { ExecutionContext } from "@monai/pack-sdk";
+import { InMemoryLease } from "@monai/lease-memory";
+import { InMemoryPersistence } from "@monai/persistence-memory";
+import { createToolInvokerFromHandlers, Engine, InMemoryManifestStore } from "@monai/runtime";
 import { InMemoryWorkspace } from "@monai/workspace-memory";
 import { describe, expect, it } from "vitest";
 
+import { wireWorkspaceGenericPack } from "./pack-wiring.js";
+import { ToolDispatcher } from "./tool-dispatcher.js";
 import { createPackTestFixtures, toRunning as bootToRunning } from "./test-pack-fixtures.js";
 
 function cmd(
@@ -131,6 +136,76 @@ describe("P4 tool chain", () => {
 
     const state = await persistence.getState("r-ws-miss");
     expect(state?.facts ?? []).toHaveLength(0);
+  });
+
+  it("failed tool observation keeps handler data (stdout/stderr/timedOut)", async () => {
+    const persistence = new InMemoryPersistence();
+    const lease = new InMemoryLease();
+    const ownerId = "worker-1";
+    const pack = wireWorkspaceGenericPack({ tenantId: "t1" });
+    const manifestStore = new InMemoryManifestStore();
+    const invoker = createToolInvokerFromHandlers({
+      echo: async () => ({
+        ok: false,
+        error: "workspace_exec timed out: npm install",
+        data: {
+          stdout: "partial npm log",
+          stderr: "warn",
+          timedOut: true,
+          truncated: false,
+          cwd: "/projects/x",
+          exitCode: null,
+          summary: "workspace_exec timed out: npm install",
+        },
+      }),
+    });
+    const engine = new Engine({
+      persistence,
+      lease,
+      model: new StubModelPort(),
+      hooks: pack.hookRunner,
+      registry: pack.registry,
+      manifestStore,
+      toolAllowlist: pack.toolAllowlist,
+      requireApprovalTools: [],
+    });
+    const tools = new ToolDispatcher({
+      outbox: persistence,
+      persistence,
+      engine,
+      invoker,
+    });
+
+    const running = await bootToRunning(engine, cmd, "r-fail-data", "hello world", ownerId);
+    expect(running.ok).toBe(true);
+    if (!running.ok) return;
+
+    const turn = await engine.handle(
+      cmd({
+        commandType: "execute_turn",
+        commandId: "turn-fail-data",
+        runId: "r-fail-data",
+        expectedRevision: running.revision,
+        leaseEpoch: running.leaseEpoch,
+        actor: { principalId: ownerId },
+      }),
+    );
+    expect(turn.ok).toBe(true);
+    await tools.tick();
+
+    const events = await persistence.listEvents("r-fail-data");
+    const obsEvent = [...events].reverse().find((e) => e.eventType === "observation.recorded");
+    const observation = (obsEvent?.payload as { observation?: { data?: unknown } } | undefined)
+      ?.observation;
+    expect(observation?.data).toMatchObject({
+      ok: false,
+      toolId: "echo",
+      error: "workspace_exec timed out: npm install",
+      stdout: "partial npm log",
+      stderr: "warn",
+      timedOut: true,
+      cwd: "/projects/x",
+    });
   });
 
   it("workspace_write via prepared/dispatch", async () => {

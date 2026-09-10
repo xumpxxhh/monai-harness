@@ -125,6 +125,50 @@ function capOutput(value: string): string {
   return value;
 }
 
+/** Soft truncate for failure payloads (never throw — agents need the error body). */
+function softCapOutput(value: string, maxChars = MAX_OUTPUT_CHARS): string {
+  if (value.length <= maxChars) return value;
+  return `${value.slice(0, maxChars)}\n…[truncated ${value.length - maxChars} chars]`;
+}
+
+function execFailureError(
+  summary: string,
+  result: { stdout: string; stderr: string },
+): string {
+  const stderr = result.stderr.trim();
+  const stdout = result.stdout.trim();
+  const detail = stderr
+    ? stdout
+      ? `${stderr}\n--- stdout ---\n${stdout}`
+      : stderr
+    : stdout;
+  if (!detail) {
+    return `${summary} (no stdout/stderr captured — child may be a Win32 process under WSL; try running node.exe/tsc directly or append 2>&1)`;
+  }
+  const snippet = detail.length > 1600 ? detail.slice(-1600) : detail;
+  return `${summary}\n${snippet}`;
+}
+
+function shellResultData(result: {
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+  timedOut: boolean;
+  truncated: boolean;
+  cwd?: string;
+  summary: string;
+}) {
+  return {
+    exitCode: result.exitCode,
+    stdout: softCapOutput(result.stdout),
+    stderr: softCapOutput(result.stderr),
+    timedOut: result.timedOut,
+    truncated: result.truncated,
+    ...(result.cwd !== undefined ? { cwd: result.cwd } : {}),
+    summary: result.summary,
+  };
+}
+
 export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
   "workspace_list": async (input) => {
     const ws = workspacePort(input.executionContext);
@@ -378,17 +422,15 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
       if (result.timedOut || result.truncated) {
         return {
           ok: false,
-          error: result.timedOut
-            ? "sandbox exec timed out"
-            : "sandbox exec output truncated",
-          data: { ...result, summary },
+          error: execFailureError(summary, result),
+          data: shellResultData({ ...result, summary }),
         };
       }
       if (result.exitCode !== 0) {
         return {
           ok: false,
-          error: `sandbox exec exit ${result.exitCode}`,
-          data: { ...result, summary },
+          error: execFailureError(summary, result),
+          data: shellResultData({ ...result, summary }),
         };
       }
       return {
@@ -432,17 +474,15 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
       if (result.timedOut || result.truncated) {
         return {
           ok: false,
-          error: result.timedOut
-            ? "workspace exec timed out"
-            : "workspace exec output truncated",
-          data: { ...result, summary },
+          error: execFailureError(summary, result),
+          data: shellResultData({ ...result, summary }),
         };
       }
       if (result.exitCode !== 0) {
         return {
           ok: false,
-          error: `workspace exec exit ${result.exitCode}`,
-          data: { ...result, summary },
+          error: execFailureError(summary, result),
+          data: shellResultData({ ...result, summary }),
         };
       }
       return {

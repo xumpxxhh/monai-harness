@@ -20,7 +20,7 @@ import {
   type RunState,
   type ToolCallRecord,
 } from "@monai/contracts";
-import type { IdempotencyPort, ModelPort, PersistencePort, LeasePort, HarnessCommand } from "@monai/ports";
+import type { IdempotencyPort, ModelDecision, ModelPort, PersistencePort, LeasePort, HarnessCommand } from "@monai/ports";
 
 import { buildModelContext } from "../context/build-model-context.js";
 import { checkRunBudget } from "../control/budget-guard.js";
@@ -53,6 +53,30 @@ import {
 } from "./wait-and-resume.js";
 import { assertCommandTenant } from "./tenant-guard.js";
 import type { HandleResult } from "./types.js";
+
+/** Prefer full ModelDecision from the adapter; fall back to display/reasoning text. */
+function archiveResponseFields(
+  modelResult: unknown,
+  display?: string,
+  reasoning?: string,
+): { response?: ModelDecision } {
+  if (modelResult && typeof modelResult === "object" && !Array.isArray(modelResult)) {
+    const rec = modelResult as Record<string, unknown>;
+    if (Array.isArray(rec.calls)) {
+      return { response: modelResult as ModelDecision };
+    }
+  }
+  const content = display?.trim();
+  const reasonText = reasoning?.trim();
+  if (!content && !reasonText) return {};
+  return {
+    response: {
+      calls: [],
+      ...(content ? { content } : {}),
+      ...(reasonText ? { reasoning: reasonText } : {}),
+    },
+  };
+}
 
 function eventBase(
   run: Pick<Run, "tenantId" | "sessionId" | "runId">,
@@ -387,6 +411,7 @@ export async function handleExecuteTurn(
     let callFailed = false;
     let modelReasoning: string | undefined;
     let modelDisplay: string | undefined;
+    let wireRequest: { url: string; body: unknown } | undefined;
 
     deps.previewHub?.publish({
       type: "preview_start",
@@ -419,7 +444,9 @@ export async function handleExecuteTurn(
 
       if (typeof deps.model.completeStructuredStream === "function") {
         for await (const chunk of deps.model.completeStructuredStream(modelInput)) {
-          if (chunk.kind === "delta") {
+          if (chunk.kind === "request") {
+            wireRequest = { url: chunk.url, body: chunk.body };
+          } else if (chunk.kind === "delta") {
             deps.previewHub?.publish({
               type: "delta",
               runId: run.runId,
@@ -461,10 +488,9 @@ export async function handleExecuteTurn(
         stepId,
         modelCallId,
         contextHash: buildResult.contextHash,
-        messages: modelMessages,
         status: "failed",
-        display: modelDisplay,
-        reasoning: modelReasoning,
+        ...(wireRequest ? { request: wireRequest } : {}),
+        ...archiveResponseFields(modelResult, modelDisplay, modelReasoning),
         reason: lastModelError,
       });
     }
@@ -550,10 +576,9 @@ export async function handleExecuteTurn(
         stepId,
         modelCallId,
         contextHash: buildResult.contextHash,
-        messages: modelMessages,
         status: "invalid",
-        display: modelDisplay,
-        reasoning: modelReasoning,
+        ...(wireRequest ? { request: wireRequest } : {}),
+        ...archiveResponseFields(modelResult, modelDisplay, modelReasoning),
         reason: lastModelError,
       });
       continue;
@@ -574,10 +599,9 @@ export async function handleExecuteTurn(
         stepId,
         modelCallId,
         contextHash: buildResult.contextHash,
-        messages: modelMessages,
         status: "invalid",
-        display: modelDisplay,
-        reasoning: modelReasoning,
+        ...(wireRequest ? { request: wireRequest } : {}),
+        ...archiveResponseFields(modelResult, modelDisplay, modelReasoning),
         reason: lastModelError,
       });
       continue;
@@ -596,11 +620,9 @@ export async function handleExecuteTurn(
       stepId,
       modelCallId,
       contextHash: buildResult.contextHash,
-      messages: modelMessages,
       status: "committed",
-      action: parsedAction,
-      display: modelDisplay ?? projectActionForUser(parsedAction),
-      reasoning: modelReasoning,
+      ...(wireRequest ? { request: wireRequest } : {}),
+      ...archiveResponseFields(modelResult, modelDisplay, modelReasoning),
     });
     break;
   }

@@ -68,7 +68,7 @@ export {
   type ApprovalDisplayLine,
 } from "./control/project-approval.js";
 export { PreviewHub, type ModelPreviewEvent, type ModelContextStatus, type PreviewListener } from "./preview/preview-hub.js";
-export { buildModelContextMessages, publishModelContext } from "./preview/publish-model-context.js";
+export { publishModelContext, type ModelWireRequest } from "./preview/publish-model-context.js";
 export { buildAgentSystemPrompt } from "./model/agent-system-prompt.js";
 export { hydrateModelAction } from "./model/hydrate-action.js";
 export {

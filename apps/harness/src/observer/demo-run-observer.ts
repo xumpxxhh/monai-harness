@@ -96,6 +96,7 @@ export class DemoRunObserver {
     await mkdir(`${this.archiveDir}/preview`, { recursive: true });
     await mkdir(`${this.archiveDir}/model-input`, { recursive: true });
     await mkdir(`${this.archiveDir}/model-context`, { recursive: true });
+    await mkdir(`${this.archiveDir}/compression`, { recursive: true });
     await mkdir(`${this.archiveDir}/final`, { recursive: true });
 
     await writeFile(
@@ -171,9 +172,51 @@ export class DemoRunObserver {
           approvalId: event.approvalId,
           payload: event.payload,
         });
+        if (event.eventType === "context.summary_created") {
+          await this.archiveCompressionCreated(event);
+        }
       }
     }
     return events;
+  }
+
+  /** One file per compression; safe to call again (overwrite same compressionId). */
+  private async archiveCompressionCreated(event: EventEnvelope): Promise<void> {
+    const payload = event.payload as { record?: Record<string, unknown> } | undefined;
+    const record = payload?.record;
+    if (!record || typeof record !== "object") return;
+    const compressionId =
+      typeof record.compressionId === "string" && record.compressionId.trim()
+        ? record.compressionId.trim()
+        : undefined;
+    if (!compressionId) return;
+
+    const safeId = compressionId.replace(/[^a-zA-Z0-9._-]+/g, "_");
+    const doc = {
+      ts: event.occurredAt ?? new Date().toISOString(),
+      stepId: event.stepId,
+      eventType: event.eventType,
+      eventId: event.eventId,
+      sequence: event.sequence,
+      compressionId,
+      summaryHash: record.summaryHash,
+      summaryText: record.summaryText,
+      sourceRunIds: record.sourceRunIds,
+      sourceEventRanges: record.sourceEventRanges,
+      parentCompressionId: record.parentCompressionId,
+      summarizerModelCallId: record.summarizerModelCallId,
+      createdAt: record.createdAt,
+    };
+    await writeFile(
+      `${this.archiveDir}/compression/${safeId}.json`,
+      JSON.stringify(doc, null, 2),
+      "utf8",
+    );
+    await this.record("persistence", "compression.archived", {
+      compressionId,
+      stepId: event.stepId,
+      path: `compression/${safeId}.json`,
+    });
   }
 
   async onLoopTick(result: {
@@ -237,12 +280,14 @@ export class DemoRunObserver {
 
     switch (event.type) {
       case "model_input": {
+        const compressionRef = readCompressionRef(event.input);
         await writeFile(
           `${this.archiveDir}/model-input/${event.modelCallId}.json`,
           JSON.stringify(
             {
               modelCallId: event.modelCallId,
               stepId: event.stepId,
+              ...(compressionRef ? { compressionRef } : {}),
               input: event.input,
               systemPromptLayers: event.systemPromptLayers,
             },
@@ -254,6 +299,7 @@ export class DemoRunObserver {
         await this.record("preview", "model.input", {
           modelCallId: event.modelCallId,
           stepId: event.stepId,
+          compressionRef,
           contextHash:
             typeof event.input.context === "object" &&
             event.input.context &&
@@ -279,8 +325,8 @@ export class DemoRunObserver {
               stepId: event.stepId,
               contextHash: event.contextHash,
               status: event.status,
-              messages: event.messages,
-              ...(event.reasoning ? { reasoning: event.reasoning } : {}),
+              ...(event.request ? { request: event.request } : {}),
+              ...(event.response ? { response: event.response } : {}),
               ...(event.reason ? { reason: event.reason } : {}),
             },
             null,
@@ -293,7 +339,8 @@ export class DemoRunObserver {
           stepId: event.stepId,
           contextHash: event.contextHash,
           status: event.status,
-          messageCount: event.messages.length,
+          hasRequest: Boolean(event.request),
+          hasResponse: Boolean(event.response),
         });
         break;
       }
@@ -354,6 +401,11 @@ export class DemoRunObserver {
     const endedAt = new Date();
     const run = (await this.runtime.persistence.getRun(this.runId)) ?? undefined;
     const events = await this.runtime.persistence.listEvents(this.runId);
+    for (const event of events) {
+      if (event.eventType === "context.summary_created") {
+        await this.archiveCompressionCreated(event);
+      }
+    }
     const toolCalls = await this.runtime.persistence.listToolCalls(this.runId);
     const state = await this.runtime.persistence.getState(this.runId);
 
@@ -438,6 +490,16 @@ export async function countPendingTools(
 ): Promise<number> {
   const calls = await runtime.persistence.listToolCalls(runId);
   return calls.filter((c) => c.status === "prepared" || c.status === "dispatched").length;
+}
+
+/** Extract compressionRef from model-complete input.context when present. */
+export function readCompressionRef(input: {
+  context?: unknown;
+}): string | undefined {
+  const ctx = input.context;
+  if (!ctx || typeof ctx !== "object") return undefined;
+  const ref = (ctx as { compressionRef?: unknown }).compressionRef;
+  return typeof ref === "string" && ref.trim() ? ref.trim() : undefined;
 }
 
 export type { ToolCallRecord };

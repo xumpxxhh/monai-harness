@@ -1,10 +1,10 @@
 # HANDOFF — 实现交接
 
-> 最后更新：2026-09-09（Context 压缩 #1–#3 已落地：step 组切窗 + 锚点材料 + 摘要判坏）
+> 最后更新：2026-09-10（tool 失败 data 透传 + Demo Observer `compression/` 按次归档）
 
 ## 当前状态（一句话）
 
-主链 P0–P9 / M1–M3 / 可替换 infra 已 `done`；Session 支持 `--resume`（postgres）与 dialogue **增量压缩**；默认仍 RejectingSandbox，`sandbox_exec` 仅 opt-in。Context 压缩已按 **完整执行回合（stepId 组）+ token** 切窗，摘要输入含 Goal/约束/路径/事实/错误锚点，坏摘要（含 `<dots_function_call>`）会确定性回退且不进 prefix cache。KnowledgePort / confirm_once / EDR-010 仍 deferred。
+主链 P0–P9 / M1–M3 / 可替换 infra 已 `done`；Session 支持 `--resume`（postgres）与 dialogue **增量压缩**；默认仍 RejectingSandbox，`sandbox_exec` 仅 opt-in。Context 压缩已按 **完整执行回合（stepId 组）+ token** 切窗，摘要输入含 Goal/约束/路径/事实/错误锚点，坏摘要（含 `<dots_function_call>`）会确定性回退且不进 prefix cache。Tool 失败 observation 会透传 handler `data`（如 `workspace_exec` 超时的 stdout/stderr）；Demo 归档含 `compression/{compressionId}.json` 与 `model-input` 旁注 `compressionRef`。KnowledgePort / confirm_once / EDR-010 仍 deferred。
 
 ## 下一步
 
@@ -14,8 +14,17 @@
 2. 联调 opt-in sandbox：`FEATURE_ENABLE_SANDBOX_EXEC` + `SANDBOX_ALLOWED_BINARIES` + Session Demo
 3. （可选）用 `temp/probe-context-compression.mjs --real-model` 对 `cli-react-reprobe` fixture 回归摘要质量
 4. 勿默认开 KnowledgePort / confirm_once / 拆进程 / EDR-010；勿开 DAG / Child Run（无 design 进入信号）
+5. （可选）DeepSeek thinking 空 `reasoning` 仍可能 400：失败路径占位 / 强制回传 `reasoning_content`
 
-### 已完成（本轮 Context 压缩）
+### 已完成（本轮：exec 失败信息 + 压缩归档）
+
+| # | 项 | 落点 |
+| --- | --- | --- |
+| 1 | Tool 失败 data：Invoker → Dispatcher → failure observation | `tool-invoker.ts` / `tool-dispatcher.ts` / `tool-commands.ts` |
+| 2 | `workspace_exec` / `sandbox_exec`：`error` 嵌入 stdout/stderr 摘要；shell 经 cwd log + base64 规避 WSL `$?` 篡改 | `bash-workspace-shell.ts` / manifest |
+| 3 | Demo Observer `compression/{compressionId}.json` + `model-input.compressionRef` | `demo-run-observer.ts` |
+
+### 已完成（Context 压缩）
 
 | # | 项 | 落点 |
 | --- | --- | --- |
@@ -75,6 +84,7 @@ pnpm --filter @monai/sandbox-stub test
 
 | 日期 | 做了什么 | 留下什么 |
 | --- | --- | --- |
+| 2026-09-10 | Tool 失败 data 透传；exec error 嵌输出；WSL bash.exe 下 `$?` argv 篡改 → base64+cwd log 捕获；Observer `compression/` | DeepSeek 空 reasoning 400 仍可选跟进 |
 | 2026-09-09 | Context 压缩 #1–#3：step/token 切窗、锚点材料、坏摘要兜底 | `project-dialogue` 未提交改动待收口；可选 real-model 探测 |
 | 2026-09-09 | 长任务复盘：压缩粒度 / 截断输入 / 摘要判坏列入下一步；幂等 IK 绑 `actionId` + resume 空 prepare 收口 | （已由上项消化） |
 | 2026-09-08 | implementation 文档 SSOT/纠错；STATUS/HANDOFF 同步到 0026 | `project-dialogue` 未提交改动待收口 |

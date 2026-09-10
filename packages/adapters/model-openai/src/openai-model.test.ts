@@ -149,6 +149,7 @@ describe("OpenAiModelPort", () => {
 
     const deltas: Array<{ channel: string; text: string }> = [];
     let doneResult: unknown;
+    let wireRequest: { url: string; body: unknown } | undefined;
 
     for await (const chunk of port.completeStructuredStream({
       context: { goal: "read hello.txt", toolAllowlist: ["workspace_read"] },
@@ -157,14 +158,18 @@ describe("OpenAiModelPort", () => {
       systemPrompt: TEST_SYSTEM_PROMPT,
       modelPolicy: { version: "1.0.0", resolvedTarget: "gpt-4o" },
     })) {
-      if (chunk.kind === "delta") {
+      if (chunk.kind === "request") {
+        wireRequest = { url: chunk.url, body: chunk.body };
+      } else if (chunk.kind === "delta") {
         deltas.push({ channel: chunk.channel, text: chunk.text });
         expect(chunk.text).not.toMatch(/\{\s*"type"/);
-      } else {
+      } else if (chunk.kind === "done") {
         doneResult = chunk.result;
       }
     }
 
+    expect(wireRequest?.url).toBe("https://api.dots.ai/v1/chat/completions");
+    expect(wireRequest?.body).toEqual(capturedBody);
     expect(capturedUrl).toBe("https://api.dots.ai/v1/chat/completions");
     expect(capturedBody.stream).toBe(true);
     expect(capturedBody.response_format).toBeUndefined();

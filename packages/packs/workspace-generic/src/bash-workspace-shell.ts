@@ -64,7 +64,37 @@ function buildEnv(): NodeJS.ProcessEnv {
     const v = process.env[key];
     if (v !== undefined) out[key] = v;
   }
+  // Prefer file/pipe-friendly tool output (npm/tsc often hide details when they think TTY).
+  out.CI = out.CI ?? "1";
+  out.NO_COLOR = out.NO_COLOR ?? "1";
+  out.FORCE_COLOR = "0";
+  out.NPM_CONFIG_COLOR = "false";
   return out;
+}
+
+/**
+ * Wrap a user command so stdout/stderr land in a workspace-local log file, then
+ * replay to the shell pipes.
+ *
+ * Why the complexity:
+ * 1) WSL's Windows `bash.exe` mangles `$?` / `$var` in CreateProcess argv (often
+ *    forces `$?` → `0`), so the real script is base64-decoded inside bash.
+ * 2) Win32 node/npm children under WSL often do not write to inherited pipes;
+ *    redirecting to a cwd-relative log file then `cat` recovers the output.
+ * 3) A subshell keeps a user `exit` from skipping the replay/`exit $ec` trailer.
+ */
+export function wrapCommandForCapture(command: string): string {
+  const inner = [
+    "set +e",
+    `( ${command} ) >.monai-ws-exec-$$.log 2>&1`,
+    "ec=$?",
+    "cat .monai-ws-exec-$$.log",
+    "rm -f .monai-ws-exec-$$.log",
+    "exit $ec",
+  ].join("; ");
+  const b64 = Buffer.from(inner, "utf8").toString("base64");
+  // Linux/Git Bash: base64 -d; macOS: base64 -D
+  return `echo ${b64} | (base64 -d 2>/dev/null || base64 -D) | bash`;
 }
 
 /**
@@ -113,7 +143,8 @@ export class BashWorkspaceShell implements WorkspaceShellPort {
       throw new Error("workspace_exec limits must be positive");
     }
 
-    const argv = [...this.shellArgs, command];
+    const wrapped = wrapCommandForCapture(command);
+    const argv = [...this.shellArgs, wrapped];
     const env = buildEnv();
 
     return await new Promise<WorkspaceShellExecResult>((resolvePromise, rejectPromise) => {

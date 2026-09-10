@@ -1,29 +1,13 @@
-import type { Action, ModelMessage } from "@monai/contracts";
+import type { ModelDecision } from "@monai/ports";
 
-import { assistantMessageFromAction } from "../context/project-messages.js";
 import type { PreviewHub } from "./preview-hub.js";
 
 export type ModelContextStatus = "committed" | "invalid" | "failed";
 
-export function buildModelContextMessages(input: {
-  messages: readonly ModelMessage[];
-  action?: Action;
-  display?: string;
-  reasoning?: string;
-}): ModelMessage[] {
-  const response =
-    input.action !== undefined
-      ? assistantMessageFromAction(input.action, input.display, input.reasoning)
-      : input.display?.trim() || input.reasoning?.trim()
-        ? {
-            role: "assistant" as const,
-            ...(input.display?.trim() ? { content: input.display.trim() } : {}),
-            ...(input.reasoning?.trim() ? { reasoning: input.reasoning.trim() } : {}),
-          }
-        : undefined;
-
-  return response ? [...input.messages, response] : [...input.messages];
-}
+export type ModelWireRequest = {
+  url: string;
+  body: unknown;
+};
 
 export function publishModelContext(
   hub: PreviewHub | undefined,
@@ -32,11 +16,9 @@ export function publishModelContext(
     stepId: string;
     modelCallId: string;
     contextHash: string;
-    messages: readonly ModelMessage[];
     status: ModelContextStatus;
-    action?: Action;
-    display?: string;
-    reasoning?: string;
+    request?: ModelWireRequest;
+    response?: ModelDecision;
     reason?: string;
   },
 ): void {
@@ -46,14 +28,9 @@ export function publishModelContext(
     stepId: input.stepId,
     modelCallId: input.modelCallId,
     contextHash: input.contextHash,
-    messages: buildModelContextMessages({
-      messages: input.messages,
-      action: input.action,
-      display: input.display,
-      reasoning: input.reasoning,
-    }),
     status: input.status,
-    ...(input.reasoning ? { reasoning: input.reasoning } : {}),
+    ...(input.request ? { request: input.request } : {}),
+    ...(input.response ? { response: input.response } : {}),
     ...(input.reason ? { reason: input.reason } : {}),
   });
 }

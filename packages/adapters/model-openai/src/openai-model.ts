@@ -257,6 +257,9 @@ export class OpenAiModelPort implements ModelPort {
       headers[this.authHeaderName] = apiKey;
     }
 
+    // Wire request for observers (no secrets / headers).
+    yield { kind: "request", url, body: requestBody };
+
     let res: Response;
     try {
       res = await this.fetchImpl(url, {

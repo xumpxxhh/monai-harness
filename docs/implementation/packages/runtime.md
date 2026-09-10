@@ -108,7 +108,7 @@ Event Log → projectDialogue → DialogueTurn[]
 - [x] `ensureDialogueCompression`：超阈值 LLM/确定性摘要 + `context.summary_created` Event；**增量前缀合并**（最长前缀缓存命中后只摘要 delta turns，再与旧 summary 合并）
 - [x] 压缩切窗按 **完整执行回合**（同 `stepId` 的 assistant+tools 不可拆）；`DialogueTurn.turnId` 仍为消息级；`recentTurnCount` **计组**不计消息条
 - [x] `build-model-context`：组装 `ModelCompleteInput.messages`
-- [x] `publish-model-context` / `preview-hub`：模型上下文预览
+- [x] `publish-model-context` / `preview-hub`：wire `request` + `response`（ModelDecision）归档预览
 - [x] `DisabledMemoryPort` 占位（MVP 不检索）
 
 ## 4. 依赖

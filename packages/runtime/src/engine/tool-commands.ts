@@ -118,11 +118,31 @@ export type ReconcileToolPayload = {
   ok: boolean;
 };
 
+function failureObservationData(
+  toolId: string,
+  error: string,
+  data: unknown,
+): Record<string, unknown> {
+  const extras =
+    data !== undefined && data !== null && typeof data === "object" && !Array.isArray(data)
+      ? (data as Record<string, unknown>)
+      : data !== undefined
+        ? { detail: data }
+        : {};
+  return {
+    ...extras,
+    ok: false,
+    error,
+    toolId,
+  };
+}
+
 function buildToolFailureObservation(input: {
   run: Pick<Run, "tenantId" | "sessionId" | "runId">;
   toolCall: ToolCallRecord;
   error: string;
   now: string;
+  data?: unknown;
 }): Observation {
   const observationId = `obs-fail-${input.toolCall.toolCallId}`;
   return {
@@ -138,11 +158,7 @@ function buildToolFailureObservation(input: {
       version: input.toolCall.toolVersion,
     },
     observedAt: input.now,
-    data: {
-      ok: false,
-      error: input.error,
-      toolId: input.toolCall.toolId,
-    },
+    data: failureObservationData(input.toolCall.toolId, input.error, input.data),
     hash: `obs-hash-${observationId}`,
     declaredSchemaRef: `tool.${input.toolCall.toolId}.error/0.1.0`,
   };
@@ -340,6 +356,7 @@ export async function handleToolDispatchTerminal(
       toolCall: nextTool,
       error,
       now,
+      data: payload.data,
     });
     nextTool = {
       ...nextTool,
@@ -571,6 +588,7 @@ export async function handleReconcileTool(
       toolCall,
       error,
       now,
+      data: payload.data,
     });
     nextTool = {
       ...toolCall,

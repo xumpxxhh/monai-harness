@@ -72,6 +72,7 @@ pnpm harness:session:smoke
 
 - 相关 Run 进入终态（如 `succeeded`）或明确 `aborted`（失败剧本）
 - `model-input/*.json` 含最终 `systemPrompt`；若有分层观测则含 `systemPromptLayers`
+- `model-context/*.json` 含实际 HTTP `request`（`url` + `body`，无密钥）与本轮组装后的 `response`（`ModelDecision`）
 - timeline / final 可复盘；无无限 `(1/3)` 停滞刷屏
 - stub Eval 仍绿：`pnpm --filter @monai/observability test`
 
