@@ -5,7 +5,7 @@
 | 项 | 值 |
 | --- | --- |
 | 计划路径 | `packages/adapters/synthetic-sink/` |
-| 实现端口 | 支撑 `synthetic.write_high` / reconcile（经 Tool Runtime） |
+| 实现端口 | 支撑 `synthetic_write_high` / reconcile（经 Tool Runtime） |
 | 状态 | `done`（P4–P5） |
 | 首触阶段 | P4–P5 |
 | 上游 | [design/08 §2.5](../../design/08-mvp-and-evolution.md) |

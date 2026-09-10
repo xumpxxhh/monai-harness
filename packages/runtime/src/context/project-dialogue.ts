@@ -119,15 +119,19 @@ export function projectDialogueFromEvents(input: {
       assistantByStep.add(event.stepId);
 
       const action = actionFromPayload(event.payload);
-      const responded = sorted.find(
-        (e) => e.eventType === "model.responded" && e.stepId === event.stepId,
-      );
+      // Prefer the latest model.responded for this step (retries may emit several).
+      const responded = [...sorted]
+        .reverse()
+        .find((e) => e.eventType === "model.responded" && e.stepId === event.stepId);
+      const respondedPayload =
+        responded && typeof responded.payload === "object" && responded.payload
+          ? (responded.payload as { display?: unknown; reasoning?: unknown })
+          : undefined;
       const display =
-        responded &&
-        typeof responded.payload === "object" &&
-        responded.payload &&
-        "display" in responded.payload
-          ? String((responded.payload as { display?: unknown }).display ?? "")
+        typeof respondedPayload?.display === "string" ? respondedPayload.display : undefined;
+      const reasoning =
+        typeof respondedPayload?.reasoning === "string" && respondedPayload.reasoning.trim()
+          ? respondedPayload.reasoning.trim()
           : undefined;
 
       const toolCalls = action ? actionToToolCalls(action, preparedByStep.get(event.stepId) ?? []) : [];
@@ -144,6 +148,7 @@ export function projectDialogueFromEvents(input: {
         stepId: event.stepId,
         role: "assistant",
         content,
+        ...(reasoning ? { reasoning } : {}),
         ...(projectedCalls.length > 0 ? { toolCalls: projectedCalls } : {}),
         sourceEventIds: [event.eventId, ...(responded ? [responded.eventId] : [])],
         sequenceRange: { from: event.sequence, to: responded?.sequence ?? event.sequence },
@@ -204,6 +209,7 @@ export function estimateDialogueTokens(turns: readonly DialogueTurn[]): number {
   let total = 0;
   for (const turn of turns) {
     total += Math.ceil((turn.content?.length ?? 0) / 4);
+    total += Math.ceil((turn.reasoning?.length ?? 0) / 4);
     if (turn.toolCalls) {
       total += turn.toolCalls.length * 32;
     }

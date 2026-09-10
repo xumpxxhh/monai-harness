@@ -8,7 +8,7 @@ import {
 
 export function createWorkspaceGenericPack(): PackContributionDefinition {
   const {
-    "synthetic.write_high.reconcile": reconcileHandler,
+    "synthetic_write_high_reconcile": reconcileHandler,
     ...manifestTools
   } = workspaceGenericToolHandlers;
 
@@ -16,7 +16,7 @@ export function createWorkspaceGenericPack(): PackContributionDefinition {
     manifest: WORKSPACE_GENERIC_MANIFEST,
     tools: {
       ...manifestTools,
-      "synthetic.write_high.reconcile": reconcileHandler,
+      "synthetic_write_high_reconcile": reconcileHandler,
     },
     hooks: WORKSPACE_GENERIC_HOOKS,
   };

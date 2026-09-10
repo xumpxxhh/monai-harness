@@ -77,7 +77,7 @@ FaultInjectionHook {
 | Golden 主路径 | 6 × 5 | 固定 Manifest、Tool 桩、模型采样配置 |
 | 越权与安全 | 8 × 1 | 零容忍；失败不可重跑洗绿 |
 | 恢复故障注入 | 8 × 5 | L1/L2 FaultHooks + 真实库 |
-| 审批生命周期 | 6 × 1 | `synthetic.write_high` |
+| 审批生命周期 | 6 × 1 | `synthetic_write_high` |
 | 幂等与未知结果 | 6 × 5 | sink 副作用计数、同键重派 |
 
 门禁阈值以设计 07/08 为准（安全 0、控制面 100%、Golden ≥90%/30 次、恢复 ≥95%、成本延迟 20% 回归带）。工程档案不另定第二套阈值。
@@ -153,7 +153,7 @@ MVP 至少能从 Event 重算：任务成功率、non-terminal age、queue/activ
 1. contracts + ports + persistence UoW + Event append
 2. Outbox + inline queue + scheduler + CreateRun→running
 3. light loop + ModelPort stub + Policy + Observation/Fact/Reducer
-4. Tool prepared/dispatch/unknown/reconcile + synthetic.write_high
+4. Tool prepared/dispatch/unknown/reconcile + synthetic_write_high
 5. Approval + ask_user + Checkpoint/Continuation
 6. RecoveryService + L1/L2 故障注入
 7. EventStream + 核心指标 + Golden/Eval 门禁接线

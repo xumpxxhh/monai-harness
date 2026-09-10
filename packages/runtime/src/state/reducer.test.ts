@@ -50,7 +50,7 @@ describe("validateObservationToFact + reduce", () => {
 
   it("rejects tool failure observation (ok:false) as fact", () => {
     const validated = validateObservationToFact(
-      observation({ ok: false, error: "ENOENT", toolId: "workspace.read" }),
+      observation({ ok: false, error: "ENOENT", toolId: "workspace_read" }),
       { authorizationDecisionRef: "tool:tc-1" },
     );
     expect(validated.accepted).toBe(false);

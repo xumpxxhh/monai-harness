@@ -45,16 +45,16 @@ describe("projectApprovalDisplay", () => {
       action: action({
         actionId: "act-1",
         type: "tool.call",
-        displayText: "准备调用 synthetic.write_high",
+        displayText: "准备调用 synthetic_write_high",
         calls: [
           {
-            toolId: "synthetic.write_high",
+            toolId: "synthetic_write_high",
             arguments: { resourceKey: "demo-key", payload: { mode: "test" } },
           },
         ],
       }),
       approval: approval(),
-      policyReason: "tool requires approval: synthetic.write_high",
+      policyReason: "tool requires approval: synthetic_write_high",
       reasoning: "用户要求执行高副作用写入，需要先获得审批。",
     });
 
@@ -77,7 +77,7 @@ describe("projectApprovalDisplay", () => {
         actionId: "act-1",
         type: "tool.call",
         displayText: "需要写入测试环境的配置",
-        calls: [{ toolId: "synthetic.write_high", arguments: {} }],
+        calls: [{ toolId: "synthetic_write_high", arguments: {} }],
       }),
       approval: approval(),
       reasoning: "fallback reasoning",
@@ -108,7 +108,7 @@ describe("extractApprovalStepContext", () => {
           recordedAt: new Date().toISOString(),
           payload: {
             reasoning: "需要先审批",
-            display: "准备调用 synthetic.write_high",
+            display: "准备调用 synthetic_write_high",
           },
         },
         {
@@ -126,13 +126,13 @@ describe("extractApprovalStepContext", () => {
           expectedRevision: 1,
           sequence: 2,
           recordedAt: new Date().toISOString(),
-          payload: { reason: "tool requires approval: synthetic.write_high" },
+          payload: { reason: "tool requires approval: synthetic_write_high" },
         },
       ],
       "step-1",
     );
 
     expect(context.reasoning).toBe("需要先审批");
-    expect(context.policyReason).toContain("synthetic.write_high");
+    expect(context.policyReason).toContain("synthetic_write_high");
   });
 });

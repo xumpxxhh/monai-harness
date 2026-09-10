@@ -9,12 +9,17 @@ export function buildModelContextMessages(input: {
   messages: readonly ModelMessage[];
   action?: Action;
   display?: string;
+  reasoning?: string;
 }): ModelMessage[] {
   const response =
     input.action !== undefined
-      ? assistantMessageFromAction(input.action, input.display)
-      : input.display?.trim()
-        ? { role: "assistant" as const, content: input.display.trim() }
+      ? assistantMessageFromAction(input.action, input.display, input.reasoning)
+      : input.display?.trim() || input.reasoning?.trim()
+        ? {
+            role: "assistant" as const,
+            ...(input.display?.trim() ? { content: input.display.trim() } : {}),
+            ...(input.reasoning?.trim() ? { reasoning: input.reasoning.trim() } : {}),
+          }
         : undefined;
 
   return response ? [...input.messages, response] : [...input.messages];
@@ -45,6 +50,7 @@ export function publishModelContext(
       messages: input.messages,
       action: input.action,
       display: input.display,
+      reasoning: input.reasoning,
     }),
     status: input.status,
     ...(input.reasoning ? { reasoning: input.reasoning } : {}),

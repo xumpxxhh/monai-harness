@@ -4,7 +4,7 @@
 
 ## 当前状态（一句话）
 
-主链 P0–P9 / M1–M3 / 可替换 infra 已 `done`；Session 支持 `--resume`（postgres）与 dialogue **增量压缩**；默认仍 RejectingSandbox，`sandbox.exec` 仅 opt-in。Context 压缩已按 **完整执行回合（stepId 组）+ token** 切窗，摘要输入含 Goal/约束/路径/事实/错误锚点，坏摘要（含 `<dots_function_call>`）会确定性回退且不进 prefix cache。KnowledgePort / confirm_once / EDR-010 仍 deferred。
+主链 P0–P9 / M1–M3 / 可替换 infra 已 `done`；Session 支持 `--resume`（postgres）与 dialogue **增量压缩**；默认仍 RejectingSandbox，`sandbox_exec` 仅 opt-in。Context 压缩已按 **完整执行回合（stepId 组）+ token** 切窗，摘要输入含 Goal/约束/路径/事实/错误锚点，坏摘要（含 `<dots_function_call>`）会确定性回退且不进 prefix cache。KnowledgePort / confirm_once / EDR-010 仍 deferred。
 
 ## 下一步
 
@@ -29,7 +29,7 @@
 
 | 项 | 原因 |
 | --- | --- |
-| KnowledgePort / Context `knowledge` section | 产品路径先用 `knowledge.search` Tool |
+| KnowledgePort / Context `knowledge` section | 产品路径先用 `knowledge_search` Tool |
 | ConfirmationGrant / `confirm_once` | 单次审批主路径已够用 |
 | Redis/SQS；EDR-010 `isolated_extension` | 产品选型后置 |
 | API + Worker 进程拆分 | 等 engineering/05 §4.1 信号 |
@@ -79,4 +79,4 @@ pnpm --filter @monai/sandbox-stub test
 | 2026-09-09 | 长任务复盘：压缩粒度 / 截断输入 / 摘要判坏列入下一步；幂等 IK 绑 `actionId` + resume 空 prepare 收口 | （已由上项消化） |
 | 2026-09-08 | implementation 文档 SSOT/纠错；STATUS/HANDOFF 同步到 0026 | `project-dialogue` 未提交改动待收口 |
 | 2026-09-08 | session `--resume` + context 增量压缩（0026） | sandbox Session 联调仍可选 |
-| 2026-09-07 | 0025 sandbox.exec opt-in；0024 infra 收口 | EDR-010 Deferred |
+| 2026-09-07 | 0025 sandbox_exec opt-in；0024 infra 收口 | EDR-010 Deferred |

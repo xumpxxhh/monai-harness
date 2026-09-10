@@ -25,7 +25,7 @@ main
 约束：
 
 1. `runtime` 构造函数只接收 `ports` 与纯配置；不 new 具体 SDK。
-2. Feature flags 默认关闭 DAG、`spawn_child`、Memory、sandbox.exec、真实 write_high（EDR-014）。
+2. Feature flags 默认关闭 DAG、`spawn_child`、Memory、sandbox_exec、真实 write_high（EDR-014）。
 3. Pack 通过 Registry 解析进 Execution Manifest；Core 不静态 import Pack 符号。
 
 ## 3. HarnessCommand 信封（EDR-012）

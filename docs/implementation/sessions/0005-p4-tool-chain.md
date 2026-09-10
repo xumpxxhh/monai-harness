@@ -17,7 +17,7 @@ ToolCallRecord prepared → 事务外 dispatch → succeeded/failed/outcome_unkn
 - adapters：workspace-memory、synthetic-sink
 - runtime：tool catalog/invoker、prepare 路径、tool_dispatch_result / reconcile_tool
 - delivery：ToolDispatcher；OutboxDispatcher 跳过非 queue_run
-- L1：echo / workspace.read / synthetic unknown+reconcile / 同键幂等
+- L1：echo / workspace_read / synthetic unknown+reconcile / 同键幂等
 
 ## 验证
 

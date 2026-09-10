@@ -155,11 +155,11 @@ describe("compress-dialogue", () => {
     const turns: DialogueTurn[] = [
       turn(1, "user", "goal for pulse-board build"),
       turn(2, "assistant", "a", { stepId: "s1", turnId: "a1" }),
-      { ...turn(3, "tool", bulky, { stepId: "s1", turnId: "t1" }), toolName: "workspace.exec" },
+      { ...turn(3, "tool", bulky, { stepId: "s1", turnId: "t1" }), toolName: "workspace_exec" },
       turn(4, "assistant", "b", { stepId: "s2", turnId: "a2" }),
-      { ...turn(5, "tool", bulky, { stepId: "s2", turnId: "t2" }), toolName: "workspace.exec" },
+      { ...turn(5, "tool", bulky, { stepId: "s2", turnId: "t2" }), toolName: "workspace_exec" },
       turn(6, "assistant", "c", { stepId: "s3", turnId: "a3" }),
-      { ...turn(7, "tool", bulky, { stepId: "s3", turnId: "t3" }), toolName: "workspace.exec" },
+      { ...turn(7, "tool", bulky, { stepId: "s3", turnId: "t3" }), toolName: "workspace_exec" },
       turn(8, "user", "continue"),
     ];
     const plan = planDialogueCompression({
@@ -381,7 +381,7 @@ describe("compress-dialogue", () => {
   it("isUsableDialogueSummary rejects tool XML and short echoes", () => {
     expect(
       isUsableDialogueSummary(
-        `<dots_function_call>\n<invoke name="workspace.exec">\n<parameter name="command">npm run build</parameter>\n</invoke>\n</dots_function_call>`,
+        `<dots_function_call>\n<invoke name="workspace_exec">\n<parameter name="command">npm run build</parameter>\n</invoke>\n</dots_function_call>`,
       ),
     ).toBe(false);
     expect(isUsableDialogueSummary("too short")).toBe(false);
@@ -403,7 +403,7 @@ describe("compress-dialogue", () => {
       plan,
       cachedEvents: [],
       model: fixedContentModel(
-        `<dots_function_call>\n<invoke name="workspace.exec">\n<parameter name="command">cd projects/pulse-board && npm run build</parameter>\n</invoke>\n</dots_function_call>`,
+        `<dots_function_call>\n<invoke name="workspace_exec">\n<parameter name="command">cd projects/pulse-board && npm run build</parameter>\n</invoke>\n</dots_function_call>`,
       ),
     });
 
@@ -425,7 +425,7 @@ describe("compress-dialogue", () => {
       cachedEvents: [],
       model: fixedContentModel(
         "## Dialogue summary\n\n- Goal: keep going with build fixes and verify npm run build succeeds.",
-        [{ name: "workspace.exec", arguments: { command: "npm run build" } }],
+        [{ name: "workspace_exec", arguments: { command: "npm run build" } }],
       ),
     });
 
@@ -443,7 +443,7 @@ describe("compress-dialogue", () => {
       compressionId: "cmp-poison-exact",
       summaryHash: "h",
       summaryText:
-        `<dots_function_call>\n<invoke name="workspace.exec">\n<parameter name="command">npm run build</parameter>\n</invoke>\n</dots_function_call>`,
+        `<dots_function_call>\n<invoke name="workspace_exec">\n<parameter name="command">npm run build</parameter>\n</invoke>\n</dots_function_call>`,
       sourceRunIds: ["run-1"],
       sourceEventRanges: plan.sourceEventRanges,
       createdAt: new Date().toISOString(),
@@ -452,7 +452,7 @@ describe("compress-dialogue", () => {
     const poisonedPrefix = {
       compressionId: "cmp-poison-prefix",
       summaryHash: "h2",
-      summaryText: `<tool_call>workspace.exec</tool_call> `.repeat(5),
+      summaryText: `<tool_call>workspace_exec</tool_call> `.repeat(5),
       sourceRunIds: ["run-1"],
       sourceEventRanges: rangesFromTurns(prefixTurns),
       createdAt: new Date().toISOString(),
@@ -481,14 +481,14 @@ describe("compress-dialogue", () => {
       turn(
         1,
         "user",
-        "在 /projects/pulse-board/ 完成构建。硬性约束：禁止 sandbox.exec；只用 workspace.exec。",
+        "在 /projects/pulse-board/ 完成构建。硬性约束：禁止 sandbox_exec；只用 workspace_exec。",
       ),
       {
-        ...turn(2, "assistant", "准备调用 workspace.edit", { stepId: "s1", turnId: "a1" }),
+        ...turn(2, "assistant", "准备调用 workspace_edit", { stepId: "s1", turnId: "a1" }),
         toolCalls: [
           {
             id: "c1",
-            name: "workspace.edit",
+            name: "workspace_edit",
             arguments: { path: "/projects/pulse-board/src/App.tsx" },
           },
         ],
@@ -504,14 +504,14 @@ describe("compress-dialogue", () => {
           }),
           { stepId: "s1", turnId: "t1" },
         ),
-        toolName: "workspace.edit",
+        toolName: "workspace_edit",
       },
       {
         ...turn(4, "assistant", "build", { stepId: "s2", turnId: "a2" }),
         toolCalls: [
           {
             id: "c2",
-            name: "workspace.exec",
+            name: "workspace_exec",
             arguments: { command: "cd projects/pulse-board && npm run build" },
           },
         ],
@@ -527,7 +527,7 @@ describe("compress-dialogue", () => {
           }),
           { stepId: "s2", turnId: "t2" },
         ),
-        toolName: "workspace.exec",
+        toolName: "workspace_exec",
       },
     ];
 
@@ -535,13 +535,13 @@ describe("compress-dialogue", () => {
       stateFacts: ["checklist: install complete"],
     });
     expect(anchors.goals[0]).toContain("pulse-board");
-    expect(anchors.constraints.some((c) => /禁止 sandbox\.exec|workspace\.exec/.test(c))).toBe(
+    expect(anchors.constraints.some((c) => /禁止 sandbox_exec|workspace_exec/.test(c))).toBe(
       true,
     );
     expect(anchors.changedPaths.some((p) => p.includes("App.tsx"))).toBe(true);
     expect(anchors.confirmedFacts.some((f) => /edited|checklist/i.test(f))).toBe(true);
     expect(anchors.openErrors.some((e) => /TS6133|error/i.test(e))).toBe(true);
-    expect(anchors.toolsUsed).toEqual(expect.arrayContaining(["workspace.edit", "workspace.exec"]));
+    expect(anchors.toolsUsed).toEqual(expect.arrayContaining(["workspace_edit", "workspace_exec"]));
 
     const formatted = formatTurnForSummary(turns[4]!);
     expect(formatted.length).toBeLessThan(800);
@@ -555,7 +555,7 @@ describe("compress-dialogue", () => {
     expect(material.material).toContain("Session anchors");
     expect(material.material).toContain("Hard constraints");
     expect(material.material).toContain("PRIOR milestone covering install");
-    expect(material.transcript).toContain("workspace.exec");
+    expect(material.transcript).toContain("workspace_exec");
     // Condensed transcript is delta-only; anchors still see the goal.
     expect(material.transcript).not.toContain("硬性约束");
     expect(material.anchors.goals[0]).toContain("pulse-board");

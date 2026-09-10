@@ -87,7 +87,7 @@ describe("prepareToolCalls", () => {
       runId: "r1",
       stepId: "step-0",
       actionId: "act-prev",
-      toolId: "synthetic.write_high",
+      toolId: "synthetic_write_high",
       toolVersion: "0.1.0",
       executionManifestRef: "manifest://m1",
       inputHash: "ih",
@@ -119,7 +119,7 @@ describe("prepareToolCalls", () => {
       type: "tool.call",
       calls: [
         {
-          toolId: "synthetic.write_high",
+          toolId: "synthetic_write_high",
           arguments: { resourceKey: "synthetic://demo/resource" },
           idempotencyKey: "ik-same",
         },
@@ -155,7 +155,7 @@ describe("prepareToolCalls", () => {
       type: "tool.call",
       calls: [
         {
-          toolId: "workspace.write",
+          toolId: "workspace_write",
           arguments: { path: "/notes/a.md", content: "one" },
           idempotencyKey: "model-reused-key",
         },
@@ -193,7 +193,7 @@ describe("prepareToolCalls", () => {
       type: "tool.call",
       calls: [
         {
-          toolId: "workspace.write",
+          toolId: "workspace_write",
           arguments: { path: "/notes/b.md", content: "two" },
           idempotencyKey: "model-reused-key",
         },
@@ -239,7 +239,7 @@ describe("prepareToolCalls", () => {
       schemaVersion: CONTRACTS_SCHEMA_VERSION,
       actionId: "act-a",
       type: "tool.call",
-      calls: [{ toolId: "workspace.write", arguments: args }],
+      calls: [{ toolId: "workspace_write", arguments: args }],
     };
     const hydratedA = normalizeToolCallAction(actionA, (toolId) =>
       registry.lookupToolContract(toolId),
@@ -273,7 +273,7 @@ describe("prepareToolCalls", () => {
       schemaVersion: CONTRACTS_SCHEMA_VERSION,
       actionId: "act-b",
       type: "tool.call",
-      calls: [{ toolId: "workspace.write", arguments: args }],
+      calls: [{ toolId: "workspace_write", arguments: args }],
     };
     const hydratedB = normalizeToolCallAction(actionB, (toolId) =>
       registry.lookupToolContract(toolId),

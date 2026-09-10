@@ -19,7 +19,7 @@
 | [P9](./PHASES.md#p9--阶段-a-收口) | `done` | P9a–P9d 完成 |
 | [M1](./PHASES.md#m1--真实模型簇可选) | `done` | M1a–M1h；Token/cost 已收口；KnowledgePort deferred |
 | [M2](./PHASES.md#m2--agent-loop-增强) | `done` | function calling + 并行工具 + Dialogue Context + Session Demo |
-| [M3](./PHASES.md#m3--rag-knowledge-search-tool) | `done` | EDR-016：`knowledge.search`；KnowledgePort 仍 deferred |
+| [M3](./PHASES.md#m3--rag-knowledge-search-tool) | `done` | EDR-016：`knowledge_search`；KnowledgePort 仍 deferred |
 | [可替换 infra](./PHASES.md#可替换-infra-适配器queue--lease--objectstore--sandbox) | `done` | Queue/Lease/ObjectStore + sandbox stub；artifact 已接；subprocess opt-in（0025） |
 
 ## 2. 包状态
@@ -48,7 +48,7 @@
 | model | `done`（stub + openai；M2b function calling） | [model.md](./adapters/model.md) |
 | workspace | `done`（memory + harness FsWorkspace；Windows 矩阵缺口） | [workspace.md](./adapters/workspace.md) |
 | objectstore | `done`（fs；artifact 已接） | [objectstore.md](./adapters/objectstore.md) |
-| knowledge-http / `knowledge.search` | `done`（EDR-016） | [knowledge.md](./adapters/knowledge.md) |
+| knowledge-http / `knowledge_search` | `done`（EDR-016） | [knowledge.md](./adapters/knowledge.md) |
 | KnowledgePort / Context `knowledge` | `deferred` | [knowledge.md](./adapters/knowledge.md) |
 | secret | `done`（`@monai/secret-env`；M1e） | [secret.md](./adapters/secret.md) |
 | sandbox-stub | `done` | [sandbox-stub.md](./adapters/sandbox-stub.md) — 默认拒绝 |
@@ -63,7 +63,7 @@
 | KnowledgePort | 信息 | `deferred`；RAG Tool 已接 |
 | ConfirmationGrant | 信息 | `deferred`；单次审批主路径已够 |
 | EDR-010 | 低 | Deferred（isolated_extension） |
-| sandbox.exec opt-in | 信息 | 默认关；Session 联调仍可做 |
+| sandbox_exec opt-in | 信息 | 默认关；Session 联调仍可做 |
 | `project-dialogue` 未提交改动 | 信息 | 工作区有未收口微调；见 HANDOFF |
 
 ## 5. 决策关闭记录
@@ -79,8 +79,8 @@
 | 2026-08-27 | — | LeasePort.bind | |
 | 2026-08-28 | M1 | Accepted | Context Builder + BudgetGuard + SecretPort + OpenAiModelPort |
 | 2026-09-02 | M2 | Accepted | function calling + Action.calls[] + Dialogue Context + Session Demo |
-| 2026-09-02 | EDR-016 | Accepted | RAG HTTP → `knowledge.search` Tool；非 KnowledgePort |
-| 2026-09-07 | EDR-014 | Accepted（澄清） | 默认禁用；`sandbox.exec` 可 opt-in（0025）；Eval 仍关 |
+| 2026-09-02 | EDR-016 | Accepted | RAG HTTP → `knowledge_search` Tool；非 KnowledgePort |
+| 2026-09-07 | EDR-014 | Accepted（澄清） | 默认禁用；`sandbox_exec` 可 opt-in（0025）；Eval 仍关 |
 
 ## 6. 测试 readiness
 
@@ -103,6 +103,6 @@
 - M2 归档：[sessions/0019](./sessions/0019-post-m1-agent-loop.md)
 - M3 RAG Tool：[sessions/0020](./sessions/0020-knowledge-search-tool.md)
 - 可替换 infra（已归档）：[sessions/0024](./sessions/0024-replaceable-infra-adapters-plan.md)
-- sandbox.exec opt-in：[sessions/0025](./sessions/0025-sandbox-exec-opt-in.md)
+- sandbox_exec opt-in：[sessions/0025](./sessions/0025-sandbox-exec-opt-in.md)
 - session resume + 压缩：[sessions/0026](./sessions/0026-context-compress-session-resume.md)
 - 工程 EDR：[../engineering/00-implementation-baseline.md](../engineering/00-implementation-baseline.md)

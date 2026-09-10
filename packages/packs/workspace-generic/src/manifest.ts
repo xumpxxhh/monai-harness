@@ -22,13 +22,13 @@ import {
 const MAX_OUTPUT_CHARS = 512_000;
 
 /** Tool id for RAG HTTP retrieve-only search (EDR-016). Not in default allowlist. */
-export const KNOWLEDGE_SEARCH_TOOL_ID = "knowledge.search" as const;
+export const KNOWLEDGE_SEARCH_TOOL_ID = "knowledge_search" as const;
 
-/** Tool id for opt-in sandbox.exec (0025 / EDR-014). Not in default allowlist. */
-export const SANDBOX_EXEC_TOOL_ID = "sandbox.exec" as const;
+/** Tool id for opt-in sandbox_exec (0025 / EDR-014). Not in default allowlist. */
+export const SANDBOX_EXEC_TOOL_ID = "sandbox_exec" as const;
 
-/** Tool id for opt-in workspace.exec (bash in workspace root / EDR-014). Not in default allowlist. */
-export const WORKSPACE_EXEC_TOOL_ID = "workspace.exec" as const;
+/** Tool id for opt-in workspace_exec (bash in workspace root / EDR-014). Not in default allowlist. */
+export const WORKSPACE_EXEC_TOOL_ID = "workspace_exec" as const;
 
 export type KnowledgeSearchClientPort = {
   search(input: {
@@ -126,7 +126,7 @@ function capOutput(value: string): string {
 }
 
 export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
-  "workspace.list": async (input) => {
+  "workspace_list": async (input) => {
     const ws = workspacePort(input.executionContext);
     if (!ws) return { ok: false, error: "workspace not configured" };
     const args = input.arguments as Record<string, unknown>;
@@ -135,7 +135,7 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
     const entries = await ws.list(path);
     return { ok: true, data: { path, entries, summary: `list ${path}` } };
   },
-  "workspace.read": async (input) => {
+  "workspace_read": async (input) => {
     const ws = workspacePort(input.executionContext);
     if (!ws) return { ok: false, error: "workspace not configured" };
     const args = input.arguments as Record<string, unknown>;
@@ -147,7 +147,7 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
       data: { ...(content as object), summary: `read ${path}` },
     };
   },
-  "workspace.search": async (input) => {
+  "workspace_search": async (input) => {
     const ws = workspacePort(input.executionContext);
     if (!ws) return { ok: false, error: "workspace not configured" };
     const args = input.arguments as Record<string, unknown>;
@@ -155,7 +155,7 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
     const hits = await ws.search(query);
     return { ok: true, data: { query, hits, summary: `search ${query}` } };
   },
-  "workspace.write": async (input) => {
+  "workspace_write": async (input) => {
     const ws = workspacePort(input.executionContext);
     if (!ws) return { ok: false, error: "workspace not configured" };
     const args = input.arguments as Record<string, unknown>;
@@ -165,7 +165,7 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
     }
     const virtual = path.replace(/\\/g, "/");
     if (virtual === "/") {
-      return { ok: false, error: "workspace.write requires a file path, not /" };
+      return { ok: false, error: "workspace_write requires a file path, not /" };
     }
     rejectPathEscape(path);
     if (args.content === undefined || args.content === null) {
@@ -184,7 +184,7 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
       },
     };
   },
-  "workspace.edit": async (input) => {
+  "workspace_edit": async (input) => {
     const ws = workspacePort(input.executionContext);
     if (!ws) return { ok: false, error: "workspace not configured" };
     const args = input.arguments as Record<string, unknown>;
@@ -194,7 +194,7 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
     }
     const virtual = path.replace(/\\/g, "/");
     if (virtual === "/") {
-      return { ok: false, error: "workspace.edit requires a file path, not /" };
+      return { ok: false, error: "workspace_edit requires a file path, not /" };
     }
     rejectPathEscape(path);
 
@@ -275,7 +275,7 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
       },
     };
   },
-  "workspace.delete": async (input) => {
+  "workspace_delete": async (input) => {
     const ws = workspacePort(input.executionContext);
     if (!ws) return { ok: false, error: "workspace not configured" };
     const args = input.arguments as Record<string, unknown>;
@@ -285,7 +285,7 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
     }
     const virtual = path.replace(/\\/g, "/");
     if (virtual === "/" || virtual === "") {
-      return { ok: false, error: "workspace.delete must not target /" };
+      return { ok: false, error: "workspace_delete must not target /" };
     }
     rejectPathEscape(path);
     try {
@@ -371,10 +371,10 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
         timeoutMs: Number.isFinite(timeoutMs) && timeoutMs! > 0 ? timeoutMs : undefined,
       });
       const summary = result.timedOut
-        ? `sandbox.exec timed out: ${argv[0]}`
+        ? `sandbox_exec timed out: ${argv[0]}`
         : result.truncated
-          ? `sandbox.exec truncated: ${argv[0]} exit=${result.exitCode}`
-          : `sandbox.exec ${argv[0]} exit=${result.exitCode}`;
+          ? `sandbox_exec truncated: ${argv[0]} exit=${result.exitCode}`
+          : `sandbox_exec ${argv[0]} exit=${result.exitCode}`;
       if (result.timedOut || result.truncated) {
         return {
           ok: false,
@@ -425,10 +425,10 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
       });
       const preview = command.length > 80 ? `${command.slice(0, 77)}...` : command;
       const summary = result.timedOut
-        ? `workspace.exec timed out: ${preview}`
+        ? `workspace_exec timed out: ${preview}`
         : result.truncated
-          ? `workspace.exec truncated: exit=${result.exitCode}`
-          : `workspace.exec exit=${result.exitCode}`;
+          ? `workspace_exec truncated: exit=${result.exitCode}`
+          : `workspace_exec exit=${result.exitCode}`;
       if (result.timedOut || result.truncated) {
         return {
           ok: false,
@@ -462,7 +462,7 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
       return { ok: false, error: message };
     }
   },
-  "artifact.write_markdown": async (input) => {
+  "artifact_write_markdown": async (input) => {
     const args = input.arguments as Record<string, unknown>;
     const markdown = capOutput(String(args.markdown ?? args.content ?? ""));
     const artifactId = `art-${input.toolCallId}`;
@@ -487,7 +487,7 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
       resultHash: hash,
     };
   },
-  "artifact.validate": async (input) => {
+  "artifact_validate": async (input) => {
     const args = input.arguments as Record<string, unknown>;
     const artifactId = String(args.artifactId ?? args.ref ?? "").replace(
       /^artifact:\/\//,
@@ -524,7 +524,7 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
       resultHash: hash,
     };
   },
-  "synthetic.write_high": async (input) => {
+  "synthetic_write_high": async (input) => {
     const args = input.arguments as Record<string, unknown>;
     const resourceKey = String(args.resourceKey ?? "");
     if (!resourceKey.startsWith("synthetic://")) {
@@ -536,7 +536,7 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
     if (!input.idempotencyKey) {
       return {
         ok: false,
-        error: "synthetic.write_high requires idempotencyKey",
+        error: "synthetic_write_high requires idempotencyKey",
       };
     }
     rejectSecretMaterial(args.payload ?? {});
@@ -561,7 +561,7 @@ export const workspaceGenericToolHandlers: Record<string, ToolHandler> = {
       throw err;
     }
   },
-  "synthetic.write_high.reconcile": async (input: ToolHandlerInput) => {
+  "synthetic_write_high_reconcile": async (input: ToolHandlerInput) => {
     const args = input.arguments as Record<string, unknown>;
     const resourceKey = String(args.resourceKey ?? "");
     if (!input.idempotencyKey) {
@@ -612,17 +612,17 @@ export const WORKSPACE_GENERIC_MANIFEST = {
   version: "0.1.0",
   coreContractRange: ">=0.1.0 <1.0.0",
   permissionsRequested: [
-    "workspace.read",
-    "workspace.write",
-    "workspace.exec",
-    "artifact.write",
-    "synthetic.write_high",
-    "knowledge.read",
-    "sandbox.exec",
+    "workspace_read",
+    "workspace_write",
+    "workspace_exec",
+    "artifact_write",
+    "synthetic_write_high",
+    "knowledge_read",
+    "sandbox_exec",
   ],
   tools: [
     {
-      toolId: "workspace.list",
+      toolId: "workspace_list",
       version: "0.1.0",
       description: 'List workspace entries under a path (default "/").',
       parameters: {
@@ -638,7 +638,7 @@ export const WORKSPACE_GENERIC_MANIFEST = {
       },
     },
     {
-      toolId: "workspace.read",
+      toolId: "workspace_read",
       version: "0.1.0",
       description: "Read a workspace file by path.",
       parameters: {
@@ -655,7 +655,7 @@ export const WORKSPACE_GENERIC_MANIFEST = {
       },
     },
     {
-      toolId: "workspace.search",
+      toolId: "workspace_search",
       version: "0.1.0",
       description: "Search workspace files for a query string.",
       parameters: {
@@ -672,7 +672,7 @@ export const WORKSPACE_GENERIC_MANIFEST = {
       },
     },
     {
-      toolId: "workspace.write",
+      toolId: "workspace_write",
       version: "0.1.0",
       description:
         "Write or overwrite a UTF-8 file in the authorized workspace. Path must be absolute under / (e.g. /notes/out.md).",
@@ -687,9 +687,9 @@ export const WORKSPACE_GENERIC_MANIFEST = {
       },
       argHint: "Create or overwrite a workspace file",
       systemPrompt: [
-        "Workspace write (workspace.write):",
-        "Prefer workspace.write when creating a new file or intentionally replacing the entire contents.",
-        "For surgical in-place changes to an existing file, prefer workspace.edit.",
+        "Workspace write (workspace_write):",
+        "Prefer workspace_write when creating a new file or intentionally replacing the entire contents.",
+        "For surgical in-place changes to an existing file, prefer workspace_edit.",
         "Overwriting an existing file is intentional; do not invent paths outside the authorized workspace.",
       ].join("\n"),
       effectContract: {
@@ -699,7 +699,7 @@ export const WORKSPACE_GENERIC_MANIFEST = {
       },
     },
     {
-      toolId: "workspace.edit",
+      toolId: "workspace_edit",
       version: "0.1.0",
       description:
         "Edit an existing UTF-8 workspace file by exact string replacement. Path must be absolute under / (e.g. /notes/out.md). Fails if old_string is missing or matches multiple times unless replace_all is true.",
@@ -725,10 +725,10 @@ export const WORKSPACE_GENERIC_MANIFEST = {
       },
       argHint: "Surgically edit an existing workspace file",
       systemPrompt: [
-        "Workspace edit (workspace.edit):",
-        "Use workspace.edit for precise in-place edits of an existing file.",
+        "Workspace edit (workspace_edit):",
+        "Use workspace_edit for precise in-place edits of an existing file.",
         "old_string must match the file exactly (including whitespace); enlarge context until the match is unique, or set replace_all=true.",
-        "Prefer workspace.write only when creating a new file or replacing the whole file is intentional.",
+        "Prefer workspace_write only when creating a new file or replacing the whole file is intentional.",
       ].join("\n"),
       effectContract: {
         ...baseContract,
@@ -737,7 +737,7 @@ export const WORKSPACE_GENERIC_MANIFEST = {
       },
     },
     {
-      toolId: "workspace.delete",
+      toolId: "workspace_delete",
       version: "0.1.0",
       requireApproval: true,
       description:
@@ -755,8 +755,8 @@ export const WORKSPACE_GENERIC_MANIFEST = {
       },
       argHint: "Delete a workspace file or directory (requires approval)",
       systemPrompt: [
-        "Workspace delete (workspace.delete):",
-        "Use workspace.delete when the user clearly wants a file or directory removed.",
+        "Workspace delete (workspace_delete):",
+        "Use workspace_delete when the user clearly wants a file or directory removed.",
         "Directories are deleted recursively (all contents). Never target /.",
         "Prefer confirming intent when the target path is ambiguous.",
       ].join("\n"),
@@ -796,8 +796,8 @@ export const WORKSPACE_GENERIC_MANIFEST = {
       },
       argHint: "Search enterprise knowledge bases",
       systemPrompt: [
-        "Knowledge base (knowledge.search):",
-        "Before answering factual questions that need external docs, call knowledge.search with a specific query.",
+        "Knowledge base (knowledge_search):",
+        "Before answering factual questions that need external docs, call knowledge_search with a specific query.",
         "Answer only from hits[].content; do not invent information not present in hits.",
         "Cite sourceId or title in your answer, e.g. [intro.md].",
         "If grounding.empty is true, say no relevant knowledge was found; do not guess.",
@@ -839,7 +839,7 @@ export const WORKSPACE_GENERIC_MANIFEST = {
       },
       argHint: "Run an allowlisted sandbox command (requires approval)",
       systemPrompt: [
-        "Sandbox exec (sandbox.exec):",
+        "Sandbox exec (sandbox_exec):",
         "Only use when the user explicitly needs a controlled command run.",
         "Pass argv as a string array; never invent shell metacharacters or unlisted binaries.",
         "Requires approval; prefer workspace tools for normal file work.",
@@ -879,10 +879,10 @@ export const WORKSPACE_GENERIC_MANIFEST = {
       },
       argHint: "Run a bash command in the workspace (requires approval)",
       systemPrompt: [
-        "Workspace exec (workspace.exec):",
-        "Use when the user needs a shell command whose cwd must be the agent workspace (unlike sandbox.exec).",
+        "Workspace exec (workspace_exec):",
+        "Use when the user needs a shell command whose cwd must be the agent workspace (unlike sandbox_exec).",
         "Pass a single command string; it runs via bash -lc under the workspace root.",
-        "Requires approval. Prefer workspace.list/read/write/search for ordinary file tasks.",
+        "Requires approval. Prefer workspace_list/read/write/search for ordinary file tasks.",
         "Do not use for host-wide administration; stay within the workspace tree.",
       ].join("\n"),
       effectContract: {
@@ -892,7 +892,7 @@ export const WORKSPACE_GENERIC_MANIFEST = {
       },
     },
     {
-      toolId: "artifact.write_markdown",
+      toolId: "artifact_write_markdown",
       version: "0.1.0",
       description: "Write a markdown artifact.",
       parameters: {
@@ -909,7 +909,7 @@ export const WORKSPACE_GENERIC_MANIFEST = {
       },
     },
     {
-      toolId: "artifact.validate",
+      toolId: "artifact_validate",
       version: "0.1.0",
       description: "Validate an artifact by artifactId or ref.",
       parameters: {
@@ -925,7 +925,7 @@ export const WORKSPACE_GENERIC_MANIFEST = {
       },
     },
     {
-      toolId: "synthetic.write_high",
+      toolId: "synthetic_write_high",
       version: "0.1.0",
       requireApproval: true,
       description: "High side-effect synthetic write (requires approval in MVP).",
@@ -985,10 +985,10 @@ export const WORKSPACE_GENERIC_TOOL_ALLOWLIST = [
 /** Appended at wiring time when RAG client is configured (EDR-016). */
 export const KNOWLEDGE_SEARCH_ALLOWLIST_ENTRY = KNOWLEDGE_SEARCH_TOOL_ID;
 
-/** Appended at wiring time when sandbox.exec opt-in is enabled (0025). */
+/** Appended at wiring time when sandbox_exec opt-in is enabled (0025). */
 export const SANDBOX_EXEC_ALLOWLIST_ENTRY = SANDBOX_EXEC_TOOL_ID;
 
-/** Appended at wiring time when workspace.exec opt-in is enabled (EDR-014). */
+/** Appended at wiring time when workspace_exec opt-in is enabled (EDR-014). */
 export const WORKSPACE_EXEC_ALLOWLIST_ENTRY = WORKSPACE_EXEC_TOOL_ID;
 
 export const WORKSPACE_GENERIC_REQUIRE_APPROVAL = packRequireApprovalTools(

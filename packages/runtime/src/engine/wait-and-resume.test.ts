@@ -46,7 +46,7 @@ describe("resumeApprovedToolCall empty prepare", () => {
       type: "tool.call",
       calls: [
         {
-          toolId: "workspace.write",
+          toolId: "workspace_write",
           arguments: args,
           idempotencyKey: sharedIk,
         },
@@ -88,7 +88,7 @@ describe("resumeApprovedToolCall empty prepare", () => {
       type: "tool.call",
       calls: [
         {
-          toolId: "workspace.write",
+          toolId: "workspace_write",
           arguments: args,
           idempotencyKey: sharedIk,
         },
@@ -125,7 +125,7 @@ describe("resumeApprovedToolCall empty prepare", () => {
       },
       revision: 1,
       actionSnapshot: action,
-      toolRef: { toolId: "workspace.write", version: "0.1.0" },
+      toolRef: { toolId: "workspace_write", version: "0.1.0" },
     };
 
     const continuation: Continuation = {
@@ -166,8 +166,8 @@ describe("resumeApprovedToolCall empty prepare", () => {
       lease: new InMemoryLease(),
       hooks: new HookRunner(),
       registry,
-      toolAllowlist: ["workspace.write"] as const,
-      requireApprovalTools: ["workspace.write"] as const,
+      toolAllowlist: ["workspace_write"] as const,
+      requireApprovalTools: ["workspace_write"] as const,
     };
 
     const result = await resumeApprovedToolCall(deps, {

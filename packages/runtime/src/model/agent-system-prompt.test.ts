@@ -42,38 +42,38 @@ describe("buildAgentSystemPrompt", () => {
 
   it("does not hardcode Pack tool ids", () => {
     const prompt = buildAgentSystemPrompt();
-    expect(prompt).not.toContain("workspace.read");
-    expect(prompt).not.toContain("knowledge.search");
+    expect(prompt).not.toContain("workspace_read");
+    expect(prompt).not.toContain("knowledge_search");
   });
 });
 
 describe("collectPackGuidelines / assembleSystemMessage", () => {
   it("includes Pack systemPrompt when tool is allowlisted", () => {
     const guidelines = collectPackGuidelines(
-      ["workspace.read", "knowledge.search"],
+      ["workspace_read", "knowledge_search"],
       [
         def({
-          toolId: "knowledge.search",
+          toolId: "knowledge_search",
           systemPrompt: [
-            "Knowledge base (knowledge.search):",
+            "Knowledge base (knowledge_search):",
             "If grounding.empty is true, say no relevant knowledge was found; do not guess.",
             "Cite sourceId or title in your answer, e.g. [intro.md].",
           ].join("\n"),
         }),
       ],
     );
-    expect(guidelines).toContain("knowledge.search");
+    expect(guidelines).toContain("knowledge_search");
     expect(guidelines).toContain("grounding.empty");
     expect(guidelines).toContain("sourceId");
   });
 
   it("omits Pack systemPrompt when tool is not allowlisted", () => {
     const guidelines = collectPackGuidelines(
-      ["workspace.read"],
+      ["workspace_read"],
       [
         def({
-          toolId: "knowledge.search",
-          systemPrompt: "Knowledge base (knowledge.search):\nshould not appear",
+          toolId: "knowledge_search",
+          systemPrompt: "Knowledge base (knowledge_search):\nshould not appear",
         }),
       ],
     );
@@ -92,16 +92,16 @@ describe("collectPackGuidelines / assembleSystemMessage", () => {
         },
         {
           kind: "tools",
-          text: "Available Tools:\n- knowledge.search | Search enterprise knowledge bases",
+          text: "Available Tools:\n- knowledge_search | Search enterprise knowledge bases",
           hash: "h2",
           tokenCount: 1,
         },
       ],
-      toolAllowlist: ["knowledge.search"],
+      toolAllowlist: ["knowledge_search"],
       toolDefs: [
         def({
-          toolId: "knowledge.search",
-          systemPrompt: "Knowledge base (knowledge.search):\nUse for external docs.",
+          toolId: "knowledge_search",
+          systemPrompt: "Knowledge base (knowledge_search):\nUse for external docs.",
         }),
       ],
     });
@@ -122,21 +122,21 @@ describe("collectPackGuidelines / assembleSystemMessage", () => {
     expect(guideIdx).toBeGreaterThan(toolsIdx);
   });
 
-  it("includes workspace.write guidelines from Pack defs", () => {
+  it("includes workspace_write guidelines from Pack defs", () => {
     const guidelines = collectPackGuidelines(
-      ["workspace.read", "workspace.write"],
+      ["workspace_read", "workspace_write"],
       [
         def({
-          toolId: "workspace.write",
+          toolId: "workspace_write",
           effectContract: { ...baseEffect, sideEffectProfile: "write_low" },
           systemPrompt: [
-            "Workspace write (workspace.write):",
-            "Prefer workspace.write when persisting text the user asked to save.",
+            "Workspace write (workspace_write):",
+            "Prefer workspace_write when persisting text the user asked to save.",
           ].join("\n"),
         }),
       ],
     );
-    expect(guidelines).toContain("workspace.write");
+    expect(guidelines).toContain("workspace_write");
     expect(guidelines).toContain("persisting text");
   });
 });

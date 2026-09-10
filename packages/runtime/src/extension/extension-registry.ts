@@ -14,13 +14,14 @@ import {
   isEdr014DisabledTool,
   requiredPermissionsForTool,
 } from "./edr014.js";
+import { isValidWireToolId } from "./tool-id.js";
 
 export type RegisterPackInput = {
   tenantId: string;
   contribution: PackContributionDefinition;
   /**
    * Opt-in: allow specific EDR-014 tool ids (and matching permissions) to register.
-   * Default empty → sandbox.exec etc. stay disabled (contribution status `disabled`).
+   * Default empty → sandbox_exec etc. stay disabled (contribution status `disabled`).
    */
   allowEdr014Tools?: readonly string[];
 };
@@ -82,6 +83,18 @@ export class ExtensionRegistry {
     let rejected = false;
 
     for (const permission of manifest.permissionsRequested) {
+      if (!isValidWireToolId(permission)) {
+        rejected = true;
+        contributions.push({
+          kind: "tool",
+          id: permission,
+          version: manifest.version,
+          status: "rejected",
+          reasonCodes: ["invalid_permission_id"],
+          effectivePermissions: [],
+        });
+        continue;
+      }
       if (isEdr014DisabledPermission(permission) && !allowEdr014.has(permission)) {
         // Soft-disable: do not fail the whole pack (default path stays active).
         contributions.push({
@@ -97,6 +110,18 @@ export class ExtensionRegistry {
     }
 
     for (const tool of manifest.tools) {
+      if (!isValidWireToolId(tool.toolId)) {
+        rejected = true;
+        contributions.push({
+          kind: "tool",
+          id: tool.toolId,
+          version: tool.version,
+          status: "rejected",
+          reasonCodes: ["invalid_tool_id"],
+          effectivePermissions: [],
+        });
+        continue;
+      }
       if (isEdr014DisabledTool(tool.toolId) && !allowEdr014.has(tool.toolId)) {
         contributions.push({
           kind: "tool",
@@ -221,10 +246,10 @@ export class ExtensionRegistry {
       this.toolDefinitions.set(tool.toolId, tool);
       const handler = input.contribution.tools![tool.toolId]!;
       this.toolHandlers.set(tool.toolId, handler);
-      if (tool.toolId === "synthetic.write_high") {
-        const reconcile = input.contribution.tools?.["synthetic.write_high.reconcile"];
+      if (tool.toolId === "synthetic_write_high") {
+        const reconcile = input.contribution.tools?.["synthetic_write_high_reconcile"];
         if (reconcile) {
-          this.reconcileHandlers.set("synthetic.write_high", reconcile);
+          this.reconcileHandlers.set("synthetic_write_high", reconcile);
         }
       }
     }

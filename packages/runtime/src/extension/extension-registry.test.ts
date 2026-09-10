@@ -25,10 +25,10 @@ function validContribution(overrides?: Partial<PackContributionDefinition>): Pac
       packId: "com.monai.pack.test",
       version: "0.1.0",
       coreContractRange: ">=0.1.0 <1.0.0",
-      permissionsRequested: ["workspace.read", "workspace.write", "artifact.write", "synthetic.write_high"],
+      permissionsRequested: ["workspace_read", "workspace_write", "artifact_write", "synthetic_write_high"],
       tools: [
         {
-          toolId: "workspace.read",
+          toolId: "workspace_read",
           version: "0.1.0",
           effectContract: baseContract,
         },
@@ -36,7 +36,7 @@ function validContribution(overrides?: Partial<PackContributionDefinition>): Pac
       hooks: [],
     },
     tools: {
-      "workspace.read": stubHandler(),
+      "workspace_read": stubHandler(),
     },
     hooks: [],
     ...overrides,
@@ -51,88 +51,88 @@ describe("ExtensionRegistry", () => {
         ...validContribution().manifest,
         tools: [
           {
-            toolId: "sandbox.exec",
+            toolId: "sandbox_exec",
             version: "0.1.0",
             effectContract: { ...baseContract, sideEffectProfile: "write_high" },
           },
         ],
       },
-      tools: { "sandbox.exec": stubHandler() },
+      tools: { "sandbox_exec": stubHandler() },
     });
     const result = registry.register({ tenantId: "t1", contribution });
     expect(result.status).toBe("rejected");
     expect(result.contributions.some((c) => c.reasonCodes.includes("edr014_disabled_tool"))).toBe(true);
   });
 
-  it("allows sandbox.exec when allowEdr014Tools includes it", () => {
+  it("allows sandbox_exec when allowEdr014Tools includes it", () => {
     const registry = new ExtensionRegistry();
     const contribution = validContribution({
       manifest: {
         ...validContribution().manifest,
         permissionsRequested: [
           ...validContribution().manifest.permissionsRequested,
-          "sandbox.exec",
+          "sandbox_exec",
         ],
         tools: [
           {
-            toolId: "sandbox.exec",
+            toolId: "sandbox_exec",
             version: "0.1.0",
             effectContract: { ...baseContract, sideEffectProfile: "write_high" },
           },
         ],
       },
-      tools: { "sandbox.exec": stubHandler() },
+      tools: { "sandbox_exec": stubHandler() },
     });
     const result = registry.register({
       tenantId: "t1",
       contribution,
-      allowEdr014Tools: ["sandbox.exec"],
+      allowEdr014Tools: ["sandbox_exec"],
     });
     expect(result.status).toBe("active");
-    expect(registry.getToolAllowlist()).toContain("sandbox.exec");
+    expect(registry.getToolAllowlist()).toContain("sandbox_exec");
   });
 
-  it("allows workspace.exec when allowEdr014Tools includes it", () => {
+  it("allows workspace_exec when allowEdr014Tools includes it", () => {
     const registry = new ExtensionRegistry();
     const contribution = validContribution({
       manifest: {
         ...validContribution().manifest,
         permissionsRequested: [
           ...validContribution().manifest.permissionsRequested,
-          "workspace.exec",
+          "workspace_exec",
         ],
         tools: [
           {
-            toolId: "workspace.exec",
+            toolId: "workspace_exec",
             version: "0.1.0",
             effectContract: { ...baseContract, sideEffectProfile: "write_high" },
           },
         ],
       },
-      tools: { "workspace.exec": stubHandler() },
+      tools: { "workspace_exec": stubHandler() },
     });
     const result = registry.register({
       tenantId: "t1",
       contribution,
-      allowEdr014Tools: ["workspace.exec"],
+      allowEdr014Tools: ["workspace_exec"],
     });
     expect(result.status).toBe("active");
-    expect(registry.getToolAllowlist()).toContain("workspace.exec");
+    expect(registry.getToolAllowlist()).toContain("workspace_exec");
   });
 
-  it("keeps pack active when sandbox.exec is soft-disabled beside other tools", () => {
+  it("keeps pack active when sandbox_exec is soft-disabled beside other tools", () => {
     const registry = new ExtensionRegistry();
     const contribution = validContribution({
       manifest: {
         ...validContribution().manifest,
         permissionsRequested: [
           ...validContribution().manifest.permissionsRequested,
-          "sandbox.exec",
+          "sandbox_exec",
         ],
         tools: [
           ...validContribution().manifest.tools,
           {
-            toolId: "sandbox.exec",
+            toolId: "sandbox_exec",
             version: "0.1.0",
             effectContract: { ...baseContract, sideEffectProfile: "write_high" },
           },
@@ -140,13 +140,13 @@ describe("ExtensionRegistry", () => {
       },
       tools: {
         ...validContribution().tools,
-        "sandbox.exec": stubHandler(),
+        "sandbox_exec": stubHandler(),
       },
     });
     const result = registry.register({ tenantId: "t1", contribution });
     expect(result.status).toBe("active");
-    expect(registry.getToolAllowlist()).not.toContain("sandbox.exec");
-    expect(registry.getToolAllowlist()).toContain("workspace.read");
+    expect(registry.getToolAllowlist()).not.toContain("sandbox_exec");
+    expect(registry.getToolAllowlist()).toContain("workspace_read");
   });
 
   it("rejects missing handler", () => {
@@ -157,11 +157,31 @@ describe("ExtensionRegistry", () => {
     expect(result.contributions.some((c) => c.reasonCodes.includes("handler_missing"))).toBe(true);
   });
 
+  it("rejects dotted toolId that fails wire name pattern", () => {
+    const registry = new ExtensionRegistry();
+    const contribution = validContribution({
+      manifest: {
+        ...validContribution().manifest,
+        tools: [
+          {
+            toolId: "workspace.read",
+            version: "0.1.0",
+            effectContract: baseContract,
+          },
+        ],
+      },
+      tools: { "workspace.read": stubHandler() },
+    });
+    const result = registry.register({ tenantId: "t1", contribution });
+    expect(result.status).toBe("rejected");
+    expect(result.contributions.some((c) => c.reasonCodes.includes("invalid_tool_id"))).toBe(true);
+  });
+
   it("registers valid pack and exposes allowlist", () => {
     const registry = new ExtensionRegistry();
     const result = registry.register({ tenantId: "t1", contribution: validContribution() });
     expect(result.status).toBe("active");
-    expect(registry.getToolAllowlist()).toContain("workspace.read");
-    expect(registry.lookupToolContract("workspace.read")).toBeDefined();
+    expect(registry.getToolAllowlist()).toContain("workspace_read");
+    expect(registry.lookupToolContract("workspace_read")).toBeDefined();
   });
 });

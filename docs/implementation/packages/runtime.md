@@ -120,7 +120,7 @@ Event Log → projectDialogue → DialogueTurn[]
 - ConfirmationGrant / confirm_once 未实现（`deferred`）
 - design 08 完整故障注入矩阵仍为 L1 子集
 - Agent Definition 尚未作为持久对象；`acceptanceChecks` 经 `EngineDeps` 注入
-- KnowledgePort / Context `knowledge` section：`deferred`（M3 已提供 `knowledge.search` Tool）
+- KnowledgePort / Context `knowledge` section：`deferred`（M3 已提供 `knowledge_search` Tool）
 - 工作区可能仍有未提交的 `project-dialogue` 微调（见 HANDOFF / 0026）
 
 ## 6. 最近变更

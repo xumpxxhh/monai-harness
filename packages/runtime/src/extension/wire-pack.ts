@@ -18,9 +18,9 @@ export function buildToolInvokerFromRegistry(
   }
 
   const reconcileHandlers: Record<string, ToolHandler> = {};
-  const reconcile = registry.getReconcileHandler("synthetic.write_high");
+  const reconcile = registry.getReconcileHandler("synthetic_write_high");
   if (reconcile) {
-    reconcileHandlers["synthetic.write_high"] = reconcile;
+    reconcileHandlers["synthetic_write_high"] = reconcile;
   }
 
   return new ToolInvoker({

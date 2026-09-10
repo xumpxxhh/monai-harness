@@ -76,7 +76,7 @@ apps/ + packages/        （代码与配置）
 3. Persistence 与 Outbox 共享同一 Unit of Work；Model / Hook / Tool IO 在事务外。
 4. 内联 Queue / Scheduler 仍满足至少一次投递、`{runId, revision}` 去重、补偿扫描与 `leaseEpoch` fencing。
 5. 包依赖方向可被 lint / 架构测试 enforce；Core 不 import Pack 或具体 infra 客户端。
-6. MVP 禁用项（DAG、Child Run、Memory、`sandbox.exec`、真实 `write_high`）在装配层**默认**关闭；`sandbox.exec` 仅显式 flag + 可执行 adapter 时可 opt-in（Eval 仍关）。
+6. MVP 禁用项（DAG、Child Run、Memory、`sandbox_exec`、真实 `write_high`）在装配层**默认**关闭；`sandbox_exec` 仅显式 flag + 可执行 adapter 时可 opt-in（Eval 仍关）。
 7. 测试分层覆盖纯函数、Engine 组件、真实单库事务与 08 验收矩阵对应关系。
 8. 从单体到 API + Worker 的接缝已写明，且不依赖重写领域契约。
 9. Proposed / Deferred 的产品选型未伪装为 Accepted。

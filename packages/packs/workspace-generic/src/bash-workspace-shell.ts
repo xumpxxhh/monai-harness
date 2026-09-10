@@ -69,7 +69,7 @@ function buildEnv(): NodeJS.ProcessEnv {
 
 /**
  * Run bash (or configured shell) with cwd fixed under the workspace root.
- * Opt-in only — used by workspace.exec.
+ * Opt-in only — used by workspace_exec.
  */
 export class BashWorkspaceShell implements WorkspaceShellPort {
   private readonly workspaceRoot: string;
@@ -95,22 +95,22 @@ export class BashWorkspaceShell implements WorkspaceShellPort {
   async exec(request: WorkspaceShellExecRequest): Promise<WorkspaceShellExecResult> {
     const command = request.command?.trim() ?? "";
     if (!command) {
-      throw new Error("workspace.exec command must be a non-empty string");
+      throw new Error("workspace_exec command must be a non-empty string");
     }
     if (command.includes("\0")) {
-      throw new Error("workspace.exec command rejects NUL");
+      throw new Error("workspace_exec command rejects NUL");
     }
 
     const cwd = resolve(this.workspaceRoot, request.cwd ?? ".");
     if (!isUnderRoot(this.workspaceRoot, cwd)) {
-      throw new Error("workspace.exec cwd escapes workspace root");
+      throw new Error("workspace_exec cwd escapes workspace root");
     }
 
     const timeoutMs = request.timeoutMs ?? this.defaultTimeoutMs;
     const maxStdout = request.maxStdoutBytes ?? this.defaultMaxStdoutBytes;
     const maxStderr = request.maxStderrBytes ?? this.defaultMaxStderrBytes;
     if (!(timeoutMs > 0) || !(maxStdout > 0) || !(maxStderr > 0)) {
-      throw new Error("workspace.exec limits must be positive");
+      throw new Error("workspace_exec limits must be positive");
     }
 
     const argv = [...this.shellArgs, command];

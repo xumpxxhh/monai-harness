@@ -12,7 +12,7 @@ describe("buildModelContextMessages", () => {
         {
           id: "call-0",
           type: "function" as const,
-          function: { name: "artifact.write_markdown", arguments: "{}" },
+          function: { name: "artifact_write_markdown", arguments: "{}" },
         },
       ],
     },

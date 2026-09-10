@@ -1,6 +1,8 @@
 import type { PackToolDefinition } from "@monai/contracts";
 import type { ModelFunctionDef } from "@monai/ports";
 
+import { isValidWireToolId } from "../extension/tool-id.js";
+
 export const CONTROL_FUNCTION_NAMES = ["ask_user", "finish", "noop", "spawn_child"] as const;
 
 export type ControlFunctionName = (typeof CONTROL_FUNCTION_NAMES)[number];
@@ -26,7 +28,7 @@ const CORE_DOMAIN_TOOL_DEFS: Record<string, Pick<ModelFunctionDef, "description"
       additionalProperties: true,
     },
   },
-  "risky.write": {
+  "risky_write": {
     description: "Write that requires approval in MVP.",
     parameters: {
       type: "object",
@@ -97,7 +99,7 @@ export type ModelFunctionCatalog = {
 
 /**
  * Runtime-owned vendor-neutral catalog. Adapters translate these defs to provider tools.
- * Pack tool description/parameters come from toolDefs; Core only hardcodes echo / risky.write.
+ * Pack tool description/parameters come from toolDefs; Core only hardcodes echo / risky_write.
  */
 export function buildModelFunctionCatalog(
   input: BuildModelFunctionCatalogInput,
@@ -120,6 +122,11 @@ export function buildModelFunctionCatalog(
   const domainTools: ModelFunctionDef[] = [];
   for (const toolId of input.toolAllowlist) {
     if (reserved.has(toolId)) continue;
+    if (!isValidWireToolId(toolId)) {
+      throw new Error(
+        `Invalid toolId for model function catalog (must match ^[a-zA-Z][a-zA-Z0-9_]{0,63}$): ${toolId}`,
+      );
+    }
     const packDef = defsById.get(toolId);
     const core = CORE_DOMAIN_TOOL_DEFS[toolId];
     domainTools.push({

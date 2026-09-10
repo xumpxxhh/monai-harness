@@ -501,7 +501,7 @@ class ConflictingIdempotencyModel implements ModelPort {
       schemaVersion: CONTRACTS_SCHEMA_VERSION,
       actionId: `act-conflict-${this.callCount}`,
       type: "tool.call",
-      toolId: "artifact.write_markdown",
+      toolId: "artifact_write_markdown",
       arguments: { markdown: `# v${this.callCount}` },
       idempotencyKey: "stable-conflict-key",
     };
@@ -572,7 +572,7 @@ const IDEMPOTENCY_CASES: EvalCaseDefinition[] = [
         schemaVersion: CONTRACTS_SCHEMA_VERSION,
         actionId: "act-stable",
         type: "tool.call",
-        toolId: "artifact.write_markdown",
+        toolId: "artifact_write_markdown",
         arguments: { markdown: "# stable" },
         idempotencyKey: `art-stable-${repetition}`,
       };

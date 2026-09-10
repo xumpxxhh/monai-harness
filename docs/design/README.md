@@ -33,7 +33,7 @@
 - 首个场景：中性通用工作区任务
 - 扩展方式：业务不进入 Core，经版本化 Capability Pack 与 Adapter 接入
 - 技术中立：不绑定语言、框架、Monorepo、数据库、中间件或部署产品
-- MVP 边界：只启用 light Strategy 与通用工作区垂直切片；DAG、Memory、Child Run、多 Agent、语义路由、`sandbox.exec` 和真实 `write_high` 均不启用
+- MVP 边界：只启用 light Strategy 与通用工作区垂直切片；DAG、Memory、Child Run、多 Agent、语义路由、`sandbox_exec` 和真实 `write_high` 均不启用
 
 ## 跨文档稳定约束
 

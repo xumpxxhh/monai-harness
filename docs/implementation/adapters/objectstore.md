@@ -15,7 +15,7 @@
 
 - put / get / signedRef（MVP：`file://`）
 - 内容 sha256 校验；路径防逃逸；租户目录隔离
-- Artifact 正文：`artifact.write_markdown` / `artifact.validate` → `ports.objectStore`
+- Artifact 正文：`artifact_write_markdown` / `artifact_validate` → `ports.objectStore`
 
 ## 2. 非目标
 
@@ -26,7 +26,7 @@
 
 - [x] hash 校验失败拒绝
 - [x] 租户隔离
-- [x] 与 artifact.write_markdown / validate 联调（Eval 114 仍绿）
+- [x] 与 artifact_write_markdown / validate 联调（Eval 114 仍绿）
 
 ## 4. 依赖
 

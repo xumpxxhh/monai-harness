@@ -1,4 +1,4 @@
-# Session 0021 — `workspace.write` Tool
+# Session 0021 — `workspace_write` Tool
 
 | 项 | 值 |
 | --- | --- |
@@ -8,7 +8,7 @@
 
 ## 目标
 
-把已存在的 `WorkspacePort.write` / catalog 占位接成可用 Pack Tool **`workspace.write`**（`write_low`，默认 allowlist）。
+把已存在的 `WorkspacePort.write` / catalog 占位接成可用 Pack Tool **`workspace_write`**（`write_low`，默认 allowlist）。
 
 ## 改动路径
 

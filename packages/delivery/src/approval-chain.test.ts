@@ -16,7 +16,7 @@ function cmd(
 }
 
 describe("P5 waiting states", () => {
-  it("synthetic.write_high: require_approval → approve → queued → resume consume+prepared → dispatch", async () => {
+  it("synthetic_write_high: require_approval → approve → queued → resume consume+prepared → dispatch", async () => {
     const { persistence, lease, engine, tools, pack, ownerId } = createPackTestFixtures();
 
     const running = await bootToRunning(engine, cmd, "r-apr", "do synthetic write", ownerId);

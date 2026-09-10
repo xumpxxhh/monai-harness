@@ -20,7 +20,7 @@
 | P9 | 阶段 A 收口（Pack / Eval / 治理·指标） | `done` | packs/workspace-generic、runtime/extension、observability/eval、governance |
 | M1 | 真实模型簇（可选） | `done` | contracts、runtime、model/secret adapters、observability、harness |
 | M2 | Agent Loop 增强 | `done` | contracts、runtime、delivery、model adapters、harness demo |
-| M3 | RAG `knowledge.search` Tool | `done` | knowledge-http、workspace-generic、harness |
+| M3 | RAG `knowledge_search` Tool | `done` | knowledge-http、workspace-generic、harness |
 | 可替换 infra | Queue / Lease / ObjectStore / Sandbox | `done` | queue/lease-postgres、objectstore-fs、sandbox-stub；sandbox-subprocess opt-in（0025） |
 
 阶段依赖：`P0 → … → P9` 主链已完成。P9 收口 [design/08 阶段 A](../design/08-mvp-and-evolution.md#阶段-a--mvp-契约闭环) 的 Pack/Eval/治理面，**不**自动宣称 design 08 阶段 A 已关闭（运营规模 / KnowledgePort / Memory 等设计禁用项仍在；**Token/cost 已由 M1g 收口**，勿再当缺口）。治理/观测不得提前获得 Run 写权。**M1** 见 [sessions/0018](sessions/0018-real-model-cluster-plan.md)（已归档）；**M2** 见 [0019](sessions/0019-post-m1-agent-loop.md)；**M3** RAG Tool done，**KnowledgePort** 仍 `deferred`。
@@ -76,7 +76,7 @@
 - [x] prepared-before-dispatch + 同键幂等
 - [x] outcome_unknown + reconcile
 - [x] workspace.* 与 artifact.* MVP 工具
-- [x] synthetic.write_high + reconcile（隔离 sink）
+- [x] synthetic_write_high + reconcile（隔离 sink）
 - [x] L1/L2：超时未知、禁止新幂等键盲重试 — L1 已覆盖；L2 延后
 
 ## P5 — 等待态
@@ -185,7 +185,7 @@ P9d   运维（可选）     →  角色开关、L1-on-PG、engineering README E
 **P9a 退出条件**：
 
 - [x] ExtensionRegistry：权限超限 / 缺 ToolEffectContract / EDR-014 能力 → 拒绝
-- [x] `@monai/pack-workspace-generic`：MVP Tool 集 + 5 Hook 可注册；`artifact.validate` 可 dispatch
+- [x] `@monai/pack-workspace-generic`：MVP Tool 集 + 5 Hook 可注册；`artifact_validate` 可 dispatch
 - [x] workspace-memory 路径防逃逸（`.` / `..` / 越权根）
 - [x] ToolInvoker handlers 注入；runtime **生产路径**不再依赖 `synthetic-sink`（测试夹具仍可在 devDependencies）
 - [x] Golden 6×5 仍 ≥90%（30/30）
@@ -262,7 +262,7 @@ M1h  harness 装配；Eval / Golden 仍 StubModelPort
 - [x] Token/cost 可从 Event+usage+价表重算；Context overflow 可统计
 - [x] harness 可切换真实 ModelPort + SecretPort；Eval 114 仍 stub 绿
 
-**非目标**：KnowledgePort 实装；Memory 进 Context；用真实模型跑 Eval；ConfirmationGrant；DAG/spawn_child；**默认**开放 `sandbox.exec`（opt-in 见 0025）；宣称阶段 A 仅因接供应商而关闭。
+**非目标**：KnowledgePort 实装；Memory 进 Context；用真实模型跑 Eval；ConfirmationGrant；DAG/spawn_child；**默认**开放 `sandbox_exec`（opt-in 见 0025）；宣称阶段 A 仅因接供应商而关闭。
 
 ## M2 — Agent Loop 增强
 
@@ -290,7 +290,7 @@ M2e  harness：demo-session / SessionDemoObserver / FsWorkspace；pnpm demo:sess
 
 **非目标**：KnowledgePort 实装；Memory 进 Context；ConfirmationGrant；`atomic` / `dependencies` 依赖图执行。
 
-## M3 — RAG `knowledge.search` Tool
+## M3 — RAG `knowledge_search` Tool
 
 **目标**：按 [docs/rag/agent-integration.md](../rag/agent-integration.md) 接入自研 RAG HTTP 为 Pack Tool；模型按需检索；**不**关闭 KnowledgePort 缺口（EDR-016）。
 
@@ -299,7 +299,7 @@ M2e  harness：demo-session / SessionDemoObserver / FsWorkspace；pnpm demo:sess
 **退出条件**：
 
 - [x] `@monai/knowledge-http` 客户端 + 单测
-- [x] Pack Tool `knowledge.search`；未配置 client 时 fail closed
+- [x] Pack Tool `knowledge_search`；未配置 client 时 fail closed
 - [x] harness 配置 `KNOWLEDGE_BASE_URL` 时注入 client 并扩展 allowlist
 - [x] function catalog / system prompt / fact 投影支持 knowledge hits
 - [x] Eval 114 仍 stub 绿（Eval 不挂载 RAG）
@@ -330,7 +330,7 @@ M2e  harness：demo-session / SessionDemoObserver / FsWorkspace；pnpm demo:sess
 - [x] env 可切换 Queue / Lease 驱动；默认 memory
 - [x] `queue-postgres`：L1 双投递语义单测（dedupe + SKIP LOCKED + nack/ack）绿
 - [x] `lease-postgres`：stale owner 无法 heartbeat/validate；bind 换 owner 无双持有
-- [x] `sandbox-stub`：默认 exec 恒拒绝；默认 allowlist 无 `sandbox.exec`
+- [x] `sandbox-stub`：默认 exec 恒拒绝；默认 allowlist 无 `sandbox_exec`
 - [x] `objectstore-fs`：租户隔离 + hash 校验失败拒绝；**artifact Tool 已接入**
 - [x] Eval 114 路径未改；delivery 不因换后端改语义（仅 adapter + 装配）
 - [x] （0025）`sandbox-subprocess` opt-in；Eval / 默认 MVP 仍关

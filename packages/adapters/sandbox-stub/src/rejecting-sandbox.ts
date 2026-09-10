@@ -1,7 +1,7 @@
 import type { SandboxExecRequest, SandboxPort } from "@monai/ports";
 
 export const SANDBOX_EXEC_DISABLED_MESSAGE =
-  "sandbox.exec is disabled in MVP (EDR-014); SandboxPort stub rejects all exec";
+  "sandbox_exec is disabled in MVP (EDR-014); SandboxPort stub rejects all exec";
 
 /**
  * Non-executable SandboxPort (EDR-014 default).

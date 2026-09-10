@@ -9,11 +9,11 @@ import { describe, expect, it } from "vitest";
 
 import { wireWorkspaceGenericPack } from "./pack-wiring.js";
 
-describe("wireWorkspaceGenericPack workspace.exec (EDR-014)", () => {
-  it("never allowlists workspace.exec by default", () => {
+describe("wireWorkspaceGenericPack workspace_exec (EDR-014)", () => {
+  it("never allowlists workspace_exec by default", () => {
     const pack = wireWorkspaceGenericPack({ tenantId: "t1" });
-    expect(pack.toolAllowlist).not.toContain("workspace.exec");
-    expect(pack.registry.getToolAllowlist()).not.toContain("workspace.exec");
+    expect(pack.toolAllowlist).not.toContain("workspace_exec");
+    expect(pack.registry.getToolAllowlist()).not.toContain("workspace_exec");
   });
 
   it("fail-closes when enableWorkspaceExec without WorkspaceShellPort", () => {
@@ -25,7 +25,7 @@ describe("wireWorkspaceGenericPack workspace.exec (EDR-014)", () => {
     ).toThrow(/WorkspaceShellPort/);
   });
 
-  it("opt-in registers workspace.exec and can run bash in workspace root", async () => {
+  it("opt-in registers workspace_exec and can run bash in workspace root", async () => {
     const root = mkdtempSync(join(tmpdir(), "monai-wire-wsexec-"));
     writeFileSync(join(root, "hello.txt"), "hello-workspace-exec\n", "utf8");
     const shell = new BashWorkspaceShell({ workspaceRoot: root, shellBinary: "bash" });
@@ -34,8 +34,8 @@ describe("wireWorkspaceGenericPack workspace.exec (EDR-014)", () => {
       enableWorkspaceExec: true,
       workspaceShell: shell,
     });
-    expect(pack.toolAllowlist).toContain("workspace.exec");
-    expect(pack.registry.getToolAllowlist()).toContain("workspace.exec");
+    expect(pack.toolAllowlist).toContain("workspace_exec");
+    expect(pack.registry.getToolAllowlist()).toContain("workspace_exec");
 
     const result = await shell.exec({
       command: "cat hello.txt",
@@ -45,9 +45,9 @@ describe("wireWorkspaceGenericPack workspace.exec (EDR-014)", () => {
     expect(result.stdout).toContain("hello-workspace-exec");
     expect(result.cwd).toBe(root);
 
-    const handler = workspaceGenericToolHandlers["workspace.exec"]!;
+    const handler = workspaceGenericToolHandlers["workspace_exec"]!;
     const handled = await handler({
-      toolId: "workspace.exec",
+      toolId: "workspace_exec",
       toolCallId: "tc-ws-exec",
       arguments: { command: "cat hello.txt" },
       executionContext: {
@@ -55,7 +55,7 @@ describe("wireWorkspaceGenericPack workspace.exec (EDR-014)", () => {
         sessionId: "s1",
         runId: "r1",
         executionManifestRef: "manifest://test",
-        effectivePermissions: ["workspace.exec"],
+        effectivePermissions: ["workspace_exec"],
         ports: { workspaceShell: shell },
       },
     });

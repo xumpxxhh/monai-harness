@@ -19,7 +19,7 @@
 | Registry 存完整 PackToolDefinition | `packages/runtime/src/extension/extension-registry.ts` |
 | 冻结 Manifest 拷贝完整字段 | `packages/runtime/src/manifest/build-manifest.ts` |
 | catalog / prompt / context / hydrate | `function-catalog.ts`、`agent-system-prompt.ts`、`build-context.ts`、`execute-turn.ts` |
-| TOOL_CATALOG 收缩 | `packages/runtime/src/execution/tool-catalog.ts`（仅 echo / risky.write） |
+| TOOL_CATALOG 收缩 | `packages/runtime/src/execution/tool-catalog.ts`（仅 echo / risky_write） |
 | SSOT 回归 | `packages/runtime/src/extension/pack-tool-ssot.test.ts` |
 | 作者清单 | `docs/engineering/04-ports-extensions-and-security.md` §9.1 |
 

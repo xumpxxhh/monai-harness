@@ -21,8 +21,8 @@ describe("projectActionForUser", () => {
 
   it("projects tool.call without displayText", () => {
     expect(
-      projectActionForUser(action({ actionId: "a1", type: "tool.call", toolId: "workspace.read" })),
-    ).toBe("准备调用 workspace.read");
+      projectActionForUser(action({ actionId: "a1", type: "tool.call", toolId: "workspace_read" })),
+    ).toBe("准备调用 workspace_read");
   });
 
   it("projects ask_user from arguments.prompt", () => {

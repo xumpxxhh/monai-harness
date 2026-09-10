@@ -1,4 +1,4 @@
-# Session 0025 — 真 SandboxPort / `sandbox.exec` opt-in
+# Session 0025 — 真 SandboxPort / `sandbox_exec` opt-in
 
 | 项 | 值 |
 | --- | --- |
@@ -8,7 +8,7 @@
 
 ## 目标
 
-在 **EDR-014 默认关闭** 的前提下，落地可 opt-in 的可执行 `SandboxPort` 与 Pack Tool `sandbox.exec`。  
+在 **EDR-014 默认关闭** 的前提下，落地可 opt-in 的可执行 `SandboxPort` 与 Pack Tool `sandbox_exec`。  
 `FEATURE_ENABLE_SANDBOX_EXEC=true` 时挂载 `@monai/sandbox-subprocess`；默认仍为 `RejectingSandbox`。  
 **EDR-010**（`isolated_extension` 载体）仍 Deferred。
 
@@ -25,7 +25,7 @@ Node `child_process.spawn`：argv 数组、`shell: false`、sandboxRoot cwd、�
 | ports | `packages/ports` — `SandboxExecRequest` / `SandboxExecResult` |
 | adapter | `packages/adapters/sandbox-subprocess/` |
 | Registry | `packages/runtime` — `allowEdr014Tools`；EDR-014 未放行工具记为 `disabled` |
-| Pack Tool | `packages/packs/workspace-generic` — `sandbox.exec`（`defaultEnabled: false`，`requireApproval`） |
+| Pack Tool | `packages/packs/workspace-generic` — `sandbox_exec`（`defaultEnabled: false`，`requireApproval`） |
 | 装配 | `packages/delivery` pack-wiring；`apps/harness` bootstrap / env |
 
 ## 验证

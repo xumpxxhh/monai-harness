@@ -20,6 +20,7 @@ describe("projectModelMessages", () => {
       stepId: "step-1",
       role: "assistant",
       content: "Hi",
+      reasoning: "Greet then echo.",
       toolCalls: [{ id: "tc-1", name: "echo", arguments: { text: "hello" } }],
       sourceEventIds: ["e1"],
       sequenceRange: { from: 1, to: 1 },
@@ -63,10 +64,10 @@ describe("projectModelMessages", () => {
           tokenCount: 1,
         },
       ],
-      toolAllowlist: ["demo.pack_only"],
+      toolAllowlist: ["demo_pack_only"],
       toolDefs: [
         {
-          toolId: "demo.pack_only",
+          toolId: "demo_pack_only",
           version: "0.1.0",
           systemPrompt: "Demo pack_only rules:\nPrefer this tool for demo queries.",
           effectContract: {
@@ -102,6 +103,7 @@ describe("projectModelMessages", () => {
     ]);
     expect(result.messages.some((m) => m.content?.includes("history summary"))).toBe(true);
     expect(result.messages.filter((m) => m.role === "assistant")).toHaveLength(1);
+    expect(result.messages.find((m) => m.role === "assistant")?.reasoning).toBe("Greet then echo.");
     expect(result.messages.filter((m) => m.role === "tool")).toHaveLength(1);
     expect(result.messagesHash).toMatch(/^[a-f0-9]{64}$/);
   });

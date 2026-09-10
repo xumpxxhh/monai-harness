@@ -52,7 +52,7 @@
 | 日期 | 说明 |
 | --- | --- |
 | 2026-09-08 | 抽检：pack-wiring 含 sandbox/knowledge 装配；日期刷新 |
-| 2026-09-07 | pack-wiring：`sandbox.exec` / ObjectStore 装配（0024/0025） |
+| 2026-09-07 | pack-wiring：`sandbox_exec` / ObjectStore 装配（0024/0025） |
 | 2026-09-01 | M2c：并行 prepared 扇出；`tool-chain` 扩展多 ToolCall 场景 |
 | 2026-08-27 | P5：approval-chain L1（synthetic 默认 require_approval + ask_user） |
 | 2026-08-27 | P4：ToolDispatcher + tool-chain L1；Outbox 跳过非 queue_run |

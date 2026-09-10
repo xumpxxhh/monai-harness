@@ -47,7 +47,7 @@
 
 - ApprovalPort 仍为 stub（决定经 Engine `approval_decision` 命令）
 - MemoryPort 接口预留；MVP 默认 `DisabledMemoryPort` 不检索（`deferred`）
-- KnowledgePort 接口/检索路径：`deferred`（产品路径先用 `knowledge.search` Tool）
+- KnowledgePort 接口/检索路径：`deferred`（产品路径先用 `knowledge_search` Tool）
 
 ## 6. 最近变更
 

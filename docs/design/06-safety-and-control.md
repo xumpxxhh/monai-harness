@@ -373,7 +373,7 @@ SecretLeaseScope {
 
 ### 9.1 Shell 边界
 
-任意宿主 Shell、宿主进程启动、宿主文件系统遍历和宿主环境变量读取一律禁止。受控命令执行只能作为显式注册的 `sandbox.exec` Tool 发生，并同时满足：
+任意宿主 Shell、宿主进程启动、宿主文件系统遍历和宿主环境变量读取一律禁止。受控命令执行只能作为显式注册的 `sandbox_exec` Tool 发生，并同时满足：
 
 - 位于 Agent `toolAllowlist` 和有效权限交集内；
 - 经过参数 Schema、Policy 和必要 Approval；
@@ -562,7 +562,7 @@ Policy 变为 deny、审批失效、PreToolCall veto、Manifest 不一致或 lea
 - [ ] Prompt injection 控制依赖 provenance、Context 隔离、权限、Policy、Approval 和 sink 复核，而非只依赖系统提示
 - [ ] 外传与网络 sink 校验最终目的地、用途、sensitivity、脱敏证据和授权
 - [ ] SecretPort 只注入按 tenant/principal/tool/resource/purpose/TTL 绑定的短时凭证
-- [ ] 任意宿主 Shell 禁止；`sandbox.exec` 仅在受控 Tool、Policy/Approval、资源限制和默认拒绝网络下运行
+- [ ] 任意宿主 Shell 禁止；`sandbox_exec` 仅在受控 Tool、Policy/Approval、资源限制和默认拒绝网络下运行
 - [ ] 路径规范化、防逃逸和 CPU/内存/进程/磁盘/输出/时间限制完整
 - [ ] sensitivity 派生取最高级，降级只能由版本化脱敏 Validator 证明
 - [ ] 敏感载荷外置并具备 envelope encryption、ACL、signedRef、retention、legal hold、删除和 tombstone

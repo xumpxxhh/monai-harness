@@ -11,7 +11,7 @@ const TEST_SYSTEM_PROMPT = "You are an agent. Call at most one function per turn
 
 const SAMPLE_DEFS = [
   {
-    name: "workspace.read",
+    name: "workspace_read",
     description: "Read a file",
     parameters: { type: "object", properties: { path: { type: "string" } } },
     kind: "domain" as const,
@@ -52,7 +52,7 @@ describe("toOpenAiTools", () => {
       {
         type: "function",
         function: {
-          name: "workspace.read",
+          name: "workspace_read",
           description: "Read a file",
           parameters: { type: "object", properties: { path: { type: "string" } } },
         },
@@ -96,7 +96,7 @@ describe("OpenAiModelPort", () => {
                     index: 0,
                     id: "call_1",
                     type: "function",
-                    function: { name: "workspace.read", arguments: "" },
+                    function: { name: "workspace_read", arguments: "" },
                   },
                 ],
               },
@@ -151,7 +151,7 @@ describe("OpenAiModelPort", () => {
     let doneResult: unknown;
 
     for await (const chunk of port.completeStructuredStream({
-      context: { goal: "read hello.txt", toolAllowlist: ["workspace.read"] },
+      context: { goal: "read hello.txt", toolAllowlist: ["workspace_read"] },
       domainTools: [SAMPLE_DEFS[0]!],
       controlFunctions: [SAMPLE_DEFS[1]!],
       systemPrompt: TEST_SYSTEM_PROMPT,
@@ -184,7 +184,7 @@ describe("OpenAiModelPort", () => {
       target: "gpt-4o",
       usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
       content: "正在读取",
-      calls: [{ name: "workspace.read", arguments: { path: "hello.txt" } }],
+      calls: [{ name: "workspace_read", arguments: { path: "hello.txt" } }],
     });
   });
 
@@ -252,6 +252,53 @@ describe("OpenAiModelPort", () => {
     const messages = capturedBody.messages as Array<{ role: string }>;
     expect(messages).toHaveLength(4);
     expect(messages.map((m) => m.role)).toEqual(["system", "user", "assistant", "tool"]);
+    expect(capturedBody.max_tokens).toBeUndefined();
+  });
+
+  it("round-trips assistant reasoning as reasoning_content on the wire", async () => {
+    let capturedBody: Record<string, unknown> = {};
+    const mockFetch: typeof fetch = async (_url, init) => {
+      capturedBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "ok" }, finish_reason: "stop" }],
+          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    };
+
+    const port = new OpenAiModelPort({ secretPort, customFetch: mockFetch });
+    await port.completeStructured({
+      context: {},
+      systemPrompt: TEST_SYSTEM_PROMPT,
+      messages: [
+        { role: "system", content: "sys" },
+        { role: "user", content: "go" },
+        {
+          role: "assistant",
+          content: "calling tool",
+          reasoning: "Must list files before writing.",
+          toolCalls: [
+            {
+              id: "tc-1",
+              type: "function",
+              function: { name: "workspace_list", arguments: "{\"path\":\"/\"}" },
+            },
+          ],
+        },
+        { role: "tool", content: "{}", toolCallId: "tc-1", name: "workspace_list" },
+      ],
+    });
+
+    const messages = capturedBody.messages as Array<{
+      role: string;
+      reasoning_content?: string;
+      tool_calls?: unknown[];
+    }>;
+    const assistant = messages.find((m) => m.role === "assistant");
+    expect(assistant?.reasoning_content).toBe("Must list files before writing.");
+    expect(assistant?.tool_calls).toHaveLength(1);
   });
 
   it("handles HTTP error properly", async () => {

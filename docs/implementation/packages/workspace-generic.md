@@ -15,11 +15,11 @@
 Pack Tool（模型面元数据只在 Manifest，SSOT 见 [0022](../sessions/0022-pack-tool-ssot.md)）：
 
 ```text
-workspace.list | workspace.read | workspace.search | workspace.write | workspace.delete
-artifact.write_markdown | artifact.validate
-synthetic.write_high | synthetic.write_high.reconcile
-knowledge.search          （defaultEnabled: false；需 KNOWLEDGE_BASE_URL）
-sandbox.exec              （defaultEnabled: false；需 FEATURE_ENABLE_SANDBOX_EXEC）
+workspace_list | workspace_read | workspace_search | workspace_write | workspace_delete
+artifact_write_markdown | artifact_validate
+synthetic_write_high | synthetic_write_high_reconcile
+knowledge_search          （defaultEnabled: false；需 KNOWLEDGE_BASE_URL）
+sandbox_exec              （defaultEnabled: false；需 FEATURE_ENABLE_SANDBOX_EXEC）
 ```
 
 - required acceptanceChecks Validator；最小 Policy；Hook 最小可观测
@@ -38,8 +38,8 @@ sandbox.exec              （defaultEnabled: false；需 FEATURE_ENABLE_SANDBOX_
 - [x] ToolEffectContract 完整（含 synthetic reconcile）
 - [x] 路径防逃逸与输出大小限制（对接 workspace / objectstore adapter）
 - [x] 不依赖 runtime 内部模块（仅 pack-sdk + contracts + 运行期 ports）
-- [x] `workspace.write` / `workspace.delete` handler + 默认 allowlist
-- [x] `knowledge.search` / `sandbox.exec` 元数据存在且默认不进 allowlist
+- [x] `workspace_write` / `workspace_delete` handler + 默认 allowlist
+- [x] `knowledge_search` / `sandbox_exec` 元数据存在且默认不进 allowlist
 
 ## 4. 依赖
 
@@ -56,8 +56,8 @@ sandbox.exec              （defaultEnabled: false；需 FEATURE_ENABLE_SANDBOX_
 
 | 日期 | 说明 |
 | --- | --- |
-| 2026-09-08 | 进展页纠错：勾选验收；Tool 列表补 delete / knowledge.search / sandbox.exec |
-| 2026-09-07 | `sandbox.exec` Pack Tool（defaultEnabled false；0025） |
-| 2026-09-02 | `workspace.delete`；`knowledge.search`（0020/0021 族） |
-| 2026-09-02 | `workspace.write` handler + Manifest + 默认 allowlist |
+| 2026-09-08 | 进展页纠错：勾选验收；Tool 列表补 delete / knowledge_search / sandbox_exec |
+| 2026-09-07 | `sandbox_exec` Pack Tool（defaultEnabled false；0025） |
+| 2026-09-02 | `workspace_delete`；`knowledge_search`（0020/0021 族） |
+| 2026-09-02 | `workspace_write` handler + Manifest + 默认 allowlist |
 | 2026-08-27 | 创建进展页 |

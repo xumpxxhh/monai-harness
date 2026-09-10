@@ -60,9 +60,9 @@ pnpm harness:session:smoke
 
 | 轮 | 用户输入（示例） | 期望 |
 | --- | --- | --- |
-| 1 | `列出工作区根目录` | `workspace.list`（或等价）→ 可读答复 → finish |
-| 2 | `把「hello e2e」写入 /notes/e2e-smoke.md` | `workspace.write` → finish；磁盘可见 |
-| 3 | （可选）`根据知识库简述 X` | 仅当配置了 RAG：`knowledge.search` → 引用 hits，不编造 |
+| 1 | `列出工作区根目录` | `workspace_list`（或等价）→ 可读答复 → finish |
+| 2 | `把「hello e2e」写入 /notes/e2e-smoke.md` | `workspace_write` → finish；磁盘可见 |
+| 3 | （可选）`根据知识库简述 X` | 仅当配置了 RAG：`knowledge_search` → 引用 hits，不编造 |
 | 4 | （可选）`删除 /notes/e2e-smoke.md` | `awaiting_approval` → 批准 → delete |
 | 5 | `/exit` | Session 结束 |
 
@@ -101,7 +101,7 @@ pnpm harness:session:smoke   # 或人工 pnpm harness:session 跑轮 1–2
 ## 已知故障（已修）
 
 - **`tool_call idempotency requestHash mismatch`（Postgres）**  
-  原因：`workspace.write` 等工具 `idempotencyScope=run`，但 dedupe 曾按裸 `idempotencyKey` 做租户级去重；模型跨 Session Run 复用短 key 且参数不同即冲突。  
+  原因：`workspace_write` 等工具 `idempotencyScope=run`，但 dedupe 曾按裸 `idempotencyKey` 做租户级去重；模型跨 Session Run 复用短 key 且参数不同即冲突。  
   修复：`prepare-tool-calls` 对 `run` scope 使用 `run:{runId}:{key}` 作为持久化 dedupeKey。
 
 ## 未完成 / 后续可选

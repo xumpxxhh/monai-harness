@@ -43,7 +43,7 @@ export type PolicyEvaluation = {
   allowedCallIndices?: number[];
 };
 
-const READONLY_TOOLS = new Set(["echo", "workspace.read"]);
+const READONLY_TOOLS = new Set(["echo", "workspace_read"]);
 
 export function isReadonlyTool(toolId: string): boolean {
   return READONLY_TOOLS.has(toolId);
@@ -212,6 +212,6 @@ export function evaluatePolicy(input: PolicyRuleInput): PolicyEvaluation {
 }
 
 /** Fallback when no Pack / Manifest is wired (Core stubs only). */
-export const DEFAULT_TOOL_ALLOWLIST = ["echo", "risky.write"] as const;
+export const DEFAULT_TOOL_ALLOWLIST = ["echo", "risky_write"] as const;
 
-export const DEFAULT_REQUIRE_APPROVAL_TOOLS = ["risky.write"] as const;
+export const DEFAULT_REQUIRE_APPROVAL_TOOLS = ["risky_write"] as const;

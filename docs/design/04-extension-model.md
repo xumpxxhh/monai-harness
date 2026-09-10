@@ -464,7 +464,7 @@ flowchart LR
 `com.example.doc-research` 可声明：
 
 - Skill：`com.example.doc-research/research.synthesize`；
-- Tool：`workspace.search`、`workspace.read`、`artifact.write_markdown`、可选的 allowlist Web 读取 Tool；
+- Tool：`workspace_search`、`workspace_read`、`artifact_write_markdown`、可选的 allowlist Web 读取 Tool；
 - Workflow：`collect → outline → draft → cite-check`，其中 Skill 节点是模型推理 Step；
 - Knowledge Source：写作规范与引用手册；
 - Validator：引用存在性与 Artifact 完整性检查；

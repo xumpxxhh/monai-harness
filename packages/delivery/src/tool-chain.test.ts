@@ -53,7 +53,7 @@ describe("P4 tool chain", () => {
     expect(types).toContain("step.completed");
   });
 
-  it("workspace.read via prepared/dispatch", async () => {
+  it("workspace_read via prepared/dispatch", async () => {
     const workspace = new InMemoryWorkspace({ "/readme.md": "hello workspace" });
     const { persistence, engine, tools, ownerId } = createPackTestFixtures({
       workspace,
@@ -80,7 +80,7 @@ describe("P4 tool chain", () => {
     expect(state?.facts[0]?.summary).toContain("read");
   });
 
-  it("workspace.read missing file → tool.failed then observation.recorded", async () => {
+  it("workspace_read missing file → tool.failed then observation.recorded", async () => {
     const workspace = new InMemoryWorkspace();
     const { persistence, engine, tools, ownerId } = createPackTestFixtures({
       workspace,
@@ -119,7 +119,7 @@ describe("P4 tool chain", () => {
       ?.observation;
     expect(observation?.data).toMatchObject({
       ok: false,
-      toolId: "workspace.read",
+      toolId: "workspace_read",
     });
     expect(String((observation?.data as { error?: string } | undefined)?.error ?? "")).toMatch(
       /not found/i,
@@ -133,7 +133,7 @@ describe("P4 tool chain", () => {
     expect(state?.facts ?? []).toHaveLength(0);
   });
 
-  it("workspace.write via prepared/dispatch", async () => {
+  it("workspace_write via prepared/dispatch", async () => {
     const workspace = new InMemoryWorkspace({ "/readme.md": "hello workspace" });
     const { persistence, engine, tools, ownerId } = createPackTestFixtures({
       workspace,
@@ -221,7 +221,7 @@ describe("P4 tool chain", () => {
     expect(pack.synthetic.effectCount("synthetic://demo/resource")).toBe(1);
   });
 
-  it("batch workspace.read: two paths, both succeed then one step.completed", async () => {
+  it("batch workspace_read: two paths, both succeed then one step.completed", async () => {
     const workspace = new InMemoryWorkspace({
       "/readme.md": "# readme",
       "/notes/search-me.md": "# notes",
@@ -229,8 +229,8 @@ describe("P4 tool chain", () => {
     const batchModel: ModelPort = {
       completeStructured: async () => ({
         calls: [
-          { name: "workspace.read", arguments: { path: "/readme.md" } },
-          { name: "workspace.read", arguments: { path: "/notes/search-me.md" } },
+          { name: "workspace_read", arguments: { path: "/readme.md" } },
+          { name: "workspace_read", arguments: { path: "/notes/search-me.md" } },
         ],
       }),
     };
@@ -317,7 +317,7 @@ describe("P4 tool chain", () => {
       schemaVersion: CONTRACTS_SCHEMA_VERSION,
       actionId: "act-fixed",
       type: "tool.call" as const,
-      toolId: "artifact.write_markdown",
+      toolId: "artifact_write_markdown",
       arguments: { markdown: "# hi" },
       idempotencyKey: "art-stable-key",
     };
@@ -360,13 +360,13 @@ describe("P4 tool chain", () => {
   });
 });
 
-describe("workspace.write handler", () => {
+describe("workspace_write handler", () => {
   function writeInput(
     args: Record<string, unknown>,
     workspace?: InMemoryWorkspace,
   ) {
     return {
-      toolId: "workspace.write",
+      toolId: "workspace_write",
       arguments: args,
       executionContext: {
         tenantId: "t1",
@@ -382,7 +382,7 @@ describe("workspace.write handler", () => {
 
   it("writes a file and returns path + chars", async () => {
     const workspace = new InMemoryWorkspace();
-    const result = await workspaceGenericToolHandlers["workspace.write"]!(
+    const result = await workspaceGenericToolHandlers["workspace_write"]!(
       writeInput({ path: "/notes/out.md", content: "hello" }, workspace),
     );
     expect(result.ok).toBe(true);
@@ -393,13 +393,13 @@ describe("workspace.write handler", () => {
 
   it("rejects missing path or content", async () => {
     const workspace = new InMemoryWorkspace();
-    const missingPath = await workspaceGenericToolHandlers["workspace.write"]!(
+    const missingPath = await workspaceGenericToolHandlers["workspace_write"]!(
       writeInput({ content: "x" }, workspace),
     );
     expect(missingPath.ok).toBe(false);
     expect(missingPath.error).toMatch(/path is required/);
 
-    const missingContent = await workspaceGenericToolHandlers["workspace.write"]!(
+    const missingContent = await workspaceGenericToolHandlers["workspace_write"]!(
       writeInput({ path: "/a.md" }, workspace),
     );
     expect(missingContent.ok).toBe(false);
@@ -409,12 +409,12 @@ describe("workspace.write handler", () => {
   it("rejects path escape and root path", async () => {
     const workspace = new InMemoryWorkspace();
     await expect(
-      workspaceGenericToolHandlers["workspace.write"]!(
+      workspaceGenericToolHandlers["workspace_write"]!(
         writeInput({ path: "/../secret", content: "x" }, workspace),
       ),
     ).rejects.toThrow(/path escape/);
 
-    const root = await workspaceGenericToolHandlers["workspace.write"]!(
+    const root = await workspaceGenericToolHandlers["workspace_write"]!(
       writeInput({ path: "/", content: "x" }, workspace),
     );
     expect(root.ok).toBe(false);
@@ -422,13 +422,13 @@ describe("workspace.write handler", () => {
   });
 });
 
-describe("workspace.edit handler", () => {
+describe("workspace_edit handler", () => {
   function editInput(
     args: Record<string, unknown>,
     workspace?: InMemoryWorkspace,
   ) {
     return {
-      toolId: "workspace.edit",
+      toolId: "workspace_edit",
       arguments: args,
       executionContext: {
         tenantId: "t1",
@@ -443,13 +443,13 @@ describe("workspace.edit handler", () => {
   }
 
   it("replaces a unique span and is on the default allowlist", async () => {
-    expect(WORKSPACE_GENERIC_TOOL_ALLOWLIST).toContain("workspace.edit");
-    expect(WORKSPACE_GENERIC_REQUIRE_APPROVAL).not.toContain("workspace.edit");
+    expect(WORKSPACE_GENERIC_TOOL_ALLOWLIST).toContain("workspace_edit");
+    expect(WORKSPACE_GENERIC_REQUIRE_APPROVAL).not.toContain("workspace_edit");
 
     const workspace = new InMemoryWorkspace({
       "/notes/out.md": "hello world\nhello again\n",
     });
-    const result = await workspaceGenericToolHandlers["workspace.edit"]!(
+    const result = await workspaceGenericToolHandlers["workspace_edit"]!(
       editInput(
         {
           path: "/notes/out.md",
@@ -474,7 +474,7 @@ describe("workspace.edit handler", () => {
       "/a.md": "aa aa aa",
     });
 
-    const ambiguous = await workspaceGenericToolHandlers["workspace.edit"]!(
+    const ambiguous = await workspaceGenericToolHandlers["workspace_edit"]!(
       editInput(
         { path: "/a.md", old_string: "aa", new_string: "bb" },
         workspace,
@@ -483,7 +483,7 @@ describe("workspace.edit handler", () => {
     expect(ambiguous.ok).toBe(false);
     expect(ambiguous.error).toMatch(/matched 3 times/i);
 
-    const all = await workspaceGenericToolHandlers["workspace.edit"]!(
+    const all = await workspaceGenericToolHandlers["workspace_edit"]!(
       editInput(
         { path: "/a.md", old_string: "aa", new_string: "bb", replace_all: true },
         workspace,
@@ -494,7 +494,7 @@ describe("workspace.edit handler", () => {
     const written = (await workspace.read("/a.md")) as { content: string };
     expect(written.content).toBe("bb bb bb");
 
-    const missing = await workspaceGenericToolHandlers["workspace.edit"]!(
+    const missing = await workspaceGenericToolHandlers["workspace_edit"]!(
       editInput(
         { path: "/a.md", old_string: "zz", new_string: "yy" },
         workspace,
@@ -506,19 +506,19 @@ describe("workspace.edit handler", () => {
 
   it("rejects missing args, identical strings, and root path", async () => {
     const workspace = new InMemoryWorkspace({ "/a.md": "x" });
-    const missingOld = await workspaceGenericToolHandlers["workspace.edit"]!(
+    const missingOld = await workspaceGenericToolHandlers["workspace_edit"]!(
       editInput({ path: "/a.md", new_string: "y" }, workspace),
     );
     expect(missingOld.ok).toBe(false);
     expect(missingOld.error).toMatch(/old_string is required/);
 
-    const identical = await workspaceGenericToolHandlers["workspace.edit"]!(
+    const identical = await workspaceGenericToolHandlers["workspace_edit"]!(
       editInput({ path: "/a.md", old_string: "x", new_string: "x" }, workspace),
     );
     expect(identical.ok).toBe(false);
     expect(identical.error).toMatch(/identical/);
 
-    const root = await workspaceGenericToolHandlers["workspace.edit"]!(
+    const root = await workspaceGenericToolHandlers["workspace_edit"]!(
       editInput({ path: "/", old_string: "a", new_string: "b" }, workspace),
     );
     expect(root.ok).toBe(false);
@@ -526,13 +526,13 @@ describe("workspace.edit handler", () => {
   });
 });
 
-describe("workspace.delete handler", () => {
+describe("workspace_delete handler", () => {
   function deleteInput(
     args: Record<string, unknown>,
     workspace?: InMemoryWorkspace,
   ) {
     return {
-      toolId: "workspace.delete",
+      toolId: "workspace_delete",
       arguments: args,
       executionContext: {
         tenantId: "t1",
@@ -547,10 +547,10 @@ describe("workspace.delete handler", () => {
   }
 
   it("deletes a file and is on the require-approval list", async () => {
-    expect(WORKSPACE_GENERIC_REQUIRE_APPROVAL).toContain("workspace.delete");
+    expect(WORKSPACE_GENERIC_REQUIRE_APPROVAL).toContain("workspace_delete");
 
     const workspace = new InMemoryWorkspace({ "/notes/out.md": "bye" });
-    const result = await workspaceGenericToolHandlers["workspace.delete"]!(
+    const result = await workspaceGenericToolHandlers["workspace_delete"]!(
       deleteInput({ path: "/notes/out.md" }, workspace),
     );
     expect(result.ok).toBe(true);
@@ -568,7 +568,7 @@ describe("workspace.delete handler", () => {
       "/tmp/nested/b.md": "b",
       "/keep.md": "k",
     });
-    const result = await workspaceGenericToolHandlers["workspace.delete"]!(
+    const result = await workspaceGenericToolHandlers["workspace_delete"]!(
       deleteInput({ path: "/tmp" }, workspace),
     );
     expect(result.ok).toBe(true);
@@ -584,19 +584,19 @@ describe("workspace.delete handler", () => {
 
   it("rejects missing path, root, and missing file", async () => {
     const workspace = new InMemoryWorkspace({ "/a.md": "x" });
-    const missingPath = await workspaceGenericToolHandlers["workspace.delete"]!(
+    const missingPath = await workspaceGenericToolHandlers["workspace_delete"]!(
       deleteInput({}, workspace),
     );
     expect(missingPath.ok).toBe(false);
     expect(missingPath.error).toMatch(/path is required/);
 
-    const root = await workspaceGenericToolHandlers["workspace.delete"]!(
+    const root = await workspaceGenericToolHandlers["workspace_delete"]!(
       deleteInput({ path: "/" }, workspace),
     );
     expect(root.ok).toBe(false);
     expect(root.error).toMatch(/must not target \//);
 
-    const missing = await workspaceGenericToolHandlers["workspace.delete"]!(
+    const missing = await workspaceGenericToolHandlers["workspace_delete"]!(
       deleteInput({ path: "/missing.md" }, workspace),
     );
     expect(missing.ok).toBe(false);

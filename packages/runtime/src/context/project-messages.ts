@@ -47,6 +47,7 @@ function dialogueTurnToMessage(turn: DialogueTurn): ModelMessage {
     return {
       role: "assistant",
       content: turn.content,
+      ...(turn.reasoning?.trim() ? { reasoning: turn.reasoning.trim() } : {}),
       ...(toolCalls?.length ? { toolCalls } : {}),
     };
   }
@@ -147,8 +148,13 @@ function controlArguments(action: Action): unknown {
 }
 
 /** Map a hydrated Action to the assistant ModelMessage for context archives. */
-export function assistantMessageFromAction(action: Action, displayText?: string): ModelMessage {
+export function assistantMessageFromAction(
+  action: Action,
+  displayText?: string,
+  reasoning?: string,
+): ModelMessage {
   const content = displayText?.trim() || action.displayText?.trim();
+  const reasoningText = reasoning?.trim();
 
   if (action.type === "tool.call") {
     const toolCalls = getToolCallInvocations(action).map((inv, index) => ({
@@ -162,6 +168,7 @@ export function assistantMessageFromAction(action: Action, displayText?: string)
     return {
       role: "assistant",
       content,
+      ...(reasoningText ? { reasoning: reasoningText } : {}),
       ...(toolCalls.length > 0 ? { toolCalls } : {}),
     };
   }
@@ -171,6 +178,7 @@ export function assistantMessageFromAction(action: Action, displayText?: string)
     return {
       role: "assistant",
       content,
+      ...(reasoningText ? { reasoning: reasoningText } : {}),
       toolCalls: [
         {
           id: `ctrl-${action.actionId}`,
@@ -184,5 +192,9 @@ export function assistantMessageFromAction(action: Action, displayText?: string)
     };
   }
 
-  return { role: "assistant", content };
+  return {
+    role: "assistant",
+    content,
+    ...(reasoningText ? { reasoning: reasoningText } : {}),
+  };
 }

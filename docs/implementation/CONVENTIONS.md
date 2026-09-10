@@ -98,4 +98,4 @@
 2. 关闭后更新 `docs/engineering/00-implementation-baseline.md` 的 EDR 状态
 3. 在 STATUS「决策关闭」表记一笔
 
-已关闭：EDR-005/006/007/008/009。EDR-014 Accepted（默认禁用；`sandbox.exec` 可 opt-in，见 0025）。EDR-016 Accepted（RAG Tool）。仍 Deferred：EDR-010（isolated_extension）。
+已关闭：EDR-005/006/007/008/009。EDR-014 Accepted（默认禁用；`sandbox_exec` 可 opt-in，见 0025）。EDR-016 Accepted（RAG Tool）。仍 Deferred：EDR-010（isolated_extension）。

@@ -27,17 +27,17 @@ function validContribution(overrides?: Partial<PackContributionDefinition>): Pac
       packId: "com.monai.pack.test",
       version: "0.1.0",
       coreContractRange: ">=0.1.0 <1.0.0",
-      permissionsRequested: ["workspace.read"],
+      permissionsRequested: ["workspace_read"],
       tools: [
         {
-          toolId: "workspace.read",
+          toolId: "workspace_read",
           version: "0.1.0",
           effectContract: baseContract,
         },
       ],
       hooks: [],
     },
-    tools: { "workspace.read": stubHandler() },
+    tools: { "workspace_read": stubHandler() },
     hooks: [],
     ...overrides,
   };
@@ -98,17 +98,17 @@ describe("PackRegistrationService", () => {
           ...validContribution().manifest,
           tools: [
             {
-              toolId: "sandbox.exec",
+              toolId: "sandbox_exec",
               version: "0.1.0",
               effectContract: { ...baseContract, sideEffectProfile: "write_high" },
             },
           ],
         },
-        tools: { "sandbox.exec": stubHandler() },
+        tools: { "sandbox_exec": stubHandler() },
       }),
     });
     expect(result.status).toBe("rejected");
-    expect(registry.getToolAllowlist()).not.toContain("sandbox.exec");
+    expect(registry.getToolAllowlist()).not.toContain("sandbox_exec");
     await expect.poll(async () => (await store.list("t1", "pack-registry")).length).toBe(1);
     const events = await store.list("t1", "pack-registry");
     expect(events.some((e) => e.eventType === "pack.registration_rejected")).toBe(true);

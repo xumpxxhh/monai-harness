@@ -17,7 +17,7 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toContain("finish");
     expect(prompt).toContain("one or more function calls");
     expect(prompt).not.toContain("spawn_child");
-    expect(prompt).not.toContain("workspace.read");
+    expect(prompt).not.toContain("workspace_read");
     expect(prompt).not.toContain("schemaVersion");
     expect(prompt).not.toContain("userMessage");
   });
@@ -26,24 +26,24 @@ describe("buildAgentSystemPrompt", () => {
 describe("buildModelFunctionCatalog", () => {
   it("splits reserved control functions from allowlisted domain tools", () => {
     const catalog = buildModelFunctionCatalog({
-      toolAllowlist: ["workspace.read", "echo", "ask_user"],
+      toolAllowlist: ["workspace_read", "echo", "ask_user"],
     });
     expect(catalog.controlFunctions.map((d) => d.name)).toEqual([
       "ask_user",
       "finish",
       "noop",
     ]);
-    expect(catalog.domainTools.map((d) => d.name)).toEqual(["workspace.read", "echo"]);
+    expect(catalog.domainTools.map((d) => d.name)).toEqual(["workspace_read", "echo"]);
     expect(catalog.controlFunctions.every((d) => d.kind === "control")).toBe(true);
     expect(catalog.domainTools.every((d) => d.kind === "domain")).toBe(true);
   });
 
-  it("requires path and content for workspace.write from Pack toolDefs", () => {
+  it("requires path and content for workspace_write from Pack toolDefs", () => {
     const catalog = buildModelFunctionCatalog({
-      toolAllowlist: ["workspace.write"],
+      toolAllowlist: ["workspace_write"],
       toolDefs: [
         {
-          toolId: "workspace.write",
+          toolId: "workspace_write",
           version: "0.1.0",
           description: "Write a workspace file",
           parameters: {
@@ -64,16 +64,16 @@ describe("buildModelFunctionCatalog", () => {
       ],
     });
     const def = catalog.domainTools[0];
-    expect(def?.name).toBe("workspace.write");
+    expect(def?.name).toBe("workspace_write");
     expect(def?.parameters).toMatchObject({ required: ["path", "content"] });
   });
 
   it("builds catalog for Pack-only tool without Core DOMAIN_TOOL_DEFS", () => {
     const catalog = buildModelFunctionCatalog({
-      toolAllowlist: ["demo.pack_only"],
+      toolAllowlist: ["demo_pack_only"],
       toolDefs: [
         {
-          toolId: "demo.pack_only",
+          toolId: "demo_pack_only",
           version: "0.1.0",
           description: "Pack-owned demo tool",
           parameters: {
@@ -96,7 +96,7 @@ describe("buildModelFunctionCatalog", () => {
     });
     expect(catalog.domainTools).toEqual([
       {
-        name: "demo.pack_only",
+        name: "demo_pack_only",
         kind: "domain",
         description: "Pack-owned demo tool",
         parameters: {
@@ -191,7 +191,7 @@ describe("mapModelDecisionToAction", () => {
     const mapped = mapModelDecisionToAction(
       {
         content: "正在读取",
-        calls: [{ name: "workspace.read", arguments: { path: "/readme.md" } }],
+        calls: [{ name: "workspace_read", arguments: { path: "/readme.md" } }],
       },
       empty,
     );
@@ -199,7 +199,7 @@ describe("mapModelDecisionToAction", () => {
     if (!mapped.ok) return;
     expect(mapped.action).toMatchObject({
       type: "tool.call",
-      calls: [{ toolId: "workspace.read", arguments: { path: "/readme.md" } }],
+      calls: [{ toolId: "workspace_read", arguments: { path: "/readme.md" } }],
       displayText: "正在读取",
     });
   });
@@ -208,8 +208,8 @@ describe("mapModelDecisionToAction", () => {
     const mapped = mapModelDecisionToAction(
       {
         calls: [
-          { name: "workspace.read", arguments: { path: "/a" } },
-          { name: "workspace.read", arguments: { path: "/b" } },
+          { name: "workspace_read", arguments: { path: "/a" } },
+          { name: "workspace_read", arguments: { path: "/b" } },
         ],
       },
       empty,
@@ -219,8 +219,8 @@ describe("mapModelDecisionToAction", () => {
     expect(mapped.action).toMatchObject({
       type: "tool.call",
       calls: [
-        { toolId: "workspace.read", arguments: { path: "/a" } },
-        { toolId: "workspace.read", arguments: { path: "/b" } },
+        { toolId: "workspace_read", arguments: { path: "/a" } },
+        { toolId: "workspace_read", arguments: { path: "/b" } },
       ],
     });
   });
@@ -229,7 +229,7 @@ describe("mapModelDecisionToAction", () => {
     const mapped = mapModelDecisionToAction(
       {
         calls: [
-          { name: "workspace.read", arguments: { path: "/a" } },
+          { name: "workspace_read", arguments: { path: "/a" } },
           { name: "finish", arguments: { summary: "done" } },
         ],
       },
@@ -242,14 +242,14 @@ describe("mapModelDecisionToAction", () => {
 
   it("maps unknown names as tool.call so Policy can deny", () => {
     const mapped = mapModelDecisionToAction(
-      { calls: [{ name: "forbidden.tool", arguments: {} }] },
+      { calls: [{ name: "forbidden_tool", arguments: {} }] },
       empty,
     );
     expect(mapped.ok).toBe(true);
     if (!mapped.ok) return;
     expect(mapped.action).toMatchObject({
       type: "tool.call",
-      calls: [{ toolId: "forbidden.tool", arguments: {} }],
+      calls: [{ toolId: "forbidden_tool", arguments: {} }],
     });
   });
 
@@ -273,7 +273,7 @@ describe("resolveModelActionCandidate", () => {
     const resolved = resolveModelActionCandidate(
       {
         content: "读文件",
-        calls: [{ name: "workspace.read", arguments: { path: "/x" } }],
+        calls: [{ name: "workspace_read", arguments: { path: "/x" } }],
         usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 },
       },
       { hasUnresolvedTools: false },
@@ -282,7 +282,7 @@ describe("resolveModelActionCandidate", () => {
     if (!resolved.ok) return;
     expect(resolved.candidate).toMatchObject({
       type: "tool.call",
-      calls: [{ toolId: "workspace.read", arguments: { path: "/x" } }],
+      calls: [{ toolId: "workspace_read", arguments: { path: "/x" } }],
       displayText: "读文件",
     });
     expect((resolved.candidate as { actionId: string }).actionId.startsWith("act-")).toBe(true);
@@ -331,15 +331,15 @@ describe("hydrateModelAction", () => {
   it("normalizes legacy toolId into calls[]", () => {
     const hydrated = hydrateModelAction({
       type: "tool.call",
-      toolId: "workspace.list",
+      toolId: "workspace_list",
       arguments: { path: "/" },
     }) as { calls?: Array<{ toolId: string }> };
-    expect(hydrated.calls?.[0]?.toolId).toBe("workspace.list");
+    expect(hydrated.calls?.[0]?.toolId).toBe("workspace_list");
   });
 
   it("derives idempotencyKey for write tools when missing", () => {
     const writeLowLookup = (toolId: string) =>
-      toolId === "artifact.write_markdown"
+      toolId === "artifact_write_markdown"
         ? {
             schemaVersion: CONTRACTS_SCHEMA_VERSION,
             sideEffectProfile: "write_low" as const,
@@ -352,17 +352,17 @@ describe("hydrateModelAction", () => {
     const hydrated = hydrateModelAction(
       {
         type: "tool.call",
-        toolId: "artifact.write_markdown",
+        toolId: "artifact_write_markdown",
         arguments: { markdown: "# hi" },
       },
       writeLowLookup,
     ) as { calls?: Array<{ idempotencyKey?: string }> };
-    expect(hydrated.calls?.[0]?.idempotencyKey).toContain("artifact.write_markdown");
+    expect(hydrated.calls?.[0]?.idempotencyKey).toContain("artifact_write_markdown");
   });
 
-  it("derives idempotencyKey for workspace.write via Pack contract lookup", () => {
+  it("derives idempotencyKey for workspace_write via Pack contract lookup", () => {
     const writeLowLookup = (toolId: string) =>
-      toolId === "workspace.write"
+      toolId === "workspace_write"
         ? {
             schemaVersion: CONTRACTS_SCHEMA_VERSION,
             sideEffectProfile: "write_low" as const,
@@ -375,18 +375,18 @@ describe("hydrateModelAction", () => {
     const hydrated = hydrateModelAction(
       {
         type: "tool.call",
-        toolId: "workspace.write",
+        toolId: "workspace_write",
         arguments: { path: "/notes/out.md", content: "hi" },
       },
       writeLowLookup,
     ) as { calls?: Array<{ toolId?: string; idempotencyKey?: string }> };
-    expect(hydrated.calls?.[0]?.toolId).toBe("workspace.write");
-    expect(hydrated.calls?.[0]?.idempotencyKey).toContain("workspace.write");
+    expect(hydrated.calls?.[0]?.toolId).toBe("workspace_write");
+    expect(hydrated.calls?.[0]?.idempotencyKey).toContain("workspace_write");
   });
 
-  it("derives compact hashed idempotencyKey for large workspace.write content", () => {
+  it("derives compact hashed idempotencyKey for large workspace_write content", () => {
     const writeLowLookup = (toolId: string) =>
-      toolId === "workspace.write"
+      toolId === "workspace_write"
         ? {
             schemaVersion: CONTRACTS_SCHEMA_VERSION,
             sideEffectProfile: "write_low" as const,
@@ -400,19 +400,19 @@ describe("hydrateModelAction", () => {
     const hydrated = hydrateModelAction(
       {
         type: "tool.call",
-        toolId: "workspace.write",
+        toolId: "workspace_write",
         arguments: { path: "/archive.md", content: big },
       },
       writeLowLookup,
     ) as { calls?: Array<{ idempotencyKey?: string }> };
     const key = hydrated.calls?.[0]?.idempotencyKey ?? "";
-    expect(key).toMatch(/^ik:workspace\.write:act-[0-9a-f-]+:[a-f0-9]{64}$/);
+    expect(key).toMatch(/^ik:workspace_write:act-[0-9a-f-]+:[a-f0-9]{64}$/);
     expect(Buffer.byteLength(key, "utf8")).toBeLessThan(200);
   });
 
   it("derives distinct idempotencyKeys for same args on different Actions", () => {
     const writeLowLookup = (toolId: string) =>
-      toolId === "workspace.write"
+      toolId === "workspace_write"
         ? {
             schemaVersion: CONTRACTS_SCHEMA_VERSION,
             sideEffectProfile: "write_low" as const,
@@ -424,7 +424,7 @@ describe("hydrateModelAction", () => {
         : undefined;
     const raw = {
       type: "tool.call",
-      toolId: "workspace.write",
+      toolId: "workspace_write",
       arguments: { path: "/notes/out.md", content: "hi" },
     };
     const a = hydrateModelAction(raw, writeLowLookup) as {
@@ -445,7 +445,7 @@ describe("hydrateModelAction", () => {
 
   it("compacts oversized caller-supplied idempotencyKey", () => {
     const writeLowLookup = (toolId: string) =>
-      toolId === "workspace.write"
+      toolId === "workspace_write"
         ? {
             schemaVersion: CONTRACTS_SCHEMA_VERSION,
             sideEffectProfile: "write_low" as const,
@@ -455,11 +455,11 @@ describe("hydrateModelAction", () => {
             timeoutMs: 5_000,
           }
         : undefined;
-    const hugeKey = `ik:workspace.write:${"x".repeat(4000)}`;
+    const hugeKey = `ik:workspace_write:${"x".repeat(4000)}`;
     const hydrated = hydrateModelAction(
       {
         type: "tool.call",
-        toolId: "workspace.write",
+        toolId: "workspace_write",
         arguments: { path: "/a.md", content: "hi" },
         idempotencyKey: hugeKey,
       },
@@ -473,7 +473,7 @@ describe("hydrateModelAction", () => {
   it("does not invent idempotencyKey for read tools", () => {
     const hydrated = hydrateModelAction({
       type: "tool.call",
-      toolId: "workspace.list",
+      toolId: "workspace_list",
       arguments: { path: "/" },
     }) as { calls?: Array<{ idempotencyKey?: string }> };
     expect(hydrated.calls?.[0]?.idempotencyKey).toBeUndefined();

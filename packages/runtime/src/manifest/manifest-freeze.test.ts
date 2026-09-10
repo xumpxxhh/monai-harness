@@ -122,14 +122,14 @@ describe("P9a2 CreateRun manifest freeze", () => {
           schemaVersion: CONTRACTS_SCHEMA_VERSION,
           actionId: "act-forbidden",
           type: "tool.call",
-          toolId: "forbidden.tool",
+          toolId: "forbidden_tool",
           arguments: { x: 1 },
         },
       }),
       hooks: pack.hookRunner,
       registry: pack.registry,
       manifestStore,
-      toolAllowlist: [...pack.toolAllowlist, "forbidden.tool"],
+      toolAllowlist: [...pack.toolAllowlist, "forbidden_tool"],
       requireApprovalTools: [],
     });
 

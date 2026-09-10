@@ -23,7 +23,7 @@ export async function invokeReadonlyTool(input: {
   const text =
     toolId === "echo"
       ? String(args.text ?? "")
-      : toolId === "workspace.read"
+      : toolId === "workspace_read"
         ? JSON.stringify({ path: args.path ?? "/", stub: true })
         : JSON.stringify(args);
 

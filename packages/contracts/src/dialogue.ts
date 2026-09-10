@@ -26,6 +26,11 @@ export const modelMessageSchema = strictObject({
   name: z.string().optional(),
   toolCallId: z.string().optional(),
   toolCalls: z.array(modelMessageToolCallSchema).optional(),
+  /**
+   * Provider thinking / chain-of-thought to round-trip on subsequent calls
+   * (e.g. DeepSeek `reasoning_content`). Not shown as user-visible content.
+   */
+  reasoning: z.string().optional(),
 });
 
 export type ModelMessage = z.infer<typeof modelMessageSchema>;
@@ -47,6 +52,8 @@ export const dialogueTurnSchema = strictObject({
   stepId: z.string().optional(),
   role: dialogueTurnRoleSchema,
   content: z.string().optional(),
+  /** From `model.responded.reasoning` — required for thinking-mode providers on replay. */
+  reasoning: z.string().optional(),
   toolCalls: z.array(dialogueTurnToolCallSchema).optional(),
   toolCallId: z.string().optional(),
   toolName: z.string().optional(),

@@ -34,7 +34,7 @@ import { IsolatedSyntheticSink } from "@monai/synthetic-sink";
 export type WireWorkspaceGenericOptions = {
   workspace?: WorkspacePort;
   tenantId?: string;
-  /** When set, enables `knowledge.search` in allowlist and injects ports.knowledge (EDR-016). */
+  /** When set, enables `knowledge_search` in allowlist and injects ports.knowledge (EDR-016). */
   knowledgeSearch?: KnowledgeSearchClient;
   /** When set, Pack registration is audited to GovernanceEvent (P9c). */
   governanceStore?: GovernanceEventStorePort;
@@ -43,12 +43,12 @@ export type WireWorkspaceGenericOptions = {
   /** Defaults to RejectingSandbox (EDR-014). */
   sandbox?: SandboxPort;
   /**
-   * Opt-in sandbox.exec (0025). Requires a non-RejectingSandbox implementation.
+   * Opt-in sandbox_exec (0025). Requires a non-RejectingSandbox implementation.
    * Appends allowlist entry and Registry allowEdr014Tools.
    */
   enableSandboxExec?: boolean;
   /**
-   * Opt-in workspace.exec (bash in workspace root). Requires WorkspaceShellPort.
+   * Opt-in workspace_exec (bash in workspace root). Requires WorkspaceShellPort.
    * Appends allowlist entry and Registry allowEdr014Tools.
    */
   enableWorkspaceExec?: boolean;

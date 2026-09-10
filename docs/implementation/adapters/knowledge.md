@@ -5,8 +5,8 @@
 | 项 | 值 |
 | --- | --- |
 | 计划路径 | `packages/adapters/knowledge-http/`（RAG Tool 后端） |
-| 实现形态 | RAG HTTP 客户端 → Pack Tool `knowledge.search`（EDR-016） |
-| 状态（拆分） | `knowledge-http` / `knowledge.search` = **`done`**；`KnowledgePort` / Context `knowledge` section = **`deferred`** |
+| 实现形态 | RAG HTTP 客户端 → Pack Tool `knowledge_search`（EDR-016） |
+| 状态（拆分） | `knowledge-http` / `knowledge_search` = **`done`**；`KnowledgePort` / Context `knowledge` section = **`deferred`** |
 | 首触阶段 | M3 / RAG Tool 切片 |
 | 上游 | [design/08 §2.6](../../design/08-mvp-and-evolution.md)、[docs/rag/agent-integration.md](../../rag/agent-integration.md)、EDR-016 |
 | 最后更新 | 2026-09-08 |
@@ -16,7 +16,7 @@
 ## 1. 范围
 
 - `@monai/knowledge-http`：`POST /api/v1/search` 客户端（UTF-8、60s 超时、grounding 映射）
-- Pack Tool `knowledge.search` 经 `ExecutionContext.ports.knowledge` 调用
+- Pack Tool `knowledge_search` 经 `ExecutionContext.ports.knowledge` 调用
 - harness 仅在 `KNOWLEDGE_BASE_URL` 配置时启用 Tool + allowlist
 
 ## 2. 非目标（deferred）
@@ -28,12 +28,12 @@
 
 ## 3. 验收清单
 
-### knowledge-http / knowledge.search（done）
+### knowledge-http / knowledge_search（done）
 
 - [x] HTTP 客户端参数映射（query / collectionIds / topK）
 - [x] grounding.empty / HTTP 错误可测试
 - [x] Pack handler 未配置 client 时 fail closed
-- [x] Eval 默认 allowlist 不含 `knowledge.search`
+- [x] Eval 默认 allowlist 不含 `knowledge_search`
 
 ### KnowledgePort（deferred）
 

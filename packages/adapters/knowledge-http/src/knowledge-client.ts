@@ -27,7 +27,7 @@ export type KnowledgeSearchInput = {
   topK?: number;
 };
 
-/** Pack Tool `knowledge.search` calls this via ExecutionContext.ports.knowledge */
+/** Pack Tool `knowledge_search` calls this via ExecutionContext.ports.knowledge */
 export type KnowledgeSearchClient = {
   search(input: KnowledgeSearchInput): Promise<KnowledgeSearchResult>;
 };

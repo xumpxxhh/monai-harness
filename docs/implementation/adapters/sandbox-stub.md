@@ -24,7 +24,7 @@
 ## 3. 验收清单
 
 - [x] 任何 exec 调用返回明确拒绝错误（`RejectingSandbox`）
-- [x] Agent allowlist / Registry 测试：默认不得注册 sandbox.exec（未 `allowEdr014Tools`）
+- [x] Agent allowlist / Registry 测试：默认不得注册 sandbox_exec（未 `allowEdr014Tools`）
 - [x] 文档与装配注释标明 MVP 默认禁用（EDR-014；harness bootstrap fail-closed）
 
 ## 4. 依赖

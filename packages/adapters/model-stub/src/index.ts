@@ -5,15 +5,15 @@ export type StubModelOptions = {
   /**
    * Fixed Action override (Engine still hydrates Action-shaped results).
    * When unset, chooses from context.goal markers via ModelDecision:
-   * - `deny-me` → forbidden.tool
-   * - `approve-me` → risky.write
+   * - `deny-me` → forbidden_tool
+   * - `approve-me` → risky_write
    * - `finish` → finish
    * - `acceptance` + state.lastFactId → content-only (Engine fact-gates to finish)
-   * - `workspace-search` → workspace.search
-   * - `workspace-write` → workspace.write
-   * - `knowledge-search` → knowledge.search
-   * - `workspace-read` → workspace.read
-   * - `artifact` → artifact.write_markdown
+   * - `workspace-search` → workspace_search
+   * - `workspace-write` → workspace_write
+   * - `knowledge-search` → knowledge_search
+   * - `workspace-read` → workspace_read
+   * - `artifact` → artifact_write_markdown
    * - default → echo
    */
   fixedAction?: Action;
@@ -54,12 +54,12 @@ export class StubModelPort implements ModelPort {
     const hasFact = Boolean(ctx.state?.lastFactId);
 
     if (goal.includes("deny-me")) {
-      return decision({ calls: [{ name: "forbidden.tool", arguments: { goal } }] });
+      return decision({ calls: [{ name: "forbidden_tool", arguments: { goal } }] });
     }
 
     if (goal.includes("approve-me")) {
       return decision({
-        calls: [{ name: "risky.write", arguments: { goal } }],
+        calls: [{ name: "risky_write", arguments: { goal } }],
       });
     }
 
@@ -89,7 +89,7 @@ export class StubModelPort implements ModelPort {
       return decision({
         calls: [
           {
-            name: "synthetic.write_high",
+            name: "synthetic_write_high",
             arguments: { resourceKey: "synthetic://demo/resource", payload: { goal } },
           },
         ],
@@ -98,7 +98,7 @@ export class StubModelPort implements ModelPort {
 
     if (goal.includes("workspace-search")) {
       return decision({
-        calls: [{ name: "workspace.search", arguments: { query: "workspace" } }],
+        calls: [{ name: "workspace_search", arguments: { query: "workspace" } }],
       });
     }
 
@@ -106,7 +106,7 @@ export class StubModelPort implements ModelPort {
       return decision({
         calls: [
           {
-            name: "workspace.write",
+            name: "workspace_write",
             arguments: { path: "/notes/out.md", content: "written by stub" },
           },
         ],
@@ -115,19 +115,19 @@ export class StubModelPort implements ModelPort {
 
     if (goal.includes("knowledge-search")) {
       return decision({
-        calls: [{ name: "knowledge.search", arguments: { query: goal } }],
+        calls: [{ name: "knowledge_search", arguments: { query: goal } }],
       });
     }
 
     if (goal.includes("workspace-read")) {
       return decision({
-        calls: [{ name: "workspace.read", arguments: { path: "/readme.md" } }],
+        calls: [{ name: "workspace_read", arguments: { path: "/readme.md" } }],
       });
     }
 
     if (goal.includes("artifact")) {
       return decision({
-        calls: [{ name: "artifact.write_markdown", arguments: { markdown: `# ${goal}` } }],
+        calls: [{ name: "artifact_write_markdown", arguments: { markdown: `# ${goal}` } }],
       });
     }
 

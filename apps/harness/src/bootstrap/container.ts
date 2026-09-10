@@ -133,7 +133,7 @@ export async function bootstrap(config: HarnessConfig): Promise<HarnessRuntime> 
   }
   if (enableWorkspaceExec) {
     console.log(
-      `[harness] workspace.exec enabled shell=${config.workspaceExecShell} cwd=${workspace.getRootDir()}`,
+      `[harness] workspace_exec enabled shell=${config.workspaceExecShell} cwd=${workspace.getRootDir()}`,
     );
   }
   console.log(
@@ -161,27 +161,27 @@ export async function bootstrap(config: HarnessConfig): Promise<HarnessRuntime> 
         })
       : undefined,
   });
-  if (!enableSandboxExec && pack.toolAllowlist.includes("sandbox.exec")) {
-    throw new Error("[harness][edr-014] sandbox.exec must not appear on tool allowlist");
+  if (!enableSandboxExec && pack.toolAllowlist.includes("sandbox_exec")) {
+    throw new Error("[harness][edr-014] sandbox_exec must not appear on tool allowlist");
   }
-  if (enableSandboxExec && !pack.toolAllowlist.includes("sandbox.exec")) {
-    throw new Error("[harness] sandbox.exec enabled but missing from tool allowlist");
+  if (enableSandboxExec && !pack.toolAllowlist.includes("sandbox_exec")) {
+    throw new Error("[harness] sandbox_exec enabled but missing from tool allowlist");
   }
   if (enableSandboxExec && sandbox instanceof RejectingSandbox) {
-    throw new Error("[harness] sandbox.exec enabled but SandboxPort is RejectingSandbox");
+    throw new Error("[harness] sandbox_exec enabled but SandboxPort is RejectingSandbox");
   }
-  if (!enableWorkspaceExec && pack.toolAllowlist.includes("workspace.exec")) {
-    throw new Error("[harness][edr-014] workspace.exec must not appear on tool allowlist");
+  if (!enableWorkspaceExec && pack.toolAllowlist.includes("workspace_exec")) {
+    throw new Error("[harness][edr-014] workspace_exec must not appear on tool allowlist");
   }
-  if (enableWorkspaceExec && !pack.toolAllowlist.includes("workspace.exec")) {
-    throw new Error("[harness] workspace.exec enabled but missing from tool allowlist");
+  if (enableWorkspaceExec && !pack.toolAllowlist.includes("workspace_exec")) {
+    throw new Error("[harness] workspace_exec enabled but missing from tool allowlist");
   }
   if (enableWorkspaceExec && !workspaceShell) {
-    throw new Error("[harness] workspace.exec enabled but WorkspaceShellPort missing");
+    throw new Error("[harness] workspace_exec enabled but WorkspaceShellPort missing");
   }
   if (config.knowledgeBaseUrl) {
     console.log(
-      `[harness] knowledge.search enabled base=${config.knowledgeBaseUrl} collections=${config.knowledgeCollectionIds.length}`,
+      `[harness] knowledge_search enabled base=${config.knowledgeBaseUrl} collections=${config.knowledgeCollectionIds.length}`,
     );
   }
   const manifestStore = new InMemoryManifestStore();

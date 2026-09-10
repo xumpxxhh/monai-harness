@@ -20,7 +20,7 @@ export const TOOL_CATALOG: Record<string, ToolEffectContract> = {
     reconcileSupported: false,
     timeoutMs: 5_000,
   }),
-  "risky.write": base({
+  "risky_write": base({
     sideEffectProfile: "write_high",
     deliverySemantics: "at_most_once",
     idempotencyScope: "run",

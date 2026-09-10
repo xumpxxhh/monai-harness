@@ -42,7 +42,7 @@ P0–P9、M1–M3 已完成。对照 [engineering/05 §4.2](../../engineering/05
 3. @monai/lease-postgres
    同库 lease 行；bind / heartbeat / validate / release 与 fencing 一致
 4. @monai/sandbox-stub
-   exec 恒拒绝；Registry / allowlist 断言无 sandbox.exec；可选注入 DI
+   exec 恒拒绝；Registry / allowlist 断言无 sandbox_exec；可选注入 DI
 5. @monai/objectstore-fs
    租户路径 + 内容 hash；signedRef 可先本地 path；hash 失败拒绝
 ```
@@ -58,7 +58,7 @@ P0–P9、M1–M3 已完成。对照 [engineering/05 §4.2](../../engineering/05
 | 1 | driver 开关 | env 可切；默认 memory；delivery 无改 |
 | 2 | queue-postgres | L1 双投递 + 补偿在 PG 队列上绿；载荷含 `runId+revision+dedupeKey` |
 | 3 | lease-postgres | stale owner 无法 heartbeat/validate；多 owner 模拟无双持有执行权 |
-| 4 | sandbox-stub | 任意 `exec` 明确拒绝；不得注册 `sandbox.exec` Tool |
+| 4 | sandbox-stub | 任意 `exec` 明确拒绝；不得注册 `sandbox_exec` Tool |
 | 5 | objectstore-fs | 租户隔离；hash 校验失败拒绝；与 Artifact 元数据联调可后置 |
 
 ## 明确不做

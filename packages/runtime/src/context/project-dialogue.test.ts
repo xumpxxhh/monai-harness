@@ -44,7 +44,7 @@ describe("projectDialogueFromEvents", () => {
       schemaVersion: CONTRACTS_SCHEMA_VERSION,
       actionId: "act-1",
       type: "tool.call",
-      calls: [{ toolId: "workspace.list", arguments: { path: "/" } }],
+      calls: [{ toolId: "workspace_list", arguments: { path: "/" } }],
       displayText: "Listing workspace",
     };
 
@@ -56,7 +56,7 @@ describe("projectDialogueFromEvents", () => {
         sequence: 1,
         stepId: "step-1",
         toolCallId: "tc-1",
-        payload: { toolId: "workspace.list", callIndex: 0 },
+        payload: { toolId: "workspace_list", callIndex: 0 },
       }),
       baseEvent({
         eventId: "e2",
@@ -103,12 +103,53 @@ describe("projectDialogueFromEvents", () => {
     const assistant = turns.find((t) => t.role === "assistant");
     expect(assistant?.content).toBe("Listing workspace");
     expect(assistant?.toolCalls?.[0]?.id).toBe("tc-1");
-    expect(assistant?.toolCalls?.[0]?.name).toBe("workspace.list");
+    expect(assistant?.toolCalls?.[0]?.name).toBe("workspace_list");
 
     const tool = turns.find((t) => t.role === "tool");
     expect(tool?.toolCallId).toBe("tc-1");
-    expect(tool?.toolName).toBe("workspace.list");
+    expect(tool?.toolName).toBe("workspace_list");
     expect(assistant?.toolCalls?.[0]?.id).toBe(tool?.toolCallId);
+  });
+
+  it("projects model.responded.reasoning onto the assistant DialogueTurn", () => {
+    const action: Action = {
+      schemaVersion: CONTRACTS_SCHEMA_VERSION,
+      actionId: "act-r1",
+      type: "tool.call",
+      calls: [{ toolId: "workspace_list", arguments: { path: "/" } }],
+      displayText: "Listing",
+    };
+    const events: EventEnvelope[] = [
+      baseEvent({
+        eventId: "r-prep",
+        eventType: "tool.call_prepared",
+        sequence: 1,
+        stepId: "step-r",
+        toolCallId: "tc-r",
+        payload: { toolId: "workspace_list", callIndex: 0 },
+      }),
+      baseEvent({
+        eventId: "r-resp",
+        eventType: "model.responded",
+        sequence: 2,
+        stepId: "step-r",
+        payload: {
+          display: "Listing",
+          reasoning: "Need to inspect workspace root before writing files.",
+        },
+      }),
+      baseEvent({
+        eventId: "r-act",
+        eventType: "action.proposed",
+        sequence: 3,
+        stepId: "step-r",
+        payload: { action },
+      }),
+    ];
+
+    const turns = projectDialogueFromEvents({ run, events });
+    const assistant = turns.find((t) => t.role === "assistant");
+    expect(assistant?.reasoning).toBe("Need to inspect workspace root before writing files.");
   });
 
   it("aligns multiple same-toolId calls with prepared call ids by order", () => {
@@ -117,8 +158,8 @@ describe("projectDialogueFromEvents", () => {
       actionId: "act-2",
       type: "tool.call",
       calls: [
-        { toolId: "sandbox.exec", arguments: { argv: ["echo", "a"] } },
-        { toolId: "sandbox.exec", arguments: { argv: ["echo", "b"] } },
+        { toolId: "sandbox_exec", arguments: { argv: ["echo", "a"] } },
+        { toolId: "sandbox_exec", arguments: { argv: ["echo", "b"] } },
       ],
     };
 
@@ -129,7 +170,7 @@ describe("projectDialogueFromEvents", () => {
         sequence: 1,
         stepId: "step-2",
         toolCallId: "tc-a",
-        payload: { toolId: "sandbox.exec", callIndex: 0 },
+        payload: { toolId: "sandbox_exec", callIndex: 0 },
       }),
       baseEvent({
         eventId: "p2",
@@ -137,7 +178,7 @@ describe("projectDialogueFromEvents", () => {
         sequence: 2,
         stepId: "step-2",
         toolCallId: "tc-b",
-        payload: { toolId: "sandbox.exec", callIndex: 1 },
+        payload: { toolId: "sandbox_exec", callIndex: 1 },
       }),
       baseEvent({
         eventId: "a1",
@@ -195,7 +236,7 @@ describe("projectDialogueFromEvents", () => {
     expect(assistant?.toolCalls?.map((c) => c.id)).toEqual(["tc-a", "tc-b"]);
     const toolTurns = turns.filter((t) => t.role === "tool");
     expect(toolTurns.map((t) => t.toolCallId)).toEqual(["tc-a", "tc-b"]);
-    expect(toolTurns.map((t) => t.toolName)).toEqual(["sandbox.exec", "sandbox.exec"]);
+    expect(toolTurns.map((t) => t.toolName)).toEqual(["sandbox_exec", "sandbox_exec"]);
   });
 
   it("projects finish as content-only (no control toolCalls in ModelView)", () => {

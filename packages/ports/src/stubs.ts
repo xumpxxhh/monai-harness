@@ -169,7 +169,7 @@ export type WorkspacePort = {
 };
 
 /**
- * Opt-in bash/shell exec inside the authorized workspace root (workspace.exec).
+ * Opt-in bash/shell exec inside the authorized workspace root (workspace_exec).
  * Distinct from SandboxPort (argv-only, separate sandboxRoot).
  */
 export type WorkspaceShellExecRequest = {

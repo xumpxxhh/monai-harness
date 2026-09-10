@@ -1,20 +1,20 @@
 /** MVP-disabled capabilities (EDR-014). Registry must reject these at registration. */
 export const EDR014_DISABLED_TOOL_IDS = [
-  "sandbox.exec",
-  "sandbox.run",
-  "workspace.exec",
-  "memory.read",
-  "memory.write",
-  "memory.promote",
+  "sandbox_exec",
+  "sandbox_run",
+  "workspace_exec",
+  "memory_read",
+  "memory_write",
+  "memory_promote",
 ] as const;
 
 export const EDR014_DISABLED_PERMISSIONS = [
-  "sandbox.exec",
-  "workspace.exec",
-  "memory.read",
-  "memory.write",
-  "memory.promote",
-  "real.write_high",
+  "sandbox_exec",
+  "workspace_exec",
+  "memory_read",
+  "memory_write",
+  "memory_promote",
+  "real_write_high",
 ] as const;
 
 export function isEdr014DisabledTool(toolId: string): boolean {
@@ -30,26 +30,26 @@ export function requiredPermissionsForTool(
   toolId: string,
   sideEffectProfile: "none" | "read" | "write_low" | "write_high",
 ): string[] {
-  if (toolId === "sandbox.exec" || toolId.startsWith("sandbox.")) {
-    return ["sandbox.exec"];
+  if (toolId === "sandbox_exec" || toolId.startsWith("sandbox_")) {
+    return ["sandbox_exec"];
   }
-  if (toolId === "workspace.exec") {
-    return ["workspace.exec"];
+  if (toolId === "workspace_exec") {
+    return ["workspace_exec"];
   }
-  if (toolId.startsWith("workspace.")) {
-    return sideEffectProfile === "read" ? ["workspace.read"] : ["workspace.read", "workspace.write"];
+  if (toolId.startsWith("workspace_")) {
+    return sideEffectProfile === "read" ? ["workspace_read"] : ["workspace_read", "workspace_write"];
   }
-  if (toolId.startsWith("artifact.")) {
-    return ["artifact.write"];
+  if (toolId.startsWith("artifact_")) {
+    return ["artifact_write"];
   }
-  if (toolId.startsWith("synthetic.")) {
-    return ["synthetic.write_high"];
+  if (toolId.startsWith("synthetic_")) {
+    return ["synthetic_write_high"];
   }
-  if (toolId === "knowledge.search") {
-    return ["knowledge.read"];
+  if (toolId === "knowledge_search") {
+    return ["knowledge_read"];
   }
-  if (sideEffectProfile === "read") return ["workspace.read"];
-  if (sideEffectProfile === "write_low") return ["workspace.write"];
-  if (sideEffectProfile === "write_high") return ["synthetic.write_high"];
+  if (sideEffectProfile === "read") return ["workspace_read"];
+  if (sideEffectProfile === "write_low") return ["workspace_write"];
+  if (sideEffectProfile === "write_high") return ["synthetic_write_high"];
   return [];
 }

@@ -1,7 +1,4 @@
-import {
-  type ModelPolicy,
-  type ModelUsage,
-} from "@monai/contracts";
+import { type ModelPolicy, type ModelUsage } from "@monai/contracts";
 import type {
   ModelCompleteInput,
   ModelDecision,
@@ -52,7 +49,8 @@ export function splitThinkContent(content: string): SplitThinkContent {
       return "\n";
     })
     .trim();
-  const reasoning = thinkBlocks.length > 0 ? thinkBlocks.join("\n\n") : undefined;
+  const reasoning =
+    thinkBlocks.length > 0 ? thinkBlocks.join("\n\n") : undefined;
   return { reasoning, text };
 }
 
@@ -72,11 +70,13 @@ function catalogDefs(input: ModelCompleteInput): ModelFunctionDef[] {
 }
 
 function buildUserPrompt(context: unknown): string {
-  const contextObj = context as {
-    goal?: string;
-    toolAllowlist?: readonly string[];
-    sections?: Array<{ kind: string; text?: string }>;
-  } | undefined;
+  const contextObj = context as
+    | {
+        goal?: string;
+        toolAllowlist?: readonly string[];
+        sections?: Array<{ kind: string; text?: string }>;
+      }
+    | undefined;
 
   let userPrompt = `Goal: ${contextObj?.goal ?? "Execute current step"}\n`;
   if (contextObj?.sections) {
@@ -92,7 +92,9 @@ function buildUserPrompt(context: unknown): string {
   return userPrompt;
 }
 
-function resolveWireMessages(input: ModelCompleteInput): Array<Record<string, unknown>> {
+function resolveWireMessages(
+  input: ModelCompleteInput,
+): Array<Record<string, unknown>> {
   if (input.messages && input.messages.length > 0) {
     return input.messages.map((message: ModelMessage) => {
       const wire: Record<string, unknown> = {
@@ -107,6 +109,10 @@ function resolveWireMessages(input: ModelCompleteInput): Array<Record<string, un
           type: call.type,
           function: call.function,
         }));
+      }
+      // DeepSeek thinking mode requires prior assistant reasoning_content on replay.
+      if (message.role === "assistant" && message.reasoning?.trim()) {
+        wire.reasoning_content = message.reasoning.trim();
       }
       return wire;
     });
@@ -142,19 +148,26 @@ function parseArgumentsJson(name: string, raw: string | undefined): unknown {
   }
 }
 
-function callsFromToolCalls(toolCalls: ChatToolCall[] | undefined): ModelFunctionCall[] {
+function callsFromToolCalls(
+  toolCalls: ChatToolCall[] | undefined,
+): ModelFunctionCall[] {
   if (!toolCalls?.length) return [];
   return toolCalls
     .filter((call) => call.function?.name)
     .map((call) => ({
       name: call.function!.name!,
-      arguments: parseArgumentsJson(call.function!.name!, call.function?.arguments),
+      arguments: parseArgumentsJson(
+        call.function!.name!,
+        call.function?.arguments,
+      ),
     }));
 }
 
 type AccToolCall = { name: string; arguments: string };
 
-function callsFromAccumulator(acc: Map<number, AccToolCall>): ModelFunctionCall[] {
+function callsFromAccumulator(
+  acc: Map<number, AccToolCall>,
+): ModelFunctionCall[] {
   return [...acc.entries()]
     .sort((a, b) => a[0] - b[0])
     .filter(([, call]) => call.name)
@@ -202,7 +215,9 @@ export class OpenAiModelPort implements ModelPort {
     return result;
   }
 
-  async *completeStructuredStream(input: ModelCompleteInput): AsyncIterable<ModelStreamChunk> {
+  async *completeStructuredStream(
+    input: ModelCompleteInput,
+  ): AsyncIterable<ModelStreamChunk> {
     const policy = input.modelPolicy as ModelPolicy | undefined;
     const targetModel =
       policy?.resolvedTarget && policy.resolvedTarget !== "stub"
@@ -220,9 +235,11 @@ export class OpenAiModelPort implements ModelPort {
       model: targetModel,
       stream: true,
       messages: resolveWireMessages(input),
-      temperature: policy?.temperature ?? 0.0,
-      max_tokens: policy?.maxTokens ?? 1024,
+      temperature: policy?.temperature ?? 0.7,
     };
+    if (policy?.maxTokens !== undefined) {
+      requestBody.max_tokens = policy.maxTokens;
+    }
     if (defs.length > 0) {
       requestBody.tools = toOpenAiTools(defs);
       requestBody.tool_choice = "auto";
@@ -278,7 +295,9 @@ export class OpenAiModelPort implements ModelPort {
       const rawContent = message?.content ?? "";
       const split = splitThinkContent(rawContent);
       const msgReasoning = message?.reasoning ?? message?.reasoning_content;
-      const reasoning = [msgReasoning, split.reasoning].filter(Boolean).join("\n\n") || undefined;
+      const reasoning =
+        [msgReasoning, split.reasoning].filter(Boolean).join("\n\n") ||
+        undefined;
       if (reasoning) {
         yield { kind: "delta", channel: "reasoning", text: reasoning };
       }
@@ -336,7 +355,10 @@ export class OpenAiModelPort implements ModelPort {
 
         let parsed: {
           choices?: Array<{
-            delta?: ChatMessage & { content?: string; tool_calls?: ChatToolCall[] };
+            delta?: ChatMessage & {
+              content?: string;
+              tool_calls?: ChatToolCall[];
+            };
             finish_reason?: string | null;
           }>;
           usage?: {
@@ -396,7 +418,9 @@ export class OpenAiModelPort implements ModelPort {
 
     const split = splitThinkContent(contentBuf);
     if (split.reasoning && !reasoningBuf.includes(split.reasoning)) {
-      reasoningBuf = reasoningBuf ? `${reasoningBuf}\n\n${split.reasoning}` : split.reasoning;
+      reasoningBuf = reasoningBuf
+        ? `${reasoningBuf}\n\n${split.reasoning}`
+        : split.reasoning;
       yield { kind: "delta", channel: "reasoning", text: split.reasoning };
     }
 

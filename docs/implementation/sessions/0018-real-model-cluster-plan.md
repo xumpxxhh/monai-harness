@@ -84,7 +84,7 @@ M1h  harness 装配 Secret + Model；Eval 仍 StubModelPort
 - Memory 进 Context（08 非目标）
 - 用真实模型重跑 Eval / Golden
 - 改 Policy 偏序、Tool prepared-before-dispatch、Run 状态机
-- ConfirmationGrant、DAG、spawn_child、sandbox.exec
+- ConfirmationGrant、DAG、spawn_child、sandbox_exec
 - 宣称 design 08 阶段 A 仅因接供应商而关闭（Knowledge 未做仍缺口）
 
 ## 验证

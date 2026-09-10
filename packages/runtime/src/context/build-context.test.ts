@@ -22,7 +22,7 @@ describe("buildContext", () => {
       run,
       stepId: "step-1",
       state,
-      toolAllowlist: ["workspace.read", "workspace.write"],
+      toolAllowlist: ["workspace_read", "workspace_write"],
       manifest: {
         schemaVersion: "0.1.0",
         manifestId: "man-test",
@@ -36,7 +36,7 @@ describe("buildContext", () => {
         packVersions: [{ packId: "pack-test", version: "1.0.0", digest: "d" }],
         tools: [
           {
-            toolId: "workspace.read",
+            toolId: "workspace_read",
             version: "0.1.0",
             argHint: "Read a workspace file",
             effectContract: {
@@ -48,7 +48,7 @@ describe("buildContext", () => {
             },
           },
           {
-            toolId: "workspace.write",
+            toolId: "workspace_write",
             version: "0.1.0",
             argHint: "Create or overwrite a workspace file",
             effectContract: {
@@ -61,7 +61,7 @@ describe("buildContext", () => {
           },
         ],
         strategy: { type: "light", version: "1.0.0" },
-        toolAllowlist: ["workspace.read", "workspace.write"],
+        toolAllowlist: ["workspace_read", "workspace_write"],
         requireApprovalTools: [],
         acceptanceChecks: [],
         coreContractVersion: "0.1.0",
@@ -75,13 +75,13 @@ describe("buildContext", () => {
     expect(result.record.stepId).toBe("step-1");
     expect(result.record.contextHash).toBeDefined();
     expect(result.record.selectedTools.map((t) => t.toolId)).toEqual([
-      "workspace.read",
-      "workspace.write",
+      "workspace_read",
+      "workspace_write",
     ]);
     const toolsSection = result.sections.find((s) => s.kind === "tools");
-    expect(toolsSection?.text).toContain("workspace.read");
+    expect(toolsSection?.text).toContain("workspace_read");
     expect(toolsSection?.text).toContain("Read a workspace file");
-    expect(toolsSection?.text).toContain("workspace.write");
+    expect(toolsSection?.text).toContain("workspace_write");
     expect(toolsSection?.text).toContain("Create or overwrite a workspace file");
     const safety = result.sections.find((s) => s.kind === "safety_boundary");
     expect(safety?.text).toContain("tenantId: tenant-test");
@@ -90,7 +90,7 @@ describe("buildContext", () => {
     expect(safety?.text).toContain("toolAllowlistCount: 2");
   });
 
-  it("formats workspace.list facts in recent_events for the model", () => {
+  it("formats workspace_list facts in recent_events for the model", () => {
     const stateWithList = {
       ...state,
       facts: [
@@ -114,7 +114,7 @@ describe("buildContext", () => {
       run,
       stepId: "step-2",
       state: stateWithList,
-      toolAllowlist: ["workspace.list", "workspace.read"],
+      toolAllowlist: ["workspace_list", "workspace_read"],
     });
 
     const recent = result.sections.find((s) => s.kind === "recent_events");
@@ -141,7 +141,7 @@ describe("buildContext", () => {
       run,
       stepId: "step-1",
       state: stateWithFacts,
-      toolAllowlist: ["workspace.read"],
+      toolAllowlist: ["workspace_read"],
       budget: {
         maxTotalTokens: 50, // very low budget to force truncation of recent_events
       },
@@ -156,7 +156,7 @@ describe("buildContext", () => {
       run,
       stepId: "step-1",
       state,
-      toolAllowlist: ["workspace.read"],
+      toolAllowlist: ["workspace_read"],
       budget: {
         maxTotalTokens: 5,
         hardMaxTokens: 5, // Impossible to fit even safety + user input
@@ -194,7 +194,7 @@ describe("buildContext", () => {
       run,
       stepId: "step-kb",
       state: stateWithKnowledge,
-      toolAllowlist: ["knowledge.search"],
+      toolAllowlist: ["knowledge_search"],
     });
 
     const recent = result.sections.find((s) => s.kind === "recent_events");

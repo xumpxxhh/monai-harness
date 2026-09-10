@@ -112,7 +112,7 @@ ExecutionContext {
 | `secret-*` | 可 stub；禁止明文落 Event |
 | `sandbox-stub` | 默认占位，拒绝 exec |
 | `sandbox-subprocess` | opt-in 可执行实现（argv / 无 shell；见 0025） |
-| `synthetic-sink` | `synthetic.write_high` + reconcile |
+| `synthetic-sink` | `synthetic_write_high` + reconcile |
 
 Adapter 不得实现领域状态机，不得在回调里直接 `revision++`。
 
@@ -150,8 +150,8 @@ Adapter 不得实现领域状态机，不得在回调里直接 `revision++`。
 | Memory 检索/晋升 | ContextBuilder 不读取 Memory；晋升流程不挂载 |
 | 向量/语义 Knowledge | KnowledgePort MVP 实现仅精确/规则 |
 | 自动 Knowledge 写回 | 无写回 Tool/Hook 注册 |
-| `sandbox.exec` | **默认** SandboxPort stub + allowlist 不得引用；`FEATURE_ENABLE_SANDBOX_EXEC=true` 时可挂 `@monai/sandbox-subprocess` 并追加 allowlist（Registry `allowEdr014Tools`） |
-| 真实 `write_high` | 仅 `synthetic.write_high` 在测试租户；默认 deny 真实外部写 |
+| `sandbox_exec` | **默认** SandboxPort stub + allowlist 不得引用；`FEATURE_ENABLE_SANDBOX_EXEC=true` 时可挂 `@monai/sandbox-subprocess` 并追加 allowlist（Registry `allowEdr014Tools`） |
+| 真实 `write_high` | 仅 `synthetic_write_high` 在测试租户；默认 deny 真实外部写 |
 | 多 Agent 共享 State | 不提供旁路；阶段 G 前不启用 |
 
 禁用能力不得通过 Tool 别名、Hook、Pack 后台任务、模型文本或 Adapter 旁路启用。架构测试应抽检 Registry 与 allowlist。
@@ -161,15 +161,15 @@ Adapter 不得实现领域状态机，不得在回调里直接 `revision++`。
 对应设计 08 Tool 集合：
 
 ```text
-workspace.list
-workspace.read
-workspace.search
-workspace.write
-workspace.delete
-artifact.write_markdown
-artifact.validate
-synthetic.write_high
-synthetic.write_high.reconcile
+workspace_list
+workspace_read
+workspace_search
+workspace_write
+workspace_delete
+artifact_write_markdown
+artifact_validate
+synthetic_write_high
+synthetic_write_high_reconcile
 ```
 
 另含：固定规则 Knowledge、required acceptanceChecks 用 Validator、最小 Policy、五个 Hook 点的最小实现（可为 no-op 但可观测）。
@@ -188,7 +188,7 @@ synthetic.write_high.reconcile
 | `requireApproval: true` | 可选：进审批名单 |
 
 **禁止**在 `packages/runtime` 再硬编码该 `toolId` 的 catalog / hints / prompt / `TOOL_CATALOG`。
-Core 仅保留控制函数与非 Pack 桩（`echo` / `risky.write`）。
+Core 仅保留控制函数与非 Pack 桩（`echo` / `risky_write`）。
 allowlist 由 `packDefaultAllowlist(manifest.tools)` + wiring 派生（见 `@monai/pack-sdk`）。
 
 文档研究 / 工单 Pack 仅作协议样例，**不** 作为 MVP 必装包。

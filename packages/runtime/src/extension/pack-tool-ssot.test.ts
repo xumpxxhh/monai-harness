@@ -13,7 +13,7 @@ import { buildContext } from "../context/build-context.js";
  * without any Core DOMAIN_TOOL_DEFS / TOOL_CATALOG / prompt branch.
  */
 describe("Pack tool SSOT", () => {
-  const packOnlyToolId = "demo.pack_only";
+  const packOnlyToolId = "demo_pack_only";
 
   function registerPackOnly(): ExtensionRegistry {
     const registry = new ExtensionRegistry();
@@ -23,7 +23,7 @@ describe("Pack tool SSOT", () => {
         packId: "com.monai.pack.demo-ssot",
         version: "0.1.0",
         coreContractRange: ">=0.1.0 <1.0.0",
-        permissionsRequested: ["workspace.read"],
+        permissionsRequested: ["workspace_read"],
         tools: [
           {
             toolId: packOnlyToolId,

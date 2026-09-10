@@ -68,19 +68,19 @@ State 唯一写入口是 `nextState = reduce(previousState, FactEnvelope)`。Che
 MVP Tool 集合：
 
 ```text
-workspace.list
-workspace.read
-workspace.search
-workspace.write
-artifact.write_markdown
-artifact.validate
-synthetic.write_high
-synthetic.write_high.reconcile
+workspace_list
+workspace_read
+workspace_search
+workspace_write
+artifact_write_markdown
+artifact_validate
+synthetic_write_high
+synthetic_write_high_reconcile
 ```
 
 - Workspace Tool 只能访问授权路径根。路径规范化必须覆盖 `.`、`..`、符号链接、连接点、大小写、Unicode 和设备路径；输出受单条、总大小和敏感信息限制。
-- `workspace.write` 为 `write_low`：只写授权 Workspace 根下的 UTF-8 文件，`path` 与 `content` 必填，经 prepared-before-dispatch；不得写 `/` 自身。
-- `artifact.write_markdown` 只写受控 Artifact Store 或授权 Workspace 根，使用稳定幂等键并返回不可变 `artifactId/ref/hash`。
+- `workspace_write` 为 `write_low`：只写授权 Workspace 根下的 UTF-8 文件，`path` 与 `content` 必填，经 prepared-before-dispatch；不得写 `/` 自身。
+- `artifact_write_markdown` 只写受控 Artifact Store 或授权 Workspace 根，使用稳定幂等键并返回不可变 `artifactId/ref/hash`。
 - 每个 Tool 都有版本化输入/输出 Schema、风险级、超时、权限和 ToolEffectContract。
 - `sideEffectProfile != none` 的调用必须先按 01 §5.3 原子提交 ToolCallRecord `prepared`、`namespace=tool_call` 的 IdempotencyRecord、`tool.call_prepared` 与派发 OutboxRecord，再携带同一 `toolCallId`、`idempotencyKey` 和 `dispatchLeaseEpoch` 派发。
 - 权威结果产生 `tool.succeeded` 或 `tool.failed`。超时、断连、取消竞态或 Worker 失效产生 `tool.outcome_unknown`，只能按效果契约 reconcile，并由 Engine 提交 `tool.reconciled` 及最终状态。
@@ -94,15 +94,15 @@ MVP 实现平台、租户、Pack、Agent 的确定性 Policy 组合：
 allow < require_approval < deny
 ```
 
-read 和受控 `write_low` 仍经过 allowlist、Schema、资源范围和 Runtime 检查。MVP 不开放真实高风险外部写；`write_high` 默认 deny，仅隔离的 `synthetic.write_high` 在专用测试租户和合成资源范围内返回 `require_approval`。
+read 和受控 `write_low` 仍经过 allowlist、Schema、资源范围和 Runtime 检查。MVP 不开放真实高风险外部写；`write_high` 默认 deny，仅隔离的 `synthetic_write_high` 在专用测试租户和合成资源范围内返回 `require_approval`。
 
-`synthetic.write_high` 用于验证完整审批链：
+`synthetic_write_high` 用于验证完整审批链：
 
 1. Engine 创建完整 ApprovalRecord，绑定 `actionDigest`、资源范围、Tool/Policy/Manifest 版本、审批主体和绝对 TTL；
 2. Run/Step 进入 `awaiting_approval`，原子保存 Checkpoint 和待续信息并释放 lease；
 3. `approved` 只把 Run 唤醒到 `queued`；取得新 lease 后重新执行 Policy、摘要、权限、TTL 与 PreToolCall 检查；
 4. ApprovalRecord `approved → consumed`、`approval.consumed`、ToolCallRecord `prepared` 和派发 Outbox 原子提交；
-5. 合成 sink 记录稳定资源键和副作用计数，可注入超时并由 `synthetic.write_high.reconcile` 查询权威结果。
+5. 合成 sink 记录稳定资源键和副作用计数，可注入超时并由 `synthetic_write_high_reconcile` 查询权威结果。
 
 `rejected`、`expired`、`revoked`、`consumed` 不可再次放行。合成 sink 与任何真实业务系统、外部网络或生产资源隔离。
 
@@ -120,7 +120,7 @@ MVP 不包含向量检索、embedding、语义路由、跨源自动融合或生�
 
 ### 2.7 Sandbox 边界
 
-MVP 不注册、不授权也不执行 `sandbox.exec`、任意代码或 Shell。`SandboxPort` 可以保留在 Core 端口契约中，用于兼容后续受控实现，但不是 MVP 的执行路径，任何 Agent Definition 和 Tool allowlist 都不得引用它。
+MVP 不注册、不授权也不执行 `sandbox_exec`、任意代码或 Shell。`SandboxPort` 可以保留在 Core 端口契约中，用于兼容后续受控实现，但不是 MVP 的执行路径，任何 Agent Definition 和 Tool allowlist 都不得引用它。
 
 Workspace Tool 不依赖 Sandbox 获得宿主访问权；它仍通过 WorkspacePort 的授权路径根、操作 allowlist、路径防逃逸、大小/文件数/输出上限和租户隔离执行。
 
@@ -141,13 +141,13 @@ MVP 按 07 的单一关联模型从已提交 Event 派生 Trace，不建立第�
 
 1. 客户端以稳定幂等键提交目标和已授权工作区引用。
 2. CreateRun 原子保存 Run、`run.created`、幂等记录与 Outbox；Dispatcher、Queue、Scheduler 推进到 `running`。
-3. 轻量循环依次使用 `workspace.list` 确认授权根与候选路径、`workspace.search` 定位相关内容、`workspace.read` 读取所需材料；全部结果先成为 Observation，再经 FactEnvelope 与 Reducer 更新 State。
+3. 轻量循环依次使用 `workspace_list` 确认授权根与候选路径、`workspace_search` 定位相关内容、`workspace_read` 读取所需材料；全部结果先成为 Observation，再经 FactEnvelope 与 Reducer 更新 State。
 4. Context Builder 以固定规则查询受控 Knowledge Source，按预算构建 Context 并保存 ContextBuildRecord。
 5. Agent 生成 Markdown 产物；Artifact 引用经验证后进入 State。
 6. required `acceptanceChecks` 由 Validator 确定性验证；通过后才能接受 `finish`。
 7. Engine 提交 `run.completed`、最终 Checkpoint；客户端取得 Artifact 引用、State 和可重放 Event。
 8. 任一预设故障点中断后，新的租约取得者按 `revision`、`leaseEpoch`、Checkpoint、Event 和 ToolCallRecord 恢复，不重复副作用。
-9. 专用用例通过 `synthetic.write_high` 走完审批等待、唤醒、单次消费、未知结果与对账，但不触达真实外部写。
+9. 专用用例通过 `synthetic_write_high` 走完审批等待、唤醒、单次消费、未知结果与对账，但不触达真实外部写。
 
 ## 4. MVP 非目标
 
@@ -160,7 +160,7 @@ MVP 按 07 的单一关联模型从已提交 Event 派生 Trace，不建立第�
 | 向量或语义 Knowledge 路由 | 关闭；只允许版本固定的精确/规则检索 |
 | 自动 Knowledge 写回 | 关闭；Run 产出不得直接发布为 Knowledge |
 | 语义 Skill 路由 | 关闭；Skill 由固定 Agent/Pack 配置与确定性规则选择 |
-| `sandbox.exec`、任意代码或 Shell | 不注册、不授权、不执行 |
+| `sandbox_exec`、任意代码或 Shell | 不注册、不授权、不执行 |
 | 真实 `write_high` 外部系统 | 不开放；审批只通过隔离合成 Tool 验证 |
 | 自主发布生产变更 | 不允许；发布门禁与实际发布权限分离 |
 
@@ -219,7 +219,7 @@ Golden 门禁的分母固定为 30 次主路径运行。越权与安全、恢复
 
 阶段 B 增加运营规模和自动化，不填补 MVP 缺失能力。ApprovalRecord、幂等、对账、租约、最小 Trace/指标和审计证据在阶段 A 已完整可用。
 
-可增加审批队列运营、对账调度器、审计导出、租约扫描、SLO 告警、细粒度预算和隔离 Adapter；仍不开放真实 `write_high` 或 `sandbox.exec`。
+可增加审批队列运营、对账调度器、审计导出、租约扫描、SLO 告警、细粒度预算和隔离 Adapter；仍不开放真实 `write_high` 或 `sandbox_exec`。
 
 - **进入信号**：连续 `7d` 至少 `500` 个 Run，或 queue latency p95、outcome_unknown unresolved age p95、lease takeover rate 任一达到匹配作用域且 `status=approved` 的 [07 OperationalSLOProfile](./07-observability-and-evaluation.md#44-版本化派生判定与运营-slo) 上限的 `80%`；持续时间指标按 `observedP95 / maxDuration >= 0.8`，比例指标按 `observedRate / maxRate >= 0.8`，并满足 Profile 最小样本量。
 - **退出条件**：全部 07 核心指标可由 Event 重算；指标与原始 Event 抽样核对差异为 `0`；待对账项的 deadline 统一取 `firstOutcomeUnknown.recordedAt + ToolEffectContract.reconcile.maxWait`，在 deadline 内得到 `tool.reconciled` 权威终局的数量 / 已到 deadline 或已闭合的待对账项数量 `>= 95%`；第 5 节门禁保持通过。
@@ -290,7 +290,7 @@ Pack 可以增加 Skill、Tool、Workflow、Hook、Policy、Knowledge、Validato
 - [ ] 五个 Hook 点、Policy、完整 ApprovalRecord 与合成 `write_high` 审批链可验收
 - [ ] Tool 满足 prepared-before-dispatch、幂等、`outcome_unknown` 与 reconcile
 - [ ] Knowledge 仅固定版本精确/规则检索，Memory、向量、语义路由和自动写回关闭
-- [ ] SandboxPort 不构成 MVP 的 `sandbox.exec`、代码或 Shell 路径
+- [ ] SandboxPort 不构成 MVP 的 `sandbox_exec`、代码或 Shell 路径
 - [ ] Child Run、DAG、多 Agent 和语义 Skill 路由均未启用
 - [ ] 验收矩阵的阈值、重复次数和 flaky 规则与 07 完全一致
 - [ ] 阶段 A–G 的信号直接使用 07 指标，退出和回滚条件可计算

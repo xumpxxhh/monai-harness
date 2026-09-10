@@ -32,7 +32,7 @@ describe("evaluatePolicy", () => {
 
   it("denies tool not on allowlist", () => {
     const result = evaluatePolicy({
-      action: action({ actionId: "a3", type: "tool.call", toolId: "forbidden.tool" }),
+      action: action({ actionId: "a3", type: "tool.call", toolId: "forbidden_tool" }),
       toolAllowlist: DEFAULT_TOOL_ALLOWLIST,
     });
     expect(result.decision).toBe("deny");
@@ -44,7 +44,7 @@ describe("evaluatePolicy", () => {
       action: action({
         actionId: "a4",
         type: "tool.call",
-        toolId: "risky.write",
+        toolId: "risky_write",
         idempotencyKey: "k1",
       }),
       toolAllowlist: DEFAULT_TOOL_ALLOWLIST,
@@ -87,7 +87,7 @@ describe("evaluatePolicy", () => {
         actionId: "a8",
         type: "tool.call",
         calls: [
-          { toolId: "forbidden.tool", arguments: {} },
+          { toolId: "forbidden_tool", arguments: {} },
           { toolId: "echo", arguments: { text: "hi" } },
         ],
       }),
@@ -105,8 +105,8 @@ describe("evaluatePolicy", () => {
         actionId: "a9",
         type: "tool.call",
         calls: [
-          { toolId: "forbidden.a", arguments: {} },
-          { toolId: "forbidden.b", arguments: {} },
+          { toolId: "forbidden_a", arguments: {} },
+          { toolId: "forbidden_b", arguments: {} },
         ],
       }),
       toolAllowlist: DEFAULT_TOOL_ALLOWLIST,

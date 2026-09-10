@@ -58,6 +58,7 @@ export { lookupToolContract, TOOL_CATALOG, requiresIdempotencyKey } from "./exec
 export { ExtensionRegistry, type RegisterPackInput } from "./extension/extension-registry.js";
 export { buildToolInvokerFromRegistry, LEGACY_ECHO_HANDLER } from "./extension/wire-pack.js";
 export { EDR014_DISABLED_TOOL_IDS, isEdr014DisabledTool } from "./extension/edr014.js";
+export { isValidWireToolId, WIRE_TOOL_ID_PATTERN } from "./extension/tool-id.js";
 export { computeActionDigest, actionDigestMeta } from "./control/action-digest.js";
 export { projectActionForUser } from "./control/project-action.js";
 export {

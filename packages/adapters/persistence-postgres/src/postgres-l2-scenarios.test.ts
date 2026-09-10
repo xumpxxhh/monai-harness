@@ -297,7 +297,7 @@ describe("PostgresPersistence L2 scenarios (recovery + prepared)", () => {
       runId: "r-l2-prep-atom",
       stepId: "step-1",
       actionId: "act-1",
-      toolId: "synthetic.write_high",
+      toolId: "synthetic_write_high",
       toolVersion: "0.1.0",
       executionManifestRef: "manifest://m1",
       inputHash: "ih",

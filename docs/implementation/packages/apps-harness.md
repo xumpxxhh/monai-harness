@@ -16,7 +16,7 @@
 - bootstrap / DI：装配 adapters → runtime → delivery → api → governance → observability
 - 同进程角色：api / dispatcher / scheduler / worker / observability / governance
 - graceful shutdown：停接流量 → drain → 释放 lease
-- Feature flags 默认关闭 DAG、spawn_child、Memory、sandbox.exec、真实 write_high
+- Feature flags 默认关闭 DAG、spawn_child、Memory、sandbox_exec、真实 write_high
 - `FEATURE_ENABLE_SANDBOX_EXEC=true` 时可挂 `@monai/sandbox-subprocess`（需 `SANDBOX_ALLOWED_BINARIES`）
 
 **P8b — bootstrap**（对齐 [engineering/02 §2](../../engineering/02-runtime-composition.md#2-bootstrap-与依赖注入)）：

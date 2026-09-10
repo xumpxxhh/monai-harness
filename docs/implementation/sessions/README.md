@@ -32,10 +32,10 @@
 | 0017 | [0017-p9d-ops.md](./0017-p9d-ops.md) | 2026-08-28 | P9d：角色开关、L1-on-PG、EDR-007 文档 |
 | 0018 | [0018-real-model-cluster-plan.md](./0018-real-model-cluster-plan.md) | 2026-08-28 | M1：真实模型簇计划（**已归档**；KnowledgePort deferred） |
 | 0019 | [0019-post-m1-agent-loop.md](./0019-post-m1-agent-loop.md) | 2026-09-02 | M2：function calling + 并行工具 + Dialogue Context + Session Demo |
-| 0020 | [0020-knowledge-search-tool.md](./0020-knowledge-search-tool.md) | 2026-09-02 | M3：RAG `knowledge.search` Tool（EDR-016）；KnowledgePort 仍缺口 |
-| 0021 | [0021-workspace-write-tool.md](./0021-workspace-write-tool.md) | 2026-09-02 | `workspace.write` Pack Tool（write_low） |
+| 0020 | [0020-knowledge-search-tool.md](./0020-knowledge-search-tool.md) | 2026-09-02 | M3：RAG `knowledge_search` Tool（EDR-016）；KnowledgePort 仍缺口 |
+| 0021 | [0021-workspace-write-tool.md](./0021-workspace-write-tool.md) | 2026-09-02 | `workspace_write` Pack Tool（write_low） |
 | 0022 | [0022-pack-tool-ssot.md](./0022-pack-tool-ssot.md) | 2026-09-02 | Pack Tool SSOT：模型面元数据只在 Manifest |
 | 0023 | [0023-real-model-e2e.md](./0023-real-model-e2e.md) | 2026-09-07 | 真模型 Session E2E 冒烟；KnowledgePort/confirm_once 延后 |
 | 0024 | [0024-replaceable-infra-adapters-plan.md](./0024-replaceable-infra-adapters-plan.md) | 2026-09-07 | 可替换 infra 收口：Queue/Lease/Sandbox/ObjectStore（**已归档**） |
-| 0025 | [0025-sandbox-exec-opt-in.md](./0025-sandbox-exec-opt-in.md) | 2026-09-07 | 真 SandboxPort / `sandbox.exec` opt-in（subprocess；EDR-010 仍 Deferred） |
+| 0025 | [0025-sandbox-exec-opt-in.md](./0025-sandbox-exec-opt-in.md) | 2026-09-07 | 真 SandboxPort / `sandbox_exec` opt-in（subprocess；EDR-010 仍 Deferred） |
 | 0026 | [0026-context-compress-session-resume.md](./0026-context-compress-session-resume.md) | 2026-09-08 | Session `--resume` + context 增量压缩；implementation 文档纠错 |

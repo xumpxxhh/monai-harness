@@ -42,7 +42,7 @@ export type HarnessConfig = {
   openaiModel?: string;
   openaiResponseFormat: "json_object" | "none";
   openaiAuthHeader?: string;
-  /** Completion max_tokens; unset → adapter default (1024). */
+  /** Completion max_tokens; unset → omit from request (provider default). */
   openaiMaxTokens?: number;
   databaseUrl: string;
   port: number;
@@ -62,14 +62,14 @@ export type HarnessConfig = {
   objectStoreDir: string;
   /** Sandbox cwd root when FEATURE_ENABLE_SANDBOX_EXEC (subprocess). */
   sandboxDir: string;
-  /** Bare binary names allowed for sandbox.exec (comma-parsed). Empty = fail closed when enabled. */
+  /** Bare binary names allowed for sandbox_exec (comma-parsed). Empty = fail closed when enabled. */
   sandboxAllowedBinaries: readonly string[];
   /**
-   * Shell binary for workspace.exec (default bash).
+   * Shell binary for workspace_exec (default bash).
    * On Windows typically Git Bash `bash` if on PATH.
    */
   workspaceExecShell: string;
-  /** RAG HTTP base URL; empty = knowledge.search disabled (EDR-016). */
+  /** RAG HTTP base URL; empty = knowledge_search disabled (EDR-016). */
   knowledgeBaseUrl?: string;
   knowledgeCollectionIds: readonly string[];
   knowledgeTopK?: number;
